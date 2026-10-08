@@ -1,0 +1,31 @@
+name = "shesystem"
+main = "src/server/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+account_id = "1b94436b2a20e6311d5f6e5fc3174c6e"
+
+# Cloudflare D1 Database (d1shesystem)
+[[d1_databases]]
+binding = "DB"
+database_name = "d1shesystem"
+database_id = "2a0c59e2-26aa-436c-a201-92534b27f7d1"
+
+# Cloudflare R2 Bucket (r2shesystem)
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "r2shesystem"
+
+# Cron Triggers for Scheduled Tasks
+# 1. Monthly Reset: Runs at 00:00 on the 1st of every month (Thai Time UTC+7 = 17:00 UTC)
+# 2. Yearly 3-Year Data Cleanup: Runs on January 1st at 00:00 (Thai Time UTC+7)
+[triggers]
+crons = [
+  "0 17 28-31 * *", # Monthly reset trigger (evaluates if tomorrow is 1st in Bangkok)
+  "0 0 1 * *",      # 1st of each month UTC
+  "0 0 1 1 *"       # Jan 1st each year (3-year data retention cleanup)
+]
+
+# Static Assets (Frontend built via Vite)
+[assets]
+directory = "./dist"
+binding = "ASSETS"

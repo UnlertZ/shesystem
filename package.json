@@ -1,0 +1,50 @@
+{
+  "name": "shesystem",
+  "version": "1.0.0",
+  "description": "SHE System - Safety Management & Fire Equipment Inspection",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "d1:init:local": "wrangler d1 execute d1shesystem --local --file=./schema.sql",
+    "d1:init:remote": "wrangler d1 execute d1shesystem --remote --file=./schema.sql",
+    "deploy": "vite build && wrangler deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UnlertZ/shesystem.git"
+  },
+  "keywords": [
+    "safety",
+    "fire-inspection",
+    "cloudflare-d1",
+    "cloudflare-r2"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "hono": "^4.13.13",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.53.0",
+    "react": "^19.3.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.3.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3"
+  }
+}
