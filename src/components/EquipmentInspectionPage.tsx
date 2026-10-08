@@ -275,10 +275,25 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
 
       {/* Equipment Cards Grid */}
       {filteredEquipment.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 text-slate-400">
-          <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-30 text-slate-400" />
-          <p className="text-sm font-semibold text-slate-600">ไม่พบรายการอุปกรณ์ตามเงื่อนไขที่เลือก</p>
-          <p className="text-xs text-slate-400 mt-1">ลองเปลี่ยนคำค้นหา หรือกดเพิ่มอุปกรณ์ใหม่</p>
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 text-slate-400 space-y-3">
+          <ShieldAlert className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
+          <div>
+            <p className="text-sm font-semibold text-slate-700">ยังไม่มีรายการอุปกรณ์ในระบบ</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {isAdminOrSuper
+                ? 'กดปุ่มด้านล่างเพื่อเริ่มลงทะเบียนอุปกรณ์จริงเข้าสู่ระบบ'
+                : 'ยังไม่มีอุปกรณ์ในหมวดหมู่นี้ กรุณาติดต่อแอดมินหรือผู้จัดการระบบเพื่อเพิ่มอุปกรณ์'}
+            </p>
+          </div>
+          {isAdminOrSuper && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>เพิ่มอุปกรณ์ใหม่ ({getTabLabel(activeType)})</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

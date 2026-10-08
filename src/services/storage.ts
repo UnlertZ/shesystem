@@ -20,15 +20,15 @@ import {
 } from '../utils/thaiDate';
 
 const STORAGE_KEYS = {
-  USERS: 'she_users_v4',
-  DEPARTMENTS: 'she_departments_v4',
-  POSITIONS: 'she_positions_v4',
-  EQUIPMENT: 'she_equipment_v4',
-  INSPECTIONS: 'she_inspections_v4',
-  TASKS: 'she_tasks_v4',
-  NOTIFICATIONS: 'she_notifications_v4',
-  PASSWORD_RESETS: 'she_password_resets_v4',
-  CURRENT_USER: 'she_current_user_v4'
+  USERS: 'she_users_prod_v1',
+  DEPARTMENTS: 'she_departments_prod_v1',
+  POSITIONS: 'she_positions_prod_v1',
+  EQUIPMENT: 'she_equipment_prod_v1',
+  INSPECTIONS: 'she_inspections_prod_v1',
+  TASKS: 'she_tasks_prod_v1',
+  NOTIFICATIONS: 'she_notifications_prod_v1',
+  PASSWORD_RESETS: 'she_password_resets_prod_v1',
+  CURRENT_USER: 'she_current_user_prod_v1'
 };
 
 // Initial Default Departments (แผนก)
@@ -99,208 +99,14 @@ const DEFAULT_USERS: User[] = [
   }
 ];
 
-// Initial Equipment
-const DEFAULT_EQUIPMENT: Equipment[] = [
-  {
-    id: 'eq_ex_001',
-    type: 'EX',
-    code: 'EX-001',
-    sequence_number: 1,
-    category: 'Dry Chemical (เคมีแห้ง)',
-    weight: '10 lbs',
-    location: 'อาคาร 1 ชั้น 1 บริเวณประตูทางออกทิศเหนือ',
-    in_service_date: '2023-01-15',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600',
-    ready_status: 'READY',
-    inspection_status: 'INSPECTED',
-    responsible_person: 'supervisor1 (แผนกผลิต (Production))',
-    latest_inspector: 'staff1 (ได้รับมอบหมาย)',
-    latest_inspection_date: '2026-10-05T10:30:00+07:00',
-    defect_status: 'NORMAL',
-    created_at: '2023-01-15T00:00:00+07:00',
-    updated_at: '2026-10-05T10:30:00+07:00'
-  },
-  {
-    id: 'eq_ex_002',
-    type: 'EX',
-    code: 'EX-002',
-    sequence_number: 2,
-    category: 'CO2 (คาร์บอนไดออกไซด์)',
-    weight: '15 lbs',
-    location: 'ห้องเซิร์ฟเวอร์ ชั้น 2 อาคารสำนักงาน',
-    in_service_date: '2023-03-20',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600',
-    ready_status: 'READY',
-    inspection_status: 'INSPECTED',
-    responsible_person: 'superadmin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
-    latest_inspector: 'supervisor1',
-    latest_inspection_date: '2026-10-06T14:15:00+07:00',
-    defect_status: 'RESOLVED',
-    defect_notes: 'เกจ์วัดความดันตกต่ำกว่าเกณฑ์ - ได้ทำการส่งอัดบรรจุก๊าซใหม่เรียบร้อยแล้ว',
-    created_at: '2023-03-20T00:00:00+07:00',
-    updated_at: '2026-10-06T14:15:00+07:00'
-  },
-  {
-    id: 'eq_ex_003',
-    type: 'EX',
-    code: 'EX-003',
-    sequence_number: 3,
-    category: 'Clean Agent (สารสะอาด)',
-    weight: '10 lbs',
-    location: 'ห้องควบคุมไฟฟ้าหลัก MDB ชั้น 1',
-    in_service_date: '2024-02-10',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600',
-    ready_status: 'NOT_READY',
-    inspection_status: 'PENDING',
-    responsible_person: 'admin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
-    latest_inspector: 'supervisor1',
-    latest_inspection_date: '2026-09-02T09:00:00+07:00',
-    defect_status: 'DEFECT',
-    defect_notes: 'ซีลล็อกฉีกขาด และสายฉีดมีรอยปริแตก รอดำเนินการเปลี่ยนสายฉีดใหม่',
-    created_at: '2024-02-10T00:00:00+07:00',
-    updated_at: '2026-09-02T09:00:00+07:00'
-  },
-  {
-    id: 'eq_fhc_001',
-    type: 'FHC',
-    code: 'FHC-001',
-    sequence_number: 1,
-    category: 'ตู้ดับเพลิงมาตรฐาน',
-    weight: '1.5 นิ้ว x 30 ม.',
-    location: 'โถงทางเดินกลาง อาคารผลิต 1',
-    in_service_date: '2022-05-10',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
-    ready_status: 'READY',
-    inspection_status: 'INSPECTED',
-    responsible_person: 'supervisor1 (แผนกผลิต (Production))',
-    latest_inspector: 'supervisor1',
-    latest_inspection_date: '2026-10-07T11:00:00+07:00',
-    defect_status: 'NORMAL',
-    created_at: '2022-05-10T00:00:00+07:00',
-    updated_at: '2026-10-07T11:00:00+07:00'
-  },
-  {
-    id: 'eq_fhc_002',
-    type: 'FHC',
-    code: 'FHC-002',
-    sequence_number: 2,
-    category: 'ตู้ดับเพลิงมาตรฐาน',
-    weight: '1.5 นิ้ว x 30 ม.',
-    location: 'คลังสินค้า B ประตูโหลดสินค้า 3',
-    in_service_date: '2022-05-10',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
-    ready_status: 'READY',
-    inspection_status: 'PENDING',
-    responsible_person: 'staff1 (แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics))',
-    latest_inspector: 'supervisor1',
-    latest_inspection_date: '2026-09-03T16:00:00+07:00',
-    defect_status: 'NORMAL',
-    created_at: '2022-05-10T00:00:00+07:00',
-    updated_at: '2026-09-03T16:00:00+07:00'
-  },
-  {
-    id: 'eq_fh_001',
-    type: 'FH',
-    code: 'FH-001',
-    sequence_number: 1,
-    category: 'ตู้สายฉีดน้ำดับเพลิงสายผ้าใบ',
-    weight: '2.5 นิ้ว x 30 ม.',
-    location: 'ภายนอกอาคาร ฝั่งทิศตะวันออก',
-    in_service_date: '2022-08-01',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
-    ready_status: 'READY',
-    inspection_status: 'INSPECTED',
-    responsible_person: 'admin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
-    latest_inspector: 'supervisor1',
-    latest_inspection_date: '2026-10-05T09:30:00+07:00',
-    defect_status: 'NORMAL',
-    created_at: '2022-08-01T00:00:00+07:00',
-    updated_at: '2026-10-05T09:30:00+07:00'
-  },
-  {
-    id: 'eq_hd_001',
-    type: 'HD',
-    code: 'HD-001',
-    sequence_number: 1,
-    category: 'หัวรับน้ำดับเพลิง 2 ทาง แบบทองเหลือง',
-    weight: '2.5 นิ้ว 2 ทาง',
-    location: 'ริมถนนหน้าป้อม รปภ. หลัก',
-    in_service_date: '2021-11-15',
-    inspection_sheet_photo: 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600',
-    location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
-    ready_status: 'READY',
-    inspection_status: 'INSPECTED',
-    responsible_person: 'admin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
-    latest_inspector: 'supervisor1',
-    latest_inspection_date: '2026-10-04T13:45:00+07:00',
-    defect_status: 'NORMAL',
-    created_at: '2021-11-15T00:00:00+07:00',
-    updated_at: '2026-10-04T13:45:00+07:00'
-  }
-];
+// Initial Equipment - Clean Production Database (No sample data)
+const DEFAULT_EQUIPMENT: Equipment[] = [];
 
-// Initial Tasks
-const DEFAULT_TASKS: Task[] = [
-  {
-    id: 'tsk_001',
-    title: 'ตรวจสอบถังดับเพลิง EX-003 แทนหัวหน้างาน',
-    description: 'หัวหน้างานติดภารกิจประชุมด่วน มอบหมายให้คุณ staff1 ทำการตรวจสอบสภาพถัง EX-003 ประจำเดือนตุลาคม',
-    equipment_id: 'eq_ex_003',
-    equipment_code: 'EX-003',
-    assigned_by_id: 'u_p2_01',
-    assigned_by_name: 'supervisor1 (หัวหน้างาน)',
-    assigned_to_id: 'u_p1_01',
-    assigned_to_name: 'staff1 (พนักงาน)',
-    status: 'PENDING',
-    task_type: 'INSPECTION',
-    due_date: '2026-10-15',
-    created_at: '2026-10-08T08:00:00+07:00',
-    updated_at: '2026-10-08T08:00:00+07:00'
-  }
-];
+// Initial Tasks - Clean Production Database
+const DEFAULT_TASKS: Task[] = [];
 
-// Initial Notifications
-const DEFAULT_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: 'notif_001',
-    recipient_user_id: null,
-    target_role: 'P2',
-    sender_name: 'ระบบอัตโนมัติ SHE',
-    title: 'เริ่มตรวจอุปกรณ์ดับเพลิงประจำรอบเดือน',
-    message: 'เริ่มตรวจอุปกรณ์ดับเพลิงประจำรอบเดือน ตุลาคม 2569 ได้แล้ว',
-    type: 'REMINDER',
-    is_read: false,
-    created_at: '2026-10-01T00:00:01+07:00'
-  },
-  {
-    id: 'notif_002',
-    recipient_user_id: 'u_p1_01',
-    target_role: 'P1',
-    sender_name: 'supervisor1',
-    title: 'มอบหมายงานตรวจสอบอุปกรณ์',
-    message: 'คุณได้รับมอบหมายให้ตรวจสอบถังดับเพลิง EX-003',
-    type: 'TASK',
-    is_read: false,
-    created_at: '2026-10-08T08:00:00+07:00'
-  },
-  {
-    id: 'notif_003',
-    recipient_user_id: null,
-    target_role: 'P3',
-    sender_name: 'supervisor1',
-    title: 'แจ้งเตือนพบอุปกรณ์ชำรุด',
-    message: 'ถังดับเพลิง EX-003 ซีลล็อกฉีกขาด และสายฉีดมีรอยปริแตก',
-    type: 'DEFECT',
-    is_read: false,
-    created_at: '2026-09-02T09:05:00+07:00'
-  }
-];
+// Initial Notifications - Clean Production Database
+const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
 
 class StorageService {
   private isBrowser = typeof window !== 'undefined';
@@ -312,6 +118,16 @@ class StorageService {
   private initData() {
     if (!this.isBrowser) return;
 
+    // Purge legacy mock storage keys to prevent mock data (like EX-001) from respawning
+    const oldKeys = [
+      'she_equipment_v1', 'she_equipment_v2', 'she_equipment_v3', 'she_equipment_v4',
+      'she_tasks_v1', 'she_tasks_v2', 'she_tasks_v3', 'she_tasks_v4',
+      'she_notifications_v1', 'she_notifications_v2', 'she_notifications_v3', 'she_notifications_v4'
+    ];
+    oldKeys.forEach(k => {
+      try { localStorage.removeItem(k); } catch (_) {}
+    });
+
     if (!localStorage.getItem(STORAGE_KEYS.DEPARTMENTS)) {
       localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(DEFAULT_DEPARTMENTS));
     }
@@ -322,13 +138,13 @@ class StorageService {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
     }
     if (!localStorage.getItem(STORAGE_KEYS.EQUIPMENT)) {
-      localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(DEFAULT_EQUIPMENT));
+      localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.TASKS)) {
-      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(DEFAULT_TASKS));
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(DEFAULT_NOTIFICATIONS));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.INSPECTIONS)) {
       localStorage.setItem(STORAGE_KEYS.INSPECTIONS, JSON.stringify([]));
@@ -336,6 +152,23 @@ class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.PASSWORD_RESETS)) {
       localStorage.setItem(STORAGE_KEYS.PASSWORD_RESETS, JSON.stringify([]));
     }
+
+    // Safety cleanup: If current storage still has any legacy mock equipment IDs, remove them immediately
+    try {
+      const storedEquip = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
+      if (storedEquip) {
+        const parsed: Equipment[] = JSON.parse(storedEquip);
+        const cleaned = parsed.filter(e => 
+          !e.id.startsWith('eq_ex_00') &&
+          !e.id.startsWith('eq_fhc_00') &&
+          !e.id.startsWith('eq_fh_00') &&
+          !e.id.startsWith('eq_hd_00')
+        );
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(cleaned));
+        }
+      }
+    } catch (_) {}
   }
 
   // --- Departments Management ---

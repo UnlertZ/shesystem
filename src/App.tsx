@@ -68,7 +68,7 @@ export const App: React.FC = () => {
         <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
           <RegisterPage onGoToLogin={() => setAuthView('LOGIN')} />
           <footer className="py-4 text-center text-xs text-slate-400">
-            SHE System &bull; Cloudflare D1 (d1shesystem) &bull; R2 (r2shesystem)
+            SHE System &bull; ระบบบริหารความปลอดภัยและตรวจเช็คอุปกรณ์
           </footer>
         </div>
       );
@@ -81,7 +81,7 @@ export const App: React.FC = () => {
           onGoToRegister={() => setAuthView('REGISTER')}
         />
         <footer className="py-4 text-center text-xs text-slate-400">
-          SHE System &bull; Cloudflare D1 (d1shesystem) &bull; R2 (r2shesystem)
+          SHE System &bull; ระบบบริหารความปลอดภัยและตรวจเช็คอุปกรณ์
         </footer>
       </div>
     );
@@ -162,7 +162,7 @@ export const App: React.FC = () => {
             <span>&bull; Safety & Fire Inspection</span>
           </div>
           <div className="text-slate-400">
-            Cloudflare D1: <code className="text-slate-600 font-mono">d1shesystem</code> &bull; R2 Storage: <code className="text-slate-600 font-mono">r2shesystem</code> &bull; GitHub Desktop Ready
+            ระบบบริหารจัดการความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม
           </div>
         </div>
       </footer>
