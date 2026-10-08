@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserPlus, ShieldAlert, ArrowLeft, CheckCircle2, AlertCircle, Building2, Lock, User as UserIcon } from 'lucide-react';
 import { storageService } from '../services/storage';
-import { UserDepartment, UserRole } from '../types';
+import { DepartmentItem, PositionItem, UserRole } from '../types';
 
 interface RegisterPageProps {
   onGoToLogin: () => void;
@@ -11,11 +11,19 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [department, setDepartment] = useState<UserDepartment>('พนักงาน');
+  
+  const [departments] = useState<DepartmentItem[]>(() => storageService.getDepartments());
+  const [positions] = useState<PositionItem[]>(() => storageService.getPositions());
+
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(
+    () => departments[0]?.name || 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)'
+  );
+  const [selectedPosition, setSelectedPosition] = useState<string>(
+    () => positions[0]?.name || 'พนักงาน'
+  );
+
   const [errorMsg, setErrorMsg] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
-
-  const departments: UserDepartment[] = ['พนักงาน', 'หัวหน้างาน', 'รองผู้จัดการ', 'ผู้จัดการ'];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,16 +46,17 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
       return;
     }
 
-    // Determine initial role:
-    // พนักงาน -> P1
-    // หัวหน้างาน, รองผู้จัดการ, ผู้จัดการ -> P2
-    const role: UserRole = department === 'พนักงาน' ? 'P1' : 'P2';
+    // Determine initial role from selected position
+    const matchedPos = positions.find(p => p.name === selectedPosition);
+    const role: UserRole = matchedPos ? matchedPos.default_role : 'P1';
     const now = new Date().toISOString();
 
     const newUser = {
       id: `u_${Date.now()}`,
       username: username.trim(),
-      department,
+      password: password.trim(),
+      department: selectedDepartment,
+      position: selectedPosition,
       role,
       status: 'pending' as const, // ต้องรอแอดมินอนุมัติ
       avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}`,
@@ -63,7 +72,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
       target_role: 'P3',
       sender_name: 'ระบบรับสมัครสมาชิก',
       title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
-      message: `ผู้ใช้ ${username} ตำแหน่ง: ${department} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
+      message: `ผู้ใช้ ${username} แผนก: ${selectedDepartment} ตำแหน่ง: ${selectedPosition} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
       type: 'SYSTEM'
     });
 
@@ -136,26 +145,48 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  แผนก / ตำแหน่ง (Department)
+                  แผนก (Department)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Building2 className="w-4 h-4" />
                   </div>
                   <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value as UserDepartment)}
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
                   >
                     {departments.map((dep) => (
-                      <option key={dep} value={dep}>
-                        {dep}
+                      <option key={dep.id} value={dep.name}>
+                        {dep.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  ระดับ / ตำแหน่ง (Position)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <select
+                    value={selectedPosition}
+                    onChange={(e) => setSelectedPosition(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  >
+                    {positions.map((pos) => (
+                      <option key={pos.id} value={pos.name}>
+                        {pos.name} ({pos.default_role})
                       </option>
                     ))}
                   </select>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  * พนักงานเริ่มต้นสิทธิ์ P1, หัวหน้างาน/รองผจก/ผจก สิทธิ์ P2
+                  * เมื่อสมัครสมาชิกแล้ว ต้องรอแอดมินหรือผู้จัดการระบบอนุมัติก่อนเริ่มใช้งาน
                 </p>
               </div>
 

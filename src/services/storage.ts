@@ -1,22 +1,64 @@
-import { User, Equipment, InspectionRecord, Task, AppNotification, PasswordResetRequest, EquipmentType, UserRole } from '../types';
-import { findLowestVacantNumber, formatEquipmentCode, calculateEquipmentAge, isOlderThan3Years, getNowThai, THAI_MONTHS } from '../utils/thaiDate';
+import {
+  User,
+  Equipment,
+  InspectionRecord,
+  Task,
+  AppNotification,
+  PasswordResetRequest,
+  EquipmentType,
+  UserRole,
+  DepartmentItem,
+  PositionItem
+} from '../types';
+import {
+  findLowestVacantNumber,
+  formatEquipmentCode,
+  calculateEquipmentAge,
+  isOlderThan3Years,
+  getNowThai,
+  THAI_MONTHS
+} from '../utils/thaiDate';
 
 const STORAGE_KEYS = {
-  USERS: 'she_users_v2',
-  EQUIPMENT: 'she_equipment_v2',
-  INSPECTIONS: 'she_inspections_v2',
-  TASKS: 'she_tasks_v2',
-  NOTIFICATIONS: 'she_notifications_v2',
-  PASSWORD_RESETS: 'she_password_resets_v2',
-  CURRENT_USER: 'she_current_user_v2'
+  USERS: 'she_users_v4',
+  DEPARTMENTS: 'she_departments_v4',
+  POSITIONS: 'she_positions_v4',
+  EQUIPMENT: 'she_equipment_v4',
+  INSPECTIONS: 'she_inspections_v4',
+  TASKS: 'she_tasks_v4',
+  NOTIFICATIONS: 'she_notifications_v4',
+  PASSWORD_RESETS: 'she_password_resets_v4',
+  CURRENT_USER: 'she_current_user_v4'
 };
 
-// Initial Default Users
+// Initial Default Departments (แผนก)
+const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
+  { id: 'dept_01', name: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)' },
+  { id: 'dept_02', name: 'แผนกผลิต (Production)' },
+  { id: 'dept_03', name: 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)' },
+  { id: 'dept_04', name: 'แผนกซ่อมบำรุงและวิศวกรรม (Maintenance & Engineering)' },
+  { id: 'dept_05', name: 'แผนกทรัพยากรบุคคลและธุรการ (HR & Admin)' },
+  { id: 'dept_06', name: 'แผนกควบคุมคุณภาพ (QC & QA)' }
+];
+
+// Initial Default Positions / Levels (ระดับ / ตำแหน่ง)
+const DEFAULT_POSITIONS: PositionItem[] = [
+  { id: 'pos_01', name: 'พนักงาน', default_role: 'P1' },
+  { id: 'pos_02', name: 'หัวหน้างาน', default_role: 'P2' },
+  { id: 'pos_03', name: 'รองผู้จัดการ', default_role: 'P2' },
+  { id: 'pos_04', name: 'ผู้จัดการ', default_role: 'P2' },
+  { id: 'pos_05', name: 'เจ้าหน้าที่ความปลอดภัย (จป.)', default_role: 'P3' },
+  { id: 'pos_06', name: 'ผู้จัดการระบบ (IT / Super Admin)', default_role: 'P4' }
+];
+
+// Initial Default Users with separated department & position, and real database passwords
 const DEFAULT_USERS: User[] = [
   {
     id: 'u_p4_01',
     username: 'superadmin',
-    department: 'ผู้จัดการ',
+    password: 'admin123',
+    department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
+    position: 'ผู้จัดการระบบ (IT / Super Admin)',
     role: 'P4',
     status: 'approved',
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
@@ -25,7 +67,9 @@ const DEFAULT_USERS: User[] = [
   {
     id: 'u_p3_01',
     username: 'admin',
-    department: 'หัวหน้างาน',
+    password: 'admin123',
+    department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
+    position: 'เจ้าหน้าที่ความปลอดภัย (จป.)',
     role: 'P3',
     status: 'approved',
     avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
@@ -34,7 +78,9 @@ const DEFAULT_USERS: User[] = [
   {
     id: 'u_p2_01',
     username: 'supervisor1',
-    department: 'หัวหน้างาน',
+    password: '123456',
+    department: 'แผนกผลิต (Production)',
+    position: 'หัวหน้างาน',
     role: 'P2',
     status: 'approved',
     avatar_url: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150',
@@ -43,7 +89,9 @@ const DEFAULT_USERS: User[] = [
   {
     id: 'u_p1_01',
     username: 'staff1',
-    department: 'พนักงาน',
+    password: '123456',
+    department: 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)',
+    position: 'พนักงาน',
     role: 'P1',
     status: 'approved',
     avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
@@ -66,7 +114,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600',
     ready_status: 'READY',
     inspection_status: 'INSPECTED',
-    responsible_person: 'สมชาย ใจดี (P2)',
+    responsible_person: 'supervisor1 (แผนกผลิต (Production))',
     latest_inspector: 'staff1 (ได้รับมอบหมาย)',
     latest_inspection_date: '2026-10-05T10:30:00+07:00',
     defect_status: 'NORMAL',
@@ -86,7 +134,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600',
     ready_status: 'READY',
     inspection_status: 'INSPECTED',
-    responsible_person: 'วิชัย ปลอดภัย (P2)',
+    responsible_person: 'superadmin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
     latest_inspector: 'supervisor1',
     latest_inspection_date: '2026-10-06T14:15:00+07:00',
     defect_status: 'RESOLVED',
@@ -107,7 +155,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600',
     ready_status: 'NOT_READY',
     inspection_status: 'PENDING',
-    responsible_person: 'อนันต์ ช่างไฟ (P2)',
+    responsible_person: 'admin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
     latest_inspector: 'supervisor1',
     latest_inspection_date: '2026-09-02T09:00:00+07:00',
     defect_status: 'DEFECT',
@@ -128,7 +176,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
     ready_status: 'READY',
     inspection_status: 'INSPECTED',
-    responsible_person: 'สมเกียรติ มั่นคง (P2)',
+    responsible_person: 'supervisor1 (แผนกผลิต (Production))',
     latest_inspector: 'supervisor1',
     latest_inspection_date: '2026-10-07T11:00:00+07:00',
     defect_status: 'NORMAL',
@@ -148,7 +196,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
     ready_status: 'READY',
     inspection_status: 'PENDING',
-    responsible_person: 'ประสิทธิ์ คลังสินค้า (P2)',
+    responsible_person: 'staff1 (แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics))',
     latest_inspector: 'supervisor1',
     latest_inspection_date: '2026-09-03T16:00:00+07:00',
     defect_status: 'NORMAL',
@@ -168,7 +216,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
     ready_status: 'READY',
     inspection_status: 'INSPECTED',
-    responsible_person: 'สมศักดิ์ ป้องกัน (P2)',
+    responsible_person: 'admin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
     latest_inspector: 'supervisor1',
     latest_inspection_date: '2026-10-05T09:30:00+07:00',
     defect_status: 'NORMAL',
@@ -188,7 +236,7 @@ const DEFAULT_EQUIPMENT: Equipment[] = [
     location_photo: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600',
     ready_status: 'READY',
     inspection_status: 'INSPECTED',
-    responsible_person: 'วิโรจน์ รักษาความปลอดภัย (P2)',
+    responsible_person: 'admin (แผนกความปลอดภัยและสิ่งแวดล้อม (SHE))',
     latest_inspector: 'supervisor1',
     latest_inspection_date: '2026-10-04T13:45:00+07:00',
     defect_status: 'NORMAL',
@@ -264,6 +312,12 @@ class StorageService {
   private initData() {
     if (!this.isBrowser) return;
 
+    if (!localStorage.getItem(STORAGE_KEYS.DEPARTMENTS)) {
+      localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(DEFAULT_DEPARTMENTS));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.POSITIONS)) {
+      localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(DEFAULT_POSITIONS));
+    }
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
     }
@@ -282,6 +336,94 @@ class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.PASSWORD_RESETS)) {
       localStorage.setItem(STORAGE_KEYS.PASSWORD_RESETS, JSON.stringify([]));
     }
+  }
+
+  // --- Departments Management ---
+  getDepartments(): DepartmentItem[] {
+    if (!this.isBrowser) return DEFAULT_DEPARTMENTS;
+    const data = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
+    return data ? JSON.parse(data) : DEFAULT_DEPARTMENTS;
+  }
+
+  saveDepartments(departments: DepartmentItem[]) {
+    if (!this.isBrowser) return;
+    localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(departments));
+  }
+
+  addDepartment(name: string): DepartmentItem {
+    const list = this.getDepartments();
+    const newItem: DepartmentItem = {
+      id: `dept_${Date.now()}`,
+      name: name.trim(),
+      created_at: new Date().toISOString()
+    };
+    list.push(newItem);
+    this.saveDepartments(list);
+    return newItem;
+  }
+
+  updateDepartment(id: string, name: string): boolean {
+    const list = this.getDepartments();
+    const index = list.findIndex(d => d.id === id);
+    if (index === -1) return false;
+    list[index].name = name.trim();
+    this.saveDepartments(list);
+    return true;
+  }
+
+  deleteDepartment(id: string): boolean {
+    const list = this.getDepartments();
+    const filtered = list.filter(d => d.id !== id);
+    if (filtered.length !== list.length) {
+      this.saveDepartments(filtered);
+      return true;
+    }
+    return false;
+  }
+
+  // --- Positions / Levels Management ---
+  getPositions(): PositionItem[] {
+    if (!this.isBrowser) return DEFAULT_POSITIONS;
+    const data = localStorage.getItem(STORAGE_KEYS.POSITIONS);
+    return data ? JSON.parse(data) : DEFAULT_POSITIONS;
+  }
+
+  savePositions(positions: PositionItem[]) {
+    if (!this.isBrowser) return;
+    localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(positions));
+  }
+
+  addPosition(name: string, default_role: UserRole): PositionItem {
+    const list = this.getPositions();
+    const newItem: PositionItem = {
+      id: `pos_${Date.now()}`,
+      name: name.trim(),
+      default_role,
+      created_at: new Date().toISOString()
+    };
+    list.push(newItem);
+    this.savePositions(list);
+    return newItem;
+  }
+
+  updatePosition(id: string, name: string, default_role: UserRole): boolean {
+    const list = this.getPositions();
+    const index = list.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    list[index].name = name.trim();
+    list[index].default_role = default_role;
+    this.savePositions(list);
+    return true;
+  }
+
+  deletePosition(id: string): boolean {
+    const list = this.getPositions();
+    const filtered = list.filter(p => p.id !== id);
+    if (filtered.length !== list.length) {
+      this.savePositions(filtered);
+      return true;
+    }
+    return false;
   }
 
   // --- Auth & Users ---
@@ -309,6 +451,33 @@ class StorageService {
   saveUsers(users: User[]) {
     if (!this.isBrowser) return;
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  }
+
+  /**
+   * Real Authentication: Verifies strictly against database password
+   */
+  verifyLogin(username: string, password: string): { user: User | null; error?: string } {
+    const users = this.getUsers();
+    const user = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+
+    if (!user) {
+      return { user: null, error: 'ไม่พบชื่อผู้ใช้งานนี้ในระบบ' };
+    }
+
+    if (user.status === 'pending') {
+      return { user: null, error: 'บัญชีของคุณอยู่ระหว่างรอแอดมินอนุมัติ' };
+    }
+
+    if (user.status === 'rejected') {
+      return { user: null, error: 'บัญชีของคุณไม่ได้รับการอนุมัติการใช้งาน' };
+    }
+
+    // Strict real password check from database
+    if (user.password !== password) {
+      return { user: null, error: 'รหัสผ่านไม่ถูกต้อง' };
+    }
+
+    return { user };
   }
 
   // --- Equipment Management with Vacant Sequence Number Reuse ---
@@ -594,49 +763,10 @@ class StorageService {
       target_role: 'P3',
       sender_name: username,
       title: 'คำขอรีเซ็ทรหัสผ่าน',
-      message: `ผู้ใช้ ${username} (${user.department}) ขอรีเซ็ทรหัสผ่าน กรุณาตรวจสอบและดำเนินการ`,
+      message: `ผู้ใช้ ${username} (${user.department} - ${user.position}) ขอรีเซ็ทรหัสผ่าน กรุณาตรวจสอบและดำเนินการ`,
       type: 'PASSWORD_RESET'
     });
     return true;
-  }
-
-  // --- Trigger Monthly Reset (Runs on 1st of month or manual admin trigger) ---
-  triggerMonthlyReset(): { count: number; message: string } {
-    const list = this.getEquipment();
-    const now = getNowThai();
-    const currentMonthName = THAI_MONTHS[now.getMonth()];
-    const currentYearBE = now.getFullYear() + 543;
-
-    // Reset all equipment inspection_status to PENDING
-    const updated = list.map(item => ({
-      ...item,
-      inspection_status: 'PENDING' as const
-    }));
-    this.saveEquipment(updated);
-
-    // Send notification to P2, P3, P4
-    const message = `เริ่มตรวจอุปกรณ์ดับเพลิงประจำรอบเดือน${currentMonthName} ${currentYearBE} ได้แล้ว`;
-    for (const role of ['P2', 'P3', 'P4'] as UserRole[]) {
-      this.sendNotification({
-        recipient_user_id: null,
-        target_role: role,
-        sender_name: 'ระบบอัตโนมัติ SHE',
-        title: 'แจ้งเตือนรอบตรวจอุปกรณ์ประจำเดือน',
-        message,
-        type: 'REMINDER'
-      });
-    }
-
-    return { count: updated.length, message };
-  }
-
-  // --- Clean data older than 3 years (Triggered on Jan 1 or manual admin cleanup) ---
-  cleanOldData(): { removedCount: number } {
-    const inspections = this.getInspections();
-    const valid = inspections.filter(i => !isOlderThan3Years(i.inspection_date));
-    const removedCount = inspections.length - valid.length;
-    this.saveInspections(valid);
-    return { removedCount };
   }
 }
 

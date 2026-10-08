@@ -22,12 +22,9 @@ import {
   FileSpreadsheet,
   FileText,
   Images,
-  RefreshCw,
-  Trash2,
   CheckCircle2,
   AlertTriangle,
   Clock,
-  ShieldCheck,
   Flame,
   Users,
   ChevronDown,
@@ -80,36 +77,54 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const completionRate = totalEquip > 0 ? Math.round((inspectedCount / totalEquip) * 100) : 0;
 
   // 1. Yearly Bar Chart Data (3 years history + current year)
-  // Reconstruct yearly trend data
+  // 1. Yearly Bar Chart Data (3 years history + current year)
+  // Calculate real yearly trend data based on inspections history and current equipment
+  const sortedYears = availableYears.slice().reverse();
   const yearlyBarData = {
-    labels: availableYears.slice().reverse().map(y => `ปี พ.ศ. ${y}`),
+    labels: sortedYears.map(y => `ปี พ.ศ. ${y}`),
     datasets: [
       {
         label: 'ตรวจแล้ว (ผ่าน)',
-        data: [
-          Math.max(0, totalEquip - 2),
-          Math.max(0, totalEquip - 1),
-          Math.max(0, totalEquip),
-          inspectedCount
-        ],
+        data: sortedYears.map(y => {
+          if (y === currentYearBE) return inspectedCount;
+          return inspections.filter(i => {
+            const inspYear = new Date(i.inspection_date).getFullYear() + 543;
+            return inspYear === y && !i.is_abnormal;
+          }).length;
+        }),
         backgroundColor: '#10b981', // emerald-500
         borderRadius: 8
       },
       {
         label: 'พบปัญหาแต่แก้ไขแล้ว',
-        data: [1, 2, 1, resolvedCount],
+        data: sortedYears.map(y => {
+          if (y === currentYearBE) return resolvedCount;
+          return inspections.filter(i => {
+            const inspYear = new Date(i.inspection_date).getFullYear() + 543;
+            return inspYear === y && i.is_abnormal && i.defect_resolved;
+          }).length;
+        }),
         backgroundColor: '#3b82f6', // blue-500
         borderRadius: 8
       },
       {
         label: 'พบปัญหา (ยังไม่แก้ไข)',
-        data: [0, 1, 0, defectCount],
+        data: sortedYears.map(y => {
+          if (y === currentYearBE) return defectCount;
+          return inspections.filter(i => {
+            const inspYear = new Date(i.inspection_date).getFullYear() + 543;
+            return inspYear === y && i.is_abnormal && !i.defect_resolved;
+          }).length;
+        }),
         backgroundColor: '#ef4444', // red-500
         borderRadius: 8
       },
       {
         label: 'ยังไม่ตรวจ',
-        data: [1, 0, 0, pendingCount],
+        data: sortedYears.map(y => {
+          if (y === currentYearBE) return pendingCount;
+          return 0;
+        }),
         backgroundColor: '#f59e0b', // amber-500
         borderRadius: 8
       }
@@ -132,22 +147,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
         borderColor: '#ffffff'
       }
     ]
-  };
-
-  // Admin Monthly Reset Simulation
-  const handleTriggerMonthlyReset = () => {
-    if (!confirm('ยืนยันจำลองการรีเซ็ตรอบตรวจประจำเดือน (1st of month)?\n\n- สถานะอุปกรณ์ทั้งหมดจะถูกปรับเป็น "ยังไม่ตรวจ"\n- ส่งแจ้งเตือนไปยัง P2, P3, P4')) return;
-    const res = storageService.triggerMonthlyReset();
-    alert(`รีเซ็ตสำเร็จ: ${res.count} รายการ\nข้อความแจ้งเตือน: "${res.message}"`);
-    if (onRefreshData) onRefreshData();
-  };
-
-  // Admin 3-Year Data Purge Simulation
-  const handleTrigger3YearCleanup = () => {
-    if (!confirm('ยืนยันจำลองการลบข้อมูลที่เกิน 3 ปี (ทำงานทุกวันที่ 01/01 ตามเวลาประเทศไทย)?')) return;
-    const res = storageService.cleanOldData();
-    alert(`ระบบตรวจสอบเรียบร้อย ลบข้อมูลเก่าเกิน 3 ปีออกจำนวน: ${res.removedCount} รายการ`);
-    if (onRefreshData) onRefreshData();
   };
 
   const [reportModalData, setReportModalData] = useState<{
@@ -454,42 +453,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
             </div>
           </div>
 
-          {/* Admin Simulation & Data Retention Controls */}
-          {isAdminOrSuper && (
-            <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-lg space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h4 className="font-bold text-sm flex items-center space-x-2 text-white">
-                    <ShieldCheck className="w-5 h-5 text-red-500" />
-                    <span>ระบบบริหารจัดการข้อมูลและรอบตรวจอัตโนมัติ (Admin Tools)</span>
-                  </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    ตั้งเวลาอัตโนมัติ: รีเซ็ตรอบตรวจทุกวันที่ 1 ของเดือน | ลบข้อมูลที่เกิน 3 ปีทุกวันที่ 01/01 (เวลาไทย)
-                  </p>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={handleTriggerMonthlyReset}
-                    className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm"
-                    title="รีเซ็ตสถานะเป็น ยังไม่ตรวจ และส่งแจ้งเตือน P2, P3, P4"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>จำลองรีเซ็ตรอบตรวจ (วันที่ 1)</span>
-                  </button>
-
-                  <button
-                    onClick={handleTrigger3YearCleanup}
-                    className="px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm"
-                    title="ลบข้อมูลที่เกิน 3 ปีออก"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>จำลองล้างข้อมูลเก่าเกิน 3 ปี</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
           {/* Report Preview & PDF Modal */}
           {reportModalData && (
             <ReportPreviewModal

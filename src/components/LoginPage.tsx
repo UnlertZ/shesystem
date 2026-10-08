@@ -34,59 +34,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
 
     setIsLoading(true);
     setTimeout(() => {
-      const users = storageService.getUsers();
-      // Match username
-      const found = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+      const result = storageService.verifyLogin(username, password);
 
-      if (!found) {
-        setErrorMsg('ไม่พบบัญชีผู้ใช้งานนี้ในระบบ หรือชื่อผู้ใช้ไม่ถูกต้อง');
+      if (result.error || !result.user) {
+        setErrorMsg(result.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
         setIsLoading(false);
         return;
       }
 
-      if (found.status === 'pending') {
-        setErrorMsg('บัญชีของคุณอยู่ระหว่างรอแอดมินอนุมัติ กรุณาติดต่อแอดมิน');
-        setIsLoading(false);
-        return;
-      }
-
-      if (found.status === 'rejected') {
-        setErrorMsg('บัญชีของคุณไม่ได้รับการอนุมัติการใช้งาน');
-        setIsLoading(false);
-        return;
-      }
-
-      // Check default passwords:
-      // admin -> admin123, superadmin -> admin123, supervisor1 -> 123456, staff1 -> 123456 or reset "0000"
-      let isValidPassword = false;
-      if (password === '0000') {
-        isValidPassword = true;
-      } else if (found.username === 'admin' && (password === 'admin123' || password === 'admin')) {
-        isValidPassword = true;
-      } else if (found.username === 'superadmin' && (password === 'admin123' || password === 'superadmin')) {
-        isValidPassword = true;
-      } else if (password === '123456' || password === 'password') {
-        isValidPassword = true;
-      } else {
-        // Any test password for newly created local users
-        isValidPassword = true;
-      }
-
-      if (isValidPassword) {
-        storageService.setCurrentUser(found);
-        onLoginSuccess(found);
-      } else {
-        setErrorMsg('รหัสผ่านไม่ถูกต้อง');
-      }
+      storageService.setCurrentUser(result.user);
+      onLoginSuccess(result.user);
       setIsLoading(false);
-    }, 400);
+    }, 300);
   };
 
   const handleGuestLogin = () => {
     const guestUser: UserType = {
       id: 'guest_' + Date.now(),
       username: 'ผู้เยี่ยมชม (Guest)',
-      department: 'พนักงาน',
+      department: 'แผนกทั่วไป',
+      position: 'ผู้เยี่ยมชม (Guest)',
       role: 'GUEST',
       status: 'approved',
       avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',

@@ -1,14 +1,27 @@
 export type UserRole = 'P1' | 'P2' | 'P3' | 'P4' | 'GUEST';
 
-export type UserDepartment = 'พนักงาน' | 'หัวหน้างาน' | 'รองผู้จัดการ' | 'ผู้จัดการ' | 'ผู้ดูแลระบบ';
-
 export type UserStatus = 'pending' | 'approved' | 'rejected';
+
+export interface DepartmentItem {
+  id: string;
+  name: string;
+  created_at?: string;
+}
+
+export interface PositionItem {
+  id: string;
+  name: string;
+  default_role: UserRole;
+  created_at?: string;
+}
 
 export interface User {
   id: string;
   username: string;
-  department: UserDepartment;
-  role: UserRole;
+  password?: string;
+  department: string; // แผนก เช่น แผนกความปลอดภัย (SHE), แผนกผลิต, แผนกคลังสินค้า
+  position: string;   // ระดับ/ตำแหน่ง เช่น พนักงาน, หัวหน้างาน, รองผู้จัดการ, ผู้จัดการ
+  role: UserRole;     // P1, P2, P3, P4
   status: UserStatus;
   avatar_url?: string;
   created_at: string;

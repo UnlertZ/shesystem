@@ -188,6 +188,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <Building2 className="w-4 h-4 text-slate-400" />
               <span>แผนก: <strong className="text-slate-700">{currentUser.department}</strong></span>
             </span>
+            <span className="flex items-center space-x-1">
+              <ShieldCheck className="w-4 h-4 text-slate-400" />
+              <span>ตำแหน่ง: <strong className="text-slate-700">{currentUser.position || 'ทั่วไป'}</strong></span>
+            </span>
             <span>ลงทะเบียนเมื่อ: {formatThaiDate(currentUser.created_at)}</span>
           </div>
 
