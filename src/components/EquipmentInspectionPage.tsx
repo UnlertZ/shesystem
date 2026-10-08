@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Equipment, EquipmentType, User, Task } from '../types';
 import { storageService } from '../services/storage';
 import { InspectionModal } from './InspectionModal';
@@ -50,6 +50,14 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
     setEquipmentList(storageService.getEquipment());
     onRefreshTasks();
   };
+
+  useEffect(() => {
+    const handleSync = () => {
+      setEquipmentList(storageService.getEquipment());
+    };
+    window.addEventListener('she_data_synced', handleSync);
+    return () => window.removeEventListener('she_data_synced', handleSync);
+  }, []);
 
   const isAdminOrSuper = currentUser?.role === 'P3' || currentUser?.role === 'P4';
   const isSupervisorOrAbove = currentUser?.role === 'P2' || isAdminOrSuper;

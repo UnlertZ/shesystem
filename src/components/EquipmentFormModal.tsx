@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Equipment, EquipmentType, User } from '../types';
-import { storageService } from '../services/storage';
+import { storageService, uploadToR2 } from '../services/storage';
 import { findLowestVacantNumber, formatEquipmentCode } from '../utils/thaiDate';
 import { X, Plus, Save, Camera, Building, Calendar, Scale, Layers, UserCheck } from 'lucide-react';
 
@@ -55,14 +55,19 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
     }
   }, [systemUsers, responsiblePerson]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setter(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const url = await uploadToR2(file);
+        setter(url);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setter(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

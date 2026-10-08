@@ -22,7 +22,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
   const [forgotUsername, setForgotUsername] = useState('');
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -33,8 +33,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const result = storageService.verifyLogin(username, password);
+    try {
+      const result = await storageService.verifyLoginAsync(username, password);
 
       if (result.error || !result.user) {
         setErrorMsg(result.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
@@ -44,8 +44,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
 
       storageService.setCurrentUser(result.user);
       onLoginSuccess(result.user);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+    } finally {
       setIsLoading(false);
-    }, 300);
+    }
   };
 
   const handleGuestLogin = () => {

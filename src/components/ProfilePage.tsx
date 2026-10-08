@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Task, AppNotification, Equipment } from '../types';
-import { storageService } from '../services/storage';
+import { storageService, uploadToR2 } from '../services/storage';
 import {
   User as UserIcon,
   Lock,
@@ -78,10 +78,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       return;
     }
 
-    // Save to users list
-    const allUsers = storageService.getUsers();
-    const updatedUsers = allUsers.map(u => u.id === currentUser.id ? { ...u, password: newPassword } : u);
-    storageService.saveUsers(updatedUsers);
+    // Save to users list and Cloudflare D1
+    storageService.changeUserPassword(currentUser.id, newPassword);
 
     setPasswordMsg({ type: 'success', text: 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว' });
     setCurrentPassword('');
@@ -93,21 +91,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setAvatarUrl(newUrl);
     const updated = { ...currentUser, avatar_url: newUrl };
     storageService.setCurrentUser(updated);
-
-    const allUsers = storageService.getUsers();
-    const updatedUsers = allUsers.map(u => u.id === currentUser.id ? { ...u, avatar_url: newUrl } : u);
-    storageService.saveUsers(updatedUsers);
+    storageService.updateUser(currentUser.id, { avatar_url: newUrl });
     onUpdateCurrentUser(updated);
   };
 
-  const handleFileUploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        handleAvatarChange(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const url = await uploadToR2(file);
+        handleAvatarChange(url);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          handleAvatarChange(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

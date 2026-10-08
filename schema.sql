@@ -152,31 +152,5 @@ INSERT OR IGNORE INTO users (id, username, password, department, position, role,
 ('u_p2_01', 'supervisor1', '123456', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
 ('u_p1_01', 'staff1', '123456', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00');
 
--- Initial Equipment: Fire Extinguishers (EX)
-INSERT OR IGNORE INTO equipment (id, type, code, sequence_number, category, weight, location, in_service_date, inspection_sheet_photo, location_photo, ready_status, inspection_status, responsible_person, latest_inspector, latest_inspection_date, defect_status, defect_notes, created_at, updated_at) VALUES
-('eq_ex_001', 'EX', 'EX-001', 1, 'Dry Chemical (เคมีแห้ง)', '10 lbs', 'อาคาร 1 ชั้น 1 บริเวณประตูทางออกทิศเหนือ', '2023-01-15', 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600', 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600', 'READY', 'INSPECTED', 'สมชาย ใจดี (P2)', 'staff1 (ได้รับมอบหมาย)', '2026-10-05T10:30:00+07:00', 'NORMAL', NULL, '2023-01-15T00:00:00+07:00', '2026-10-05T10:30:00+07:00'),
-('eq_ex_002', 'EX', 'EX-002', 2, 'CO2 (คาร์บอนไดออกไซด์)', '15 lbs', 'ห้องเซิร์ฟเวอร์ ชั้น 2 อาคารสำนักงาน', '2023-03-20', 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600', 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600', 'READY', 'INSPECTED', 'วิชัย ปลอดภัย (P2)', 'supervisor1', '2026-10-06T14:15:00+07:00', 'RESOLVED', 'เกจ์วัดความดันตกต่ำกว่าเกณฑ์ - ได้ทำการส่งอัดบรรจุก๊าซใหม่เรียบร้อยแล้ว', '2023-03-20T00:00:00+07:00', '2026-10-06T14:15:00+07:00'),
-('eq_ex_003', 'EX', 'EX-003', 3, 'Clean Agent (สารสะอาด)', '10 lbs', 'ห้องควบคุมไฟฟ้าหลัก MDB ชั้น 1', '2024-02-10', 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600', 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600', 'NOT_READY', 'PENDING', 'อนันต์ ช่างไฟ (P2)', 'supervisor1', '2026-09-02T09:00:00+07:00', 'DEFECT', 'ซีลล็อกฉีกขาด และสายฉีดมีรอยปริแตก รอดำเนินการเปลี่ยนสายฉีดใหม่', '2024-02-10T00:00:00+07:00', '2026-09-02T09:00:00+07:00');
+-- Initial Mock Equipment, Tasks, Notifications have been removed for clean production use.
 
--- Initial Equipment: Fire Hose Cabinets (FHC)
-INSERT OR IGNORE INTO equipment (id, type, code, sequence_number, category, weight, location, in_service_date, inspection_sheet_photo, location_photo, ready_status, inspection_status, responsible_person, latest_inspector, latest_inspection_date, defect_status, created_at, updated_at) VALUES
-('eq_fhc_001', 'FHC', 'FHC-001', 1, 'ตู้ดับเพลิงมาตรฐาน', '1.5 นิ้ว x 30 ม.', 'โถงทางเดินกลาง อาคารผลิต 1', '2022-05-10', 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600', 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600', 'READY', 'INSPECTED', 'สมเกียรติ มั่นคง (P2)', 'supervisor1', '2026-10-07T11:00:00+07:00', 'NORMAL', '2022-05-10T00:00:00+07:00', '2026-10-07T11:00:00+07:00'),
-('eq_fhc_002', 'FHC', 'FHC-002', 2, 'ตู้ดับเพลิงมาตรฐาน', '1.5 นิ้ว x 30 ม.', 'คลังสินค้า B ประตูโหลดสินค้า 3', '2022-05-10', 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600', 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600', 'READY', 'PENDING', 'ประสิทธิ์ คลังสินค้า (P2)', 'supervisor1', '2026-09-03T16:00:00+07:00', 'NORMAL', '2022-05-10T00:00:00+07:00', '2026-09-03T16:00:00+07:00');
-
--- Initial Equipment: Fire Hose Racks/Reels (FH)
-INSERT OR IGNORE INTO equipment (id, type, code, sequence_number, category, weight, location, in_service_date, inspection_sheet_photo, location_photo, ready_status, inspection_status, responsible_person, latest_inspector, latest_inspection_date, defect_status, created_at, updated_at) VALUES
-('eq_fh_001', 'FH', 'FH-001', 1, 'ตู้สายฉีดน้ำดับเพลิงสายผ้าใบ', '2.5 นิ้ว x 30 ม.', 'ภายนอกอาคาร ฝั่งทิศตะวันออก', '2022-08-01', 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600', 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600', 'READY', 'INSPECTED', 'สมศักดิ์ ป้องกัน (P2)', 'supervisor1', '2026-10-05T09:30:00+07:00', 'NORMAL', '2022-08-01T00:00:00+07:00', '2026-10-05T09:30:00+07:00');
-
--- Initial Equipment: Fire Hydrant (HD)
-INSERT OR IGNORE INTO equipment (id, type, code, sequence_number, category, weight, location, in_service_date, inspection_sheet_photo, location_photo, ready_status, inspection_status, responsible_person, latest_inspector, latest_inspection_date, defect_status, created_at, updated_at) VALUES
-('eq_hd_001', 'HD', 'HD-001', 1, 'หัวรับน้ำดับเพลิง 2 ทาง แบบทองเหลือง', '2.5 นิ้ว 2 ทาง', 'ริมถนนหน้าป้อม รปภ. หลัก', '2021-11-15', 'https://images.unsplash.com/photo-1599818491866-e8d1a1b18342?w=600', 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600', 'READY', 'INSPECTED', 'วิโรจน์ รักษาความปลอดภัย (P2)', 'supervisor1', '2026-10-04T13:45:00+07:00', 'NORMAL', '2021-11-15T00:00:00+07:00', '2026-10-04T13:45:00+07:00');
-
--- Initial Tasks (Assigned from Supervisor P2 to Staff P1)
-INSERT OR IGNORE INTO tasks (id, title, description, equipment_id, assigned_by_id, assigned_by_name, assigned_to_id, assigned_to_name, status, task_type, due_date, created_at, updated_at) VALUES
-('tsk_001', 'ตรวจสอบถังดับเพลิง EX-003 แทนหัวหน้างาน', 'หัวหน้างานติดภารกิจประชุมด่วน มอบหมายให้คุณ staff1 ทำการตรวจสอบสภาพถัง EX-003 ประจำเดือนตุลาคม', 'eq_ex_003', 'u_p2_01', 'supervisor1 (หัวหน้างาน)', 'u_p1_01', 'staff1 (พนักงาน)', 'PENDING', 'INSPECTION', '2026-10-15', '2026-10-08T08:00:00+07:00', '2026-10-08T08:00:00+07:00');
-
--- Initial Notifications
-INSERT OR IGNORE INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at) VALUES
-('notif_001', NULL, 'P2', 'ระบบอัตโนมัติ SHE', 'เริ่มตรวจอุปกรณ์ดับเพลิงประจำรอบเดือน', 'เริ่มตรวจอุปกรณ์ดับเพลิงประจำรอบเดือน ตุลาคม 2569 ได้แล้ว', 'REMINDER', 0, '2026-10-01T00:00:01+07:00'),
-('notif_002', 'u_p1_01', 'P1', 'supervisor1', 'มอบหมายงานตรวจสอบอุปกรณ์', 'คุณได้รับมอบหมายให้ตรวจสอบถังดับเพลิง EX-003', 'TASK', 0, '2026-10-08T08:00:00+07:00'),
-('notif_003', NULL, 'P3', 'supervisor1', 'แจ้งเตือนพบอุปกรณ์ชำรุด', 'ถังดับเพลิง EX-003 ซีลล็อกฉีกขาด และสายฉีดมีรอยปริแตก', 'DEFECT', 0, '2026-09-02T09:05:00+07:00');

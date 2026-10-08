@@ -13,10 +13,7 @@ import {
 import {
   findLowestVacantNumber,
   formatEquipmentCode,
-  calculateEquipmentAge,
-  isOlderThan3Years,
-  getNowThai,
-  THAI_MONTHS
+  calculateEquipmentAge
 } from '../utils/thaiDate';
 
 const STORAGE_KEYS = {
@@ -33,22 +30,22 @@ const STORAGE_KEYS = {
 
 // Initial Default Departments (แผนก)
 const DEFAULT_DEPARTMENTS: DepartmentItem[] = [
-  { id: 'dept_01', name: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)' },
-  { id: 'dept_02', name: 'แผนกผลิต (Production)' },
-  { id: 'dept_03', name: 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)' },
-  { id: 'dept_04', name: 'แผนกซ่อมบำรุงและวิศวกรรม (Maintenance & Engineering)' },
-  { id: 'dept_05', name: 'แผนกทรัพยากรบุคคลและธุรการ (HR & Admin)' },
-  { id: 'dept_06', name: 'แผนกควบคุมคุณภาพ (QC & QA)' }
+  { id: 'dept_01', name: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'dept_02', name: 'แผนกผลิต (Production)', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'dept_03', name: 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'dept_04', name: 'แผนกซ่อมบำรุงและวิศวกรรม (Maintenance & Engineering)', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'dept_05', name: 'แผนกทรัพยากรบุคคลและธุรการ (HR & Admin)', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'dept_06', name: 'แผนกควบคุมคุณภาพ (QC & QA)', created_at: '2025-01-01T00:00:00+07:00' }
 ];
 
 // Initial Default Positions / Levels (ระดับ / ตำแหน่ง)
 const DEFAULT_POSITIONS: PositionItem[] = [
-  { id: 'pos_01', name: 'พนักงาน', default_role: 'P1' },
-  { id: 'pos_02', name: 'หัวหน้างาน', default_role: 'P2' },
-  { id: 'pos_03', name: 'รองผู้จัดการ', default_role: 'P2' },
-  { id: 'pos_04', name: 'ผู้จัดการ', default_role: 'P2' },
-  { id: 'pos_05', name: 'เจ้าหน้าที่ความปลอดภัย (จป.)', default_role: 'P3' },
-  { id: 'pos_06', name: 'ผู้จัดการระบบ (IT / Super Admin)', default_role: 'P4' }
+  { id: 'pos_01', name: 'พนักงาน', default_role: 'P1', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'pos_02', name: 'หัวหน้างาน', default_role: 'P2', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'pos_03', name: 'รองผู้จัดการ', default_role: 'P2', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'pos_04', name: 'ผู้จัดการ', default_role: 'P2', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'pos_05', name: 'เจ้าหน้าที่ความปลอดภัย (จป.)', default_role: 'P3', created_at: '2025-01-01T00:00:00+07:00' },
+  { id: 'pos_06', name: 'ผู้จัดการระบบ (IT / Super Admin)', default_role: 'P4', created_at: '2025-01-01T00:00:00+07:00' }
 ];
 
 // Initial Default Users with separated department & position, and real database passwords
@@ -99,20 +96,51 @@ const DEFAULT_USERS: User[] = [
   }
 ];
 
-// Initial Equipment - Clean Production Database (No sample data)
+// Initial Equipment - Clean Production Database (Starts empty)
 const DEFAULT_EQUIPMENT: Equipment[] = [];
 
-// Initial Tasks - Clean Production Database
+// Initial Tasks - Clean Production Database (Starts empty)
 const DEFAULT_TASKS: Task[] = [];
 
-// Initial Notifications - Clean Production Database
+// Initial Notifications - Clean Production Database (Starts empty)
 const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
+
+/**
+ * Upload an image file directly to Cloudflare R2 bucket: r2shesystem
+ */
+export async function uploadToR2(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.url) return data.url;
+    }
+  } catch (err) {
+    console.error('Upload to Cloudflare R2 error:', err);
+  }
+  // Fallback to base64 for seamless offline preview
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+}
 
 class StorageService {
   private isBrowser = typeof window !== 'undefined';
+  private syncInProgress = false;
 
   constructor() {
     this.initData();
+    if (this.isBrowser) {
+      // Trigger background sync with Cloudflare D1 immediately
+      this.syncWithServer();
+    }
   }
 
   private initData() {
@@ -153,7 +181,7 @@ class StorageService {
       localStorage.setItem(STORAGE_KEYS.PASSWORD_RESETS, JSON.stringify([]));
     }
 
-    // Safety cleanup: If current storage still has any legacy mock equipment IDs, remove them immediately
+    // Safety cleanup: If current storage has any legacy mock equipment IDs, remove them
     try {
       const storedEquip = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
       if (storedEquip) {
@@ -171,7 +199,87 @@ class StorageService {
     } catch (_) {}
   }
 
-  // --- Departments Management ---
+  /**
+   * Synchronize all data with Cloudflare D1 Database
+   */
+  async syncWithServer(): Promise<void> {
+    if (!this.isBrowser || this.syncInProgress) return;
+    this.syncInProgress = true;
+
+    try {
+      // 1. Fetch departments
+      const deptRes = await fetch('/api/departments');
+      if (deptRes.ok) {
+        const data = await deptRes.json();
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(data.departments));
+        }
+      }
+
+      // 2. Fetch positions
+      const posRes = await fetch('/api/positions');
+      if (posRes.ok) {
+        const data = await posRes.json();
+        if (Array.isArray(data.positions) && data.positions.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(data.positions));
+        }
+      }
+
+      // 3. Fetch users
+      const usersRes = await fetch('/api/users');
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        if (Array.isArray(data.users) && data.users.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(data.users));
+        }
+      }
+
+      // 4. Fetch equipment (D1 is the single source of truth)
+      const equipRes = await fetch('/api/equipment');
+      if (equipRes.ok) {
+        const data = await equipRes.json();
+        if (Array.isArray(data.equipment)) {
+          localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(data.equipment));
+        }
+      }
+
+      // 5. Fetch inspections
+      const inspRes = await fetch('/api/inspections');
+      if (inspRes.ok) {
+        const data = await inspRes.json();
+        if (Array.isArray(data.inspections)) {
+          localStorage.setItem(STORAGE_KEYS.INSPECTIONS, JSON.stringify(data.inspections));
+        }
+      }
+
+      // 6. Fetch tasks
+      const taskRes = await fetch('/api/tasks');
+      if (taskRes.ok) {
+        const data = await taskRes.json();
+        if (Array.isArray(data.tasks)) {
+          localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(data.tasks));
+        }
+      }
+
+      // 7. Fetch notifications
+      const notifRes = await fetch('/api/notifications');
+      if (notifRes.ok) {
+        const data = await notifRes.json();
+        if (Array.isArray(data.notifications)) {
+          localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
+        }
+      }
+
+      // Dispatch update event
+      window.dispatchEvent(new CustomEvent('she_data_synced'));
+    } catch (err) {
+      console.warn('Sync with Cloudflare D1 warning (using cached data):', err);
+    } finally {
+      this.syncInProgress = false;
+    }
+  }
+
+  // --- Departments Management (D1) ---
   getDepartments(): DepartmentItem[] {
     if (!this.isBrowser) return DEFAULT_DEPARTMENTS;
     const data = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
@@ -192,6 +300,14 @@ class StorageService {
     };
     list.push(newItem);
     this.saveDepartments(list);
+
+    // Sync to Cloudflare D1
+    fetch('/api/departments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newItem.name })
+    }).catch(console.error);
+
     return newItem;
   }
 
@@ -201,6 +317,14 @@ class StorageService {
     if (index === -1) return false;
     list[index].name = name.trim();
     this.saveDepartments(list);
+
+    // Sync to Cloudflare D1
+    fetch(`/api/departments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() })
+    }).catch(console.error);
+
     return true;
   }
 
@@ -209,12 +333,18 @@ class StorageService {
     const filtered = list.filter(d => d.id !== id);
     if (filtered.length !== list.length) {
       this.saveDepartments(filtered);
+
+      // Sync to Cloudflare D1
+      fetch(`/api/departments/${id}`, {
+        method: 'DELETE'
+      }).catch(console.error);
+
       return true;
     }
     return false;
   }
 
-  // --- Positions / Levels Management ---
+  // --- Positions / Levels Management (D1) ---
   getPositions(): PositionItem[] {
     if (!this.isBrowser) return DEFAULT_POSITIONS;
     const data = localStorage.getItem(STORAGE_KEYS.POSITIONS);
@@ -236,6 +366,14 @@ class StorageService {
     };
     list.push(newItem);
     this.savePositions(list);
+
+    // Sync to Cloudflare D1
+    fetch('/api/positions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newItem.name, default_role })
+    }).catch(console.error);
+
     return newItem;
   }
 
@@ -246,6 +384,14 @@ class StorageService {
     list[index].name = name.trim();
     list[index].default_role = default_role;
     this.savePositions(list);
+
+    // Sync to Cloudflare D1
+    fetch(`/api/positions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), default_role })
+    }).catch(console.error);
+
     return true;
   }
 
@@ -254,12 +400,18 @@ class StorageService {
     const filtered = list.filter(p => p.id !== id);
     if (filtered.length !== list.length) {
       this.savePositions(filtered);
+
+      // Sync to Cloudflare D1
+      fetch(`/api/positions/${id}`, {
+        method: 'DELETE'
+      }).catch(console.error);
+
       return true;
     }
     return false;
   }
 
-  // --- Auth & Users ---
+  // --- Auth & Users (D1) ---
   getCurrentUser(): User | null {
     if (!this.isBrowser) return null;
     const u = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -313,7 +465,123 @@ class StorageService {
     return { user };
   }
 
-  // --- Equipment Management with Vacant Sequence Number Reuse ---
+  /**
+   * Async Login: queries Cloudflare D1 directly
+   */
+  async verifyLoginAsync(username: string, password: string): Promise<{ user: User | null; error?: string }> {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { user: null, error: data.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' };
+      }
+      return { user: data.user };
+    } catch (_) {
+      // Fallback to local verified cache
+      return this.verifyLogin(username, password);
+    }
+  }
+
+  /**
+   * Register new user directly into Cloudflare D1
+   */
+  async registerUser(data: { username: string; password: string; department: string; position: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      throw new Error(result.error || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
+    }
+    // Refresh user cache
+    this.syncWithServer();
+    return result;
+  }
+
+  updateUser(id: string, updates: Partial<User>): boolean {
+    const users = this.getUsers();
+    const index = users.findIndex(u => u.id === id);
+    if (index === -1) return false;
+
+    users[index] = { ...users[index], ...updates, updated_at: new Date().toISOString() };
+    this.saveUsers(users);
+
+    fetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    }).catch(console.error);
+
+    return true;
+  }
+
+  deleteUser(id: string): boolean {
+    const users = this.getUsers();
+    const filtered = users.filter(u => u.id !== id);
+    if (filtered.length !== users.length) {
+      this.saveUsers(filtered);
+      fetch(`/api/users/${id}`, { method: 'DELETE' }).catch(console.error);
+      return true;
+    }
+    return false;
+  }
+
+  approveUser(id: string, approved: boolean): boolean {
+    const users = this.getUsers();
+    const index = users.findIndex(u => u.id === id);
+    if (index === -1) return false;
+
+    users[index].status = approved ? 'approved' : 'rejected';
+    this.saveUsers(users);
+
+    fetch(`/api/users/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approved })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  resetPasswordToZero(id: string): boolean {
+    const users = this.getUsers();
+    const index = users.findIndex(u => u.id === id);
+    if (index === -1) return false;
+
+    users[index].password = '0000';
+    this.saveUsers(users);
+
+    fetch(`/api/users/${id}/reset-password`, {
+      method: 'POST'
+    }).catch(console.error);
+
+    return true;
+  }
+
+  changeUserPassword(id: string, newPassword: string): boolean {
+    const users = this.getUsers();
+    const index = users.findIndex(u => u.id === id);
+    if (index === -1) return false;
+
+    users[index].password = newPassword;
+    this.saveUsers(users);
+
+    fetch(`/api/users/${id}/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  // --- Equipment Management with Vacant Sequence Number Reuse (D1) ---
   getEquipment(type?: EquipmentType): Equipment[] {
     if (!this.isBrowser) return DEFAULT_EQUIPMENT;
     const data = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
@@ -337,7 +605,7 @@ class StorageService {
   }
 
   /**
-   * Add new equipment - automatically reuses the lowest vacant number
+   * Add new equipment - automatically reuses the lowest vacant number and persists to D1
    */
   addEquipment(data: Omit<Equipment, 'id' | 'code' | 'sequence_number' | 'created_at' | 'updated_at'>): Equipment {
     const list = this.getEquipment();
@@ -364,6 +632,33 @@ class StorageService {
 
     list.push(newEquip);
     this.saveEquipment(list);
+
+    // Save to Cloudflare D1 database
+    fetch('/api/equipment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: data.type,
+        category: data.category,
+        weight: data.weight,
+        location: data.location,
+        in_service_date: data.in_service_date,
+        inspection_sheet_photo: data.inspection_sheet_photo,
+        location_photo: data.location_photo,
+        responsible_person: data.responsible_person
+      })
+    }).then(async res => {
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.id && resData.id !== newEquip.id) {
+          newEquip.id = resData.id;
+          newEquip.code = resData.code;
+          newEquip.sequence_number = resData.sequence_number;
+          this.saveEquipment(this.getEquipment());
+        }
+      }
+    }).catch(console.error);
+
     return newEquip;
   }
 
@@ -379,6 +674,14 @@ class StorageService {
     };
     list[index] = updated;
     this.saveEquipment(list);
+
+    // Sync update to Cloudflare D1
+    fetch(`/api/equipment/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    }).catch(console.error);
+
     return updated;
   }
 
@@ -387,12 +690,18 @@ class StorageService {
     const filtered = list.filter(e => e.id !== id);
     if (filtered.length !== list.length) {
       this.saveEquipment(filtered);
+
+      // Sync delete to Cloudflare D1
+      fetch(`/api/equipment/${id}`, {
+        method: 'DELETE'
+      }).catch(console.error);
+
       return true;
     }
     return false;
   }
 
-  // --- Inspections ---
+  // --- Inspections (D1) ---
   getInspections(): InspectionRecord[] {
     if (!this.isBrowser) return [];
     const data = localStorage.getItem(STORAGE_KEYS.INSPECTIONS);
@@ -440,12 +749,12 @@ class StorageService {
       created_at: now
     };
 
-    // Save inspection history
+    // Save inspection history locally
     const inspections = this.getInspections();
     inspections.unshift(inspRecord);
     this.saveInspections(inspections);
 
-    // Update equipment state
+    // Update equipment state locally
     const defectStatus = data.is_abnormal ? 'DEFECT' : (data.defect_resolved ? 'RESOLVED' : 'NORMAL');
     this.updateEquipment(equip.id, {
       ready_status: inspRecord.ready_status,
@@ -457,6 +766,16 @@ class StorageService {
       inspection_sheet_photo: data.inspection_photo || equip.inspection_sheet_photo,
       location_photo: data.location_photo || equip.location_photo
     });
+
+    // Send inspection to Cloudflare D1
+    fetch('/api/inspections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...data,
+        equipment_code: equip.code
+      })
+    }).catch(console.error);
 
     // If abnormal, send alert notification to P3 (Admin) and P4 (System Manager)
     if (data.is_abnormal) {
@@ -484,10 +803,17 @@ class StorageService {
       defect_status: 'RESOLVED',
       defect_notes: `แก้ไขเรียบร้อยโดย ${resolverName}: ${notes || 'ตรวจสอบและแก้ไขตามมาตรฐานแล้ว'}`
     });
+
+    fetch(`/api/equipment/${equipmentId}/resolve-defect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes, resolver_name: resolverName })
+    }).catch(console.error);
+
     return !!updated;
   }
 
-  // --- Tasks (Delegation & Activities) ---
+  // --- Tasks (Delegation & Activities) (D1) ---
   getTasks(userId?: string): Task[] {
     if (!this.isBrowser) return DEFAULT_TASKS;
     const data = localStorage.getItem(STORAGE_KEYS.TASKS);
@@ -516,15 +842,12 @@ class StorageService {
     tasks.unshift(newTask);
     this.saveTasks(tasks);
 
-    // Send personal notification to recipient
-    this.sendNotification({
-      recipient_user_id: data.assigned_to_id,
-      target_role: undefined,
-      sender_name: data.assigned_by_name,
-      title: 'คุณได้รับมอบหมายงานใหม่',
-      message: `${data.title} ${data.due_date ? `(กำหนดส่ง: ${data.due_date})` : ''}`,
-      type: 'TASK'
-    });
+    // Send to Cloudflare D1
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(console.error);
 
     return newTask;
   }
@@ -537,10 +860,17 @@ class StorageService {
     tasks[index].status = status;
     tasks[index].updated_at = new Date().toISOString();
     this.saveTasks(tasks);
+
+    fetch(`/api/tasks/${taskId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    }).catch(console.error);
+
     return true;
   }
 
-  // --- Notifications ---
+  // --- Notifications (D1) ---
   getNotifications(userId?: string, role?: string): AppNotification[] {
     if (!this.isBrowser) return DEFAULT_NOTIFICATIONS;
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
@@ -571,6 +901,13 @@ class StorageService {
     if (this.isBrowser) {
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
     }
+
+    fetch('/api/notifications/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(console.error);
+
     return newNotif;
   }
 
@@ -582,6 +919,10 @@ class StorageService {
       notifs[index].is_read = true;
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
     }
+
+    fetch(`/api/notifications/${id}/read`, {
+      method: 'POST'
+    }).catch(console.error);
   }
 
   // --- Password Reset Requests ---
@@ -590,15 +931,12 @@ class StorageService {
     const user = users.find(u => u.username === username);
     if (!user) return false;
 
-    const now = new Date().toISOString();
-    this.sendNotification({
-      recipient_user_id: null,
-      target_role: 'P3',
-      sender_name: username,
-      title: 'คำขอรีเซ็ทรหัสผ่าน',
-      message: `ผู้ใช้ ${username} (${user.department} - ${user.position}) ขอรีเซ็ทรหัสผ่าน กรุณาตรวจสอบและดำเนินการ`,
-      type: 'PASSWORD_RESET'
-    });
+    fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    }).catch(console.error);
+
     return true;
   }
 }

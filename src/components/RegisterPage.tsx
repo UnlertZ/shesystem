@@ -25,7 +25,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const [errorMsg, setErrorMsg] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -46,37 +46,17 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
       return;
     }
 
-    // Determine initial role from selected position
-    const matchedPos = positions.find(p => p.name === selectedPosition);
-    const role: UserRole = matchedPos ? matchedPos.default_role : 'P1';
-    const now = new Date().toISOString();
-
-    const newUser = {
-      id: `u_${Date.now()}`,
-      username: username.trim(),
-      password: password.trim(),
-      department: selectedDepartment,
-      position: selectedPosition,
-      role,
-      status: 'pending' as const, // ต้องรอแอดมินอนุมัติ
-      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}`,
-      created_at: now
-    };
-
-    users.push(newUser);
-    storageService.saveUsers(users);
-
-    // Notify Admin of registration request
-    storageService.sendNotification({
-      recipient_user_id: null,
-      target_role: 'P3',
-      sender_name: 'ระบบรับสมัครสมาชิก',
-      title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
-      message: `ผู้ใช้ ${username} แผนก: ${selectedDepartment} ตำแหน่ง: ${selectedPosition} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
-      type: 'SYSTEM'
-    });
-
-    setIsSuccess(true);
+    try {
+      await storageService.registerUser({
+        username: username.trim(),
+        password: password.trim(),
+        department: selectedDepartment,
+        position: selectedPosition
+      });
+      setIsSuccess(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการลงทะเบียน');
+    }
   };
 
   return (

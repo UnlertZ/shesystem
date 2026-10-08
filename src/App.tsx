@@ -39,6 +39,12 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     refreshUserData();
+
+    const handleSync = () => {
+      refreshUserData();
+    };
+    window.addEventListener('she_data_synced', handleSync);
+    return () => window.removeEventListener('she_data_synced', handleSync);
   }, [currentUser]);
 
   const handleLoginSuccess = (user: User) => {

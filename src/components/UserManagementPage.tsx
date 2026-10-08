@@ -77,28 +77,8 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
   // 1. Approve / Reject Registration
   const handleApproveUser = (user: User, approve: boolean) => {
-    const updatedUsers = users.map(u => {
-      if (u.id === user.id) {
-        return {
-          ...u,
-          status: approve ? ('approved' as const) : ('rejected' as const)
-        };
-      }
-      return u;
-    });
-
-    storageService.saveUsers(updatedUsers);
+    storageService.approveUser(user.id, approve);
     refreshList();
-
-    // Send notification to user
-    storageService.sendNotification({
-      recipient_user_id: user.id,
-      target_role: undefined,
-      sender_name: currentUser?.username || 'แอดมิน',
-      title: approve ? 'บัญชีของคุณได้รับการอนุมัติแล้ว' : 'บัญชีของคุณไม่ได้รับการอนุมัติ',
-      message: approve ? 'คุณสามารถเข้าสู่ระบบและเริ่มใช้งาน SHE System ได้ทันที' : 'ขออภัย บัญชีของคุณไม่ได้รับการอนุมัติ กรุณาติดต่อแอดมิน',
-      type: 'SYSTEM'
-    });
 
     setAlertBanner({
       type: 'success',
@@ -111,8 +91,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     if (user.role !== 'P1') return;
     if (!confirm(`ยืนยันการเลื่อนระดับสิทธิ์ของ ${user.username} จาก P1 (พนักงาน) เป็น P2 (หัวหน้างาน)?\n\nเมื่อเป็น P2 จะสามารถตรวจเช็คอุปกรณ์ได้โดยไม่ต้องขออนุญาต และสามารถมอบหมายงานให้ P1 ได้`)) return;
 
-    const updated = users.map(u => u.id === user.id ? { ...u, role: 'P2' as UserRole } : u);
-    storageService.saveUsers(updated);
+    storageService.updateUser(user.id, { role: 'P2' });
     refreshList();
 
     // Notification to user
@@ -135,9 +114,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     }
     if (!confirm(`คุณต้องการรีเซ็ทรหัสผ่านของ ${user.username} เป็น "0000" ใช่หรือไม่?`)) return;
 
-    // Reset password in storage
-    const updated = users.map(u => u.id === user.id ? { ...u, password: '0000' } : u);
-    storageService.saveUsers(updated);
+    storageService.resetPasswordToZero(user.id);
     refreshList();
 
     // Send notification
@@ -164,19 +141,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     e.preventDefault();
     if (!editingUser) return;
 
-    const updated = users.map(u => {
-      if (u.id === editingUser.id) {
-        return {
-          ...u,
-          department: editDepartment,
-          position: editPosition,
-          role: editRole
-        };
-      }
-      return u;
+    storageService.updateUser(editingUser.id, {
+      department: editDepartment,
+      position: editPosition,
+      role: editRole
     });
 
-    storageService.saveUsers(updated);
     setEditingUser(null);
     refreshList();
     setAlertBanner({ type: 'success', message: `แก้ไขข้อมูลของ ${editingUser.username} เรียบร้อยแล้ว` });
@@ -214,8 +184,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     }
     if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ ${user.username} ออกจากระบบ?`)) return;
 
-    const updated = users.filter(u => u.id !== user.id);
-    storageService.saveUsers(updated);
+    storageService.deleteUser(user.id);
     refreshList();
     setAlertBanner({ type: 'success', message: `ลบผู้ใช้ ${user.username} เรียบร้อยแล้ว` });
   };
@@ -253,6 +222,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
     const updated = [...users, newUser];
     storageService.saveUsers(updated);
+    fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newUser)
+    }).catch(console.error);
+
     setIsAddUserModalOpen(false);
     setNewUsername('');
     refreshList();

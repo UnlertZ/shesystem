@@ -10,22 +10,276 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', cors());
 
+let isDbInitialized = false;
+
+async function ensureDbInitialized(db: D1Database) {
+  if (isDbInitialized) return;
+
+  try {
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS departments (
+          id TEXT PRIMARY KEY,
+          name TEXT UNIQUE NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS positions (
+          id TEXT PRIMARY KEY,
+          name TEXT UNIQUE NOT NULL,
+          default_role TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          username TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          department TEXT NOT NULL,
+          position TEXT NOT NULL DEFAULT '',
+          role TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          avatar_url TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS equipment (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          code TEXT UNIQUE NOT NULL,
+          sequence_number INTEGER NOT NULL,
+          category TEXT,
+          weight TEXT,
+          location TEXT NOT NULL,
+          in_service_date TEXT,
+          inspection_sheet_photo TEXT,
+          location_photo TEXT,
+          ready_status TEXT NOT NULL DEFAULT 'READY',
+          inspection_status TEXT NOT NULL DEFAULT 'PENDING',
+          responsible_person TEXT NOT NULL,
+          latest_inspector TEXT,
+          latest_inspection_date TEXT,
+          defect_status TEXT NOT NULL DEFAULT 'NORMAL',
+          defect_notes TEXT,
+          defect_photo TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS inspections (
+          id TEXT PRIMARY KEY,
+          equipment_id TEXT NOT NULL,
+          inspector_id TEXT NOT NULL,
+          inspector_name TEXT NOT NULL,
+          inspection_date TEXT NOT NULL,
+          ready_status TEXT NOT NULL,
+          checklist_results TEXT NOT NULL,
+          inspection_photo TEXT,
+          location_photo TEXT,
+          is_abnormal INTEGER NOT NULL DEFAULT 0,
+          abnormal_description TEXT,
+          defect_resolved INTEGER NOT NULL DEFAULT 0,
+          resolved_at TEXT,
+          resolved_by TEXT,
+          created_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          equipment_id TEXT,
+          assigned_by_id TEXT NOT NULL,
+          assigned_by_name TEXT NOT NULL,
+          assigned_to_id TEXT NOT NULL,
+          assigned_to_name TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          task_type TEXT NOT NULL DEFAULT 'INSPECTION',
+          due_date TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id TEXT PRIMARY KEY,
+          recipient_user_id TEXT,
+          target_role TEXT,
+          sender_name TEXT NOT NULL,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          type TEXT NOT NULL,
+          is_read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          id TEXT PRIMARY KEY,
+          username TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'PENDING',
+          requested_at TEXT NOT NULL
+        )
+      `)
+    ]);
+
+    // Seed default departments if table is empty
+    const deptCheck = await db.prepare('SELECT COUNT(*) as count FROM departments').first<{ count: number }>();
+    if (!deptCheck || deptCheck.count === 0) {
+      await db.batch([
+        db.prepare(`INSERT OR IGNORE INTO departments (id, name, created_at) VALUES ('dept_01', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO departments (id, name, created_at) VALUES ('dept_02', 'แผนกผลิต (Production)', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO departments (id, name, created_at) VALUES ('dept_03', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO departments (id, name, created_at) VALUES ('dept_04', 'แผนกซ่อมบำรุงและวิศวกรรม (Maintenance & Engineering)', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO departments (id, name, created_at) VALUES ('dept_05', 'แผนกทรัพยากรบุคคลและธุรการ (HR & Admin)', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO departments (id, name, created_at) VALUES ('dept_06', 'แผนกควบคุมคุณภาพ (QC & QA)', '2025-01-01T00:00:00+07:00')`)
+      ]);
+    }
+
+    // Seed default positions if table is empty
+    const posCheck = await db.prepare('SELECT COUNT(*) as count FROM positions').first<{ count: number }>();
+    if (!posCheck || posCheck.count === 0) {
+      await db.batch([
+        db.prepare(`INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES ('pos_01', 'พนักงาน', 'P1', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES ('pos_02', 'หัวหน้างาน', 'P2', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES ('pos_03', 'รองผู้จัดการ', 'P2', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES ('pos_04', 'ผู้จัดการ', 'P2', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES ('pos_05', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES ('pos_06', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', '2025-01-01T00:00:00+07:00')`)
+      ]);
+    }
+
+    // Seed initial users if table is empty
+    const userCheck = await db.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+    if (!userCheck || userCheck.count === 0) {
+      await db.batch([
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p4_01', 'superadmin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p3_01', 'admin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', 'approved', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p2_01', 'supervisor1', '123456', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p1_01', 'staff1', '123456', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`)
+      ]);
+    }
+
+    isDbInitialized = true;
+  } catch (err) {
+    console.error('Database initialization error:', err);
+  }
+}
+
+// Auto-run DB init on all /api routes
+app.use('/api/*', async (c, next) => {
+  if (c.env?.DB) {
+    await ensureDbInitialized(c.env.DB);
+  }
+  await next();
+});
+
 // Health check
 app.get('/api/health', (c) => {
   return c.json({ status: 'ok', service: 'shesystem', database: 'd1shesystem', storage: 'r2shesystem' });
 });
 
-// 1. Authentication & Users
+// ==========================================
+// 1. Departments Management Endpoints (D1)
+// ==========================================
+app.get('/api/departments', async (c) => {
+  const db = c.env.DB;
+  const { results } = await db.prepare('SELECT id, name, created_at FROM departments ORDER BY created_at ASC').all();
+  return c.json({ departments: results });
+});
+
+app.post('/api/departments', async (c) => {
+  const { name } = await c.req.json();
+  const db = c.env.DB;
+  if (!name || !name.trim()) {
+    return c.json({ error: 'กรุณากรอกชื่อแผนก' }, 400);
+  }
+  const id = `dept_${Date.now()}`;
+  const now = new Date().toISOString();
+  await db.prepare('INSERT INTO departments (id, name, created_at) VALUES (?, ?, ?)').bind(id, name.trim(), now).run();
+  return c.json({ success: true, department: { id, name: name.trim(), created_at: now } });
+});
+
+app.put('/api/departments/:id', async (c) => {
+  const id = c.req.param('id');
+  const { name } = await c.req.json();
+  const db = c.env.DB;
+  if (!name || !name.trim()) {
+    return c.json({ error: 'กรุณากรอกชื่อแผนก' }, 400);
+  }
+  await db.prepare('UPDATE departments SET name = ? WHERE id = ?').bind(name.trim(), id).run();
+  return c.json({ success: true });
+});
+
+app.delete('/api/departments/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM departments WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// 2. Positions Management Endpoints (D1)
+// ==========================================
+app.get('/api/positions', async (c) => {
+  const db = c.env.DB;
+  const { results } = await db.prepare('SELECT id, name, default_role, created_at FROM positions ORDER BY created_at ASC').all();
+  return c.json({ positions: results });
+});
+
+app.post('/api/positions', async (c) => {
+  const { name, default_role } = await c.req.json();
+  const db = c.env.DB;
+  if (!name || !name.trim()) {
+    return c.json({ error: 'กรุณากรอกชื่อระดับ / ตำแหน่ง' }, 400);
+  }
+  const id = `pos_${Date.now()}`;
+  const now = new Date().toISOString();
+  await db.prepare('INSERT INTO positions (id, name, default_role, created_at) VALUES (?, ?, ?, ?)').bind(id, name.trim(), default_role || 'P1', now).run();
+  return c.json({ success: true, position: { id, name: name.trim(), default_role: default_role || 'P1', created_at: now } });
+});
+
+app.put('/api/positions/:id', async (c) => {
+  const id = c.req.param('id');
+  const { name, default_role } = await c.req.json();
+  const db = c.env.DB;
+  if (!name || !name.trim()) {
+    return c.json({ error: 'กรุณากรอกชื่อระดับ / ตำแหน่ง' }, 400);
+  }
+  await db.prepare('UPDATE positions SET name = ?, default_role = ? WHERE id = ?').bind(name.trim(), default_role || 'P1', id).run();
+  return c.json({ success: true });
+});
+
+app.delete('/api/positions/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM positions WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// 3. Authentication & Users (D1)
+// ==========================================
 app.post('/api/auth/login', async (c) => {
   const { username, password } = await c.req.json();
   const db = c.env.DB;
   
   const user = await db.prepare(
-    'SELECT * FROM users WHERE username = ? AND password = ?'
-  ).bind(username, password).first();
+    'SELECT * FROM users WHERE username = ?'
+  ).bind(username).first<any>();
 
   if (!user) {
-    return c.json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
+    return c.json({ error: 'ไม่พบชื่อผู้ใช้งานนี้ในระบบ' }, 404);
+  }
+
+  if (user.password !== password) {
+    return c.json({ error: 'รหัสผ่านไม่ถูกต้อง' }, 401);
   }
 
   if (user.status === 'pending') {
@@ -40,7 +294,7 @@ app.post('/api/auth/login', async (c) => {
 });
 
 app.post('/api/auth/register', async (c) => {
-  const { username, password, department } = await c.req.json();
+  const { username, password, department, position } = await c.req.json();
   const db = c.env.DB;
 
   const existing = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
@@ -48,19 +302,33 @@ app.post('/api/auth/register', async (c) => {
     return c.json({ error: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' }, 400);
   }
 
+  // Determine role from position
+  let role = 'P1';
+  if (position) {
+    const pos = await db.prepare('SELECT default_role FROM positions WHERE name = ?').bind(position).first<any>();
+    if (pos) {
+      role = pos.default_role;
+    } else if (position.includes('หัวหน้า') || position.includes('ผู้จัดการ')) {
+      role = 'P2';
+    }
+  } else if (department === 'พนักงาน') {
+    role = 'P1';
+  } else {
+    role = 'P2';
+  }
+
   const id = 'u_' + Date.now();
-  const role = department === 'พนักงาน' ? 'P1' : 'P2';
   const now = new Date().toISOString();
 
   await db.prepare(
-    'INSERT INTO users (id, username, password, department, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, username, password, department, role, 'pending', now, now).run();
+    'INSERT INTO users (id, username, password, department, position, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, username, password, department || '', position || '', role, 'pending', now, now).run();
 
   // Notify admin of new registration
   const notifId = 'notif_' + Date.now();
   await db.prepare(
     'INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${username} (${department}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
+  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${username} (${department || ''} - ${position || ''}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
 
   return c.json({ success: true, message: 'สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ' });
 });
@@ -89,11 +357,53 @@ app.post('/api/auth/forgot-password', async (c) => {
   return c.json({ success: true, message: 'ส่งคำขอรีเซ็ทรหัสผ่านไปยังแอดมินเรียบร้อยแล้ว' });
 });
 
-// 2. User Management (Admin & System Manager)
+// ==========================================
+// 4. User Management Endpoints (D1)
+// ==========================================
 app.get('/api/users', async (c) => {
   const db = c.env.DB;
-  const { results } = await db.prepare('SELECT id, username, department, role, status, avatar_url, created_at FROM users ORDER BY created_at DESC').all();
+  const { results } = await db.prepare('SELECT id, username, password, department, position, role, status, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
   return c.json({ users: results });
+});
+
+app.post('/api/users', async (c) => {
+  const data = await c.req.json();
+  const db = c.env.DB;
+  const id = `u_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  await db.prepare(`
+    INSERT INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+  `).bind(
+    id, data.username, data.password || '123456', data.department || '',
+    data.position || '', data.role || 'P1', data.avatar_url || '', now, now
+  ).run();
+
+  return c.json({ success: true, id });
+});
+
+app.put('/api/users/:id', async (c) => {
+  const id = c.req.param('id');
+  const data = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  await db.prepare(`
+    UPDATE users SET
+      department = COALESCE(?, department),
+      position = COALESCE(?, position),
+      role = COALESCE(?, role),
+      status = COALESCE(?, status),
+      password = COALESCE(?, password),
+      updated_at = ?
+    WHERE id = ?
+  `).bind(
+    data.department || null, data.position || null, data.role || null,
+    data.status || null, data.password || null, now, id
+  ).run();
+
+  return c.json({ success: true });
 });
 
 app.post('/api/users/:id/approve', async (c) => {
@@ -104,6 +414,19 @@ app.post('/api/users/:id/approve', async (c) => {
   const now = new Date().toISOString();
 
   await db.prepare('UPDATE users SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, id).run();
+
+  // Send notification to the user
+  const notifId = 'notif_' + Date.now();
+  await db.prepare(`
+    INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    notifId, id, null, 'แอดมิน',
+    approved ? 'บัญชีของคุณได้รับการอนุมัติแล้ว' : 'บัญชีของคุณไม่ได้รับการอนุมัติ',
+    approved ? 'คุณสามารถเข้าสู่ระบบและเริ่มใช้งาน SHE System ได้ทันที' : 'ขออภัย บัญชีของคุณไม่ได้รับการอนุมัติการใช้งาน',
+    'SYSTEM', 0, now
+  ).run();
+
   return c.json({ success: true, status });
 });
 
@@ -112,29 +435,18 @@ app.post('/api/users/:id/reset-password', async (c) => {
   const db = c.env.DB;
   const now = new Date().toISOString();
 
-  // Reset to default "0000" as specified by user
   await db.prepare('UPDATE users SET password = ?, updated_at = ? WHERE id = ?').bind('0000', now, id).run();
   return c.json({ success: true, message: 'รีเซ็ทรหัสผ่านเป็น 0000 เรียบร้อยแล้ว' });
 });
 
-app.patch('/api/users/:id/department', async (c) => {
+app.post('/api/users/:id/change-password', async (c) => {
   const id = c.req.param('id');
-  const { department, role } = await c.req.json();
+  const { newPassword } = await c.req.json();
   const db = c.env.DB;
   const now = new Date().toISOString();
 
-  await db.prepare('UPDATE users SET department = ?, role = COALESCE(?, role), updated_at = ? WHERE id = ?').bind(department, role || null, now, id).run();
-  return c.json({ success: true });
-});
-
-app.patch('/api/users/:id/role', async (c) => {
-  const id = c.req.param('id');
-  const { role } = await c.req.json();
-  const db = c.env.DB;
-  const now = new Date().toISOString();
-
-  await db.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').bind(role, now, id).run();
-  return c.json({ success: true });
+  await db.prepare('UPDATE users SET password = ?, updated_at = ? WHERE id = ?').bind(newPassword, now, id).run();
+  return c.json({ success: true, message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว' });
 });
 
 app.delete('/api/users/:id', async (c) => {
@@ -144,7 +456,10 @@ app.delete('/api/users/:id', async (c) => {
   return c.json({ success: true });
 });
 
-// 3. Equipment Routes with Vacant Sequence Number Reuse for EX
+// ==========================================
+// 5. Equipment Management Endpoints (D1)
+// Vacant sequence number reuse per equipment type
+// ==========================================
 app.get('/api/equipment', async (c) => {
   const db = c.env.DB;
   const type = c.req.query('type');
@@ -223,7 +538,42 @@ app.delete('/api/equipment/:id', async (c) => {
   return c.json({ success: true, message: 'ลบอุปกรณ์เรียบร้อยแล้ว เลขรหัสจะถูกนำกลับมาใช้ใหม่อัตโนมัติ' });
 });
 
-// 4. Inspection Submission & Defect Tracking
+// Resolve Defect
+app.post('/api/equipment/:id/resolve-defect', async (c) => {
+  const id = c.req.param('id');
+  const { notes, resolver_name } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  await db.prepare(`
+    UPDATE equipment SET
+      ready_status = 'READY',
+      defect_status = 'RESOLVED',
+      defect_notes = ?,
+      updated_at = ?
+    WHERE id = ?
+  `).bind(`แก้ไขเรียบร้อยโดย ${resolver_name}: ${notes || 'ตรวจสอบและแก้ไขตามมาตรฐานแล้ว'}`, now, id).run();
+
+  return c.json({ success: true });
+});
+
+// ==========================================
+// 6. Inspection Submission & History (D1)
+// ==========================================
+app.get('/api/inspections', async (c) => {
+  const db = c.env.DB;
+  const equipmentId = c.req.query('equipmentId');
+  let query = 'SELECT * FROM inspections';
+  const params: any[] = [];
+  if (equipmentId) {
+    query += ' WHERE equipment_id = ?';
+    params.push(equipmentId);
+  }
+  query += ' ORDER BY inspection_date DESC';
+  const { results } = await db.prepare(query).bind(...params).all();
+  return c.json({ inspections: results });
+});
+
 app.post('/api/inspections', async (c) => {
   const data = await c.req.json();
   const db = c.env.DB;
@@ -243,7 +593,7 @@ app.post('/api/inspections', async (c) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     inspId, data.equipment_id, data.inspector_id, data.inspector_name,
-    now, readyStatus, JSON.stringify(data.checklist_results || {}),
+    now, readyStatus, typeof data.checklist_results === 'string' ? data.checklist_results : JSON.stringify(data.checklist_results || {}),
     data.inspection_photo || '', data.location_photo || '',
     isAbnormal, data.abnormal_description || '', data.defect_resolved ? 1 : 0, now
   ).run();
@@ -290,26 +640,10 @@ app.post('/api/inspections', async (c) => {
   return c.json({ success: true, inspection_id: inspId });
 });
 
-// Resolve Defect
-app.post('/api/equipment/:id/resolve-defect', async (c) => {
-  const id = c.req.param('id');
-  const { notes, resolver_name } = await c.req.json();
-  const db = c.env.DB;
-  const now = new Date().toISOString();
-
-  await db.prepare(`
-    UPDATE equipment SET
-      ready_status = 'READY',
-      defect_status = 'RESOLVED',
-      defect_notes = ?,
-      updated_at = ?
-    WHERE id = ?
-  `).bind(`แก้ไขเรียบร้อยโดย ${resolver_name}: ${notes || 'ตรวจสอบและแก้ไขตามมาตรฐานแล้ว'}`, now, id).run();
-
-  return c.json({ success: true });
-});
-
-// 5. Cloudflare R2 Upload Endpoint
+// ==========================================
+// 7. Cloudflare R2 Upload & Serve Endpoints
+// Bucket: r2shesystem
+// ==========================================
 app.post('/api/upload', async (c) => {
   const r2 = c.env.R2;
   const body = await c.req.parseBody();
@@ -343,10 +677,13 @@ app.get('/api/images/*', async (c) => {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
+  headers.set('cache-control', 'public, max-age=31536000');
   return new Response(object.body, { headers });
 });
 
-// 6. Tasks Management (Supervisor delegation & Admin assignments)
+// ==========================================
+// 8. Tasks Management (D1)
+// ==========================================
 app.get('/api/tasks', async (c) => {
   const db = c.env.DB;
   const userId = c.req.query('userId');
@@ -394,7 +731,26 @@ app.post('/api/tasks', async (c) => {
   return c.json({ success: true, id });
 });
 
-// 7. Notifications
+app.patch('/api/tasks/:id/status', async (c) => {
+  const id = c.req.param('id');
+  const { status } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  await db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, id).run();
+  return c.json({ success: true });
+});
+
+app.delete('/api/tasks/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM tasks WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// 9. Notifications (D1)
+// ==========================================
 app.get('/api/notifications', async (c) => {
   const db = c.env.DB;
   const userId = c.req.query('userId');
@@ -431,7 +787,16 @@ app.post('/api/notifications/:id/read', async (c) => {
   return c.json({ success: true });
 });
 
-// Scheduled Worker Handler (Monthly reset & 3-year cleanup)
+app.post('/api/notifications/mark-all-read', async (c) => {
+  const { userId } = await c.req.json();
+  const db = c.env.DB;
+  await db.prepare('UPDATE notifications SET is_read = 1 WHERE recipient_user_id = ? OR recipient_user_id IS NULL').bind(userId || '').run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// 10. Scheduled Worker Handler (Monthly reset & 3-year cleanup)
+// ==========================================
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {

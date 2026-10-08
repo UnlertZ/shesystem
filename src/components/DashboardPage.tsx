@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Equipment, InspectionRecord, User } from '../types';
 import { storageService } from '../services/storage';
 import { exportToPDF, exportToExcel, exportEquipmentPhotos } from '../utils/reportExport';
@@ -57,8 +57,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth()); // 0-11
   const [selectedEquipType, setSelectedEquipType] = useState<string>('ALL');
 
-  const equipment = storageService.getEquipment();
-  const inspections = storageService.getInspections();
+  const [equipment, setEquipment] = useState<Equipment[]>(() => storageService.getEquipment());
+  const [inspections, setInspections] = useState<InspectionRecord[]>(() => storageService.getInspections());
+
+  useEffect(() => {
+    const handleSync = () => {
+      setEquipment(storageService.getEquipment());
+      setInspections(storageService.getInspections());
+    };
+    window.addEventListener('she_data_synced', handleSync);
+    return () => window.removeEventListener('she_data_synced', handleSync);
+  }, []);
 
   const isAdminOrSuper = currentUser?.role === 'P3' || currentUser?.role === 'P4';
 

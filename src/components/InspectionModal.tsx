@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Equipment, User, Task } from '../types';
 import { EQUIPMENT_CHECKLISTS } from '../utils/equipmentChecklists';
-import { storageService } from '../services/storage';
+import { storageService, uploadToR2 } from '../services/storage';
 import { X, CheckCircle2, AlertTriangle, Camera, Upload, AlertCircle, Sparkles } from 'lucide-react';
 import { calculateEquipmentAge } from '../utils/thaiDate';
 
@@ -59,15 +59,20 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     });
   };
 
-  // Convert uploaded image to base64 for reliable display and storage
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
+  // Convert uploaded image to R2 url (or fallback to base64) for reliable storage and display
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setter(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const url = await uploadToR2(file);
+        setter(url);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setter(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
