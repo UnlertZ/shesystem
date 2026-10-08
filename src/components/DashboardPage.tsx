@@ -3,6 +3,7 @@ import { Equipment, InspectionRecord, User } from '../types';
 import { storageService } from '../services/storage';
 import { exportToPDF, exportToExcel, exportEquipmentPhotos } from '../utils/reportExport';
 import { THAI_MONTHS, getNowThai } from '../utils/thaiDate';
+import { ReportPreviewModal } from './ReportPreviewModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -149,12 +150,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
     if (onRefreshData) onRefreshData();
   };
 
+  const [reportModalData, setReportModalData] = useState<{
+    type: 'MONTHLY' | 'YEARLY';
+    period: string;
+  } | null>(null);
+
   // Export handlers
   const handleExportPDF = (type: 'MONTHLY' | 'YEARLY') => {
     const period = type === 'MONTHLY'
       ? `${THAI_MONTHS[selectedMonth]} ${selectedYear}`
       : `ปี พ.ศ. ${selectedYear}`;
-    exportToPDF(filteredEquip, inspections, type, period);
+    setReportModalData({ type, period });
   };
 
   const handleExportExcel = () => {
@@ -483,6 +489,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 </div>
               </div>
             </div>
+          )}
+          {/* Report Preview & PDF Modal */}
+          {reportModalData && (
+            <ReportPreviewModal
+              equipmentList={filteredEquip}
+              inspections={inspections}
+              reportType={reportModalData.type}
+              selectedPeriod={reportModalData.period}
+              barChartData={yearlyBarData}
+              doughnutData={monthlyDoughnutData}
+              onClose={() => setReportModalData(null)}
+            />
           )}
         </div>
       )}

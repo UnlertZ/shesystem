@@ -155,7 +155,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
               className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5"
             >
               <Plus className="w-4 h-4" />
-              <span>เพิ่มอุปกรณ์ใหม่ (รันแทนตัวว่าง)</span>
+              <span>เพิ่มอุปกรณ์ใหม่</span>
             </button>
           </div>
         )}
@@ -441,7 +441,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                         <button
                           onClick={() => handleDeleteEquipment(equip.id, equip.code)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                          title="ลบอุปกรณ์ (รันแทนตัวว่าง)"
+                          title="ลบอุปกรณ์"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

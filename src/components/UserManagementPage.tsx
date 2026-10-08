@@ -108,6 +108,10 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
   // 3. Reset Password to "0000" as requested
   const handleResetPassword = (user: User) => {
+    if (currentUser?.role === 'P3' && user.role === 'P4') {
+      alert('แอดมิน (P3) ไม่มีสิทธิ์รีเซ็ทรหัสผ่านของผู้จัดการระบบ (P4)');
+      return;
+    }
     if (!confirm(`คุณต้องการรีเซ็ทรหัสผ่านของ ${user.username} เป็น "0000" ใช่หรือไม่?`)) return;
 
     // Reset password in storage
@@ -171,6 +175,10 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
   // 6. Delete Employee
   const handleDeleteUser = (user: User) => {
+    if (currentUser?.role === 'P3' && user.role === 'P4') {
+      alert('แอดมิน (P3) ไม่มีสิทธิ์ลบบัญชีของผู้จัดการระบบ (P4)');
+      return;
+    }
     if (user.id === currentUser?.id) {
       alert('ไม่สามารถลบบัญชีของตัวเองได้');
       return;
@@ -404,16 +412,18 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                           </button>
                         )}
 
-                        {/* Reset password to 0000 */}
-                        <button
-                          onClick={() => handleResetPassword(user)}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
-                          title="รีเซ็ทรหัสผ่านเป็น '0000'"
-                        >
-                          <KeyRound className="w-4 h-4" />
-                        </button>
+                        {/* Reset password to 0000 (P3 cannot touch P4) */}
+                        {!(currentUser?.role === 'P3' && user.role === 'P4') && (
+                          <button
+                            onClick={() => handleResetPassword(user)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                            title="รีเซ็ทรหัสผ่านเป็น '0000'"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
+                        )}
 
-                        {/* Send Notification message to user */}
+                        {/* Send Notification message to user - P3 can send message to P4 */}
                         <button
                           onClick={() => setSendNotifUser(user)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -422,21 +432,23 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                           <Send className="w-4 h-4" />
                         </button>
 
-                        {/* Edit Department & Role */}
-                        <button
-                          onClick={() => {
-                            setEditingUser(user);
-                            setEditDepartment(user.department);
-                            setEditRole(user.role);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
-                          title="แก้ไขแผนกและสิทธิ์"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        {/* Edit Department & Role (P3 cannot touch P4) */}
+                        {!(currentUser?.role === 'P3' && user.role === 'P4') && (
+                          <button
+                            onClick={() => {
+                              setEditingUser(user);
+                              setEditDepartment(user.department);
+                              setEditRole(user.role);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+                            title="แก้ไขแผนกและสิทธิ์"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
 
-                        {/* Delete User */}
-                        {user.id !== currentUser?.id && (
+                        {/* Delete User (P3 cannot touch P4) */}
+                        {user.id !== currentUser?.id && !(currentUser?.role === 'P3' && user.role === 'P4') && (
                           <button
                             onClick={() => handleDeleteUser(user)}
                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"

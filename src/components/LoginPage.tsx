@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldAlert, User, Lock, Eye, EyeOff, UserCheck, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { storageService } from '../services/storage';
 import { User as UserType } from '../types';
+import { SheLogo } from './SheLogo';
 
 interface LoginPageProps {
   onLoginSuccess: (user: UserType) => void;
@@ -112,12 +113,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
           <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-red-600 via-orange-500 to-amber-500"></div>
 
           {/* Header & Logo */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-100 shadow-xs">
-              <ShieldAlert className="w-9 h-9" />
+          <div className="flex flex-col items-center justify-center text-center mb-8">
+            <div className="mb-4">
+              <SheLogo size="lg" showSubtext={false} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">SHE Safety System</h1>
-            <p className="text-slate-500 text-sm mt-1">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">SHE SAFETY SYSTEM</h1>
+            <p className="text-slate-500 text-xs mt-1">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
           </div>
 
           {/* Alerts */}
@@ -149,7 +150,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="เช่น admin, supervisor1, staff1"
+                  placeholder="กรอกชื่อผู้ใช้งาน"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition"
                   required
                 />
@@ -192,16 +193,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
-              </div>
-            </div>
-
-            {/* Quick Demo Credentials Info */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-500 space-y-1">
-              <div className="font-semibold text-slate-600">ตัวอย่างบัญชีเข้าใช้งาน:</div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                <span>แอดมิน: <code className="text-red-600">admin / admin123</code></span>
-                <span>หัวหน้างาน: <code className="text-blue-600">supervisor1 / 123456</code></span>
-                <span>พนักงาน: <code className="text-emerald-600">staff1 / 123456</code></span>
               </div>
             </div>
 

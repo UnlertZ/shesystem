@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Equipment, EquipmentType } from '../types';
+import { Equipment, EquipmentType, User } from '../types';
 import { storageService } from '../services/storage';
 import { findLowestVacantNumber, formatEquipmentCode } from '../utils/thaiDate';
-import { X, Plus, Save, Camera, Sparkles, Building, Calendar, Scale, Layers } from 'lucide-react';
+import { X, Plus, Save, Camera, Building, Calendar, Scale, Layers, UserCheck } from 'lucide-react';
 
 interface EquipmentFormModalProps {
   equipment?: Equipment | null; // If null, mode is Add
@@ -28,6 +28,11 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
   const [inspectionPhoto, setInspectionPhoto] = useState(equipment?.inspection_sheet_photo || '');
   const [locationPhoto, setLocationPhoto] = useState(equipment?.location_photo || '');
 
+  // Get active registered users to select as responsible person
+  const [systemUsers] = useState<User[]>(() =>
+    storageService.getUsers().filter(u => u.status === 'approved')
+  );
+
   // Computed next code for Add mode
   const [previewCode, setPreviewCode] = useState('');
 
@@ -42,6 +47,14 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
     }
   }, [type, isEdit, equipment]);
 
+  // Set default responsible person if empty
+  useEffect(() => {
+    if (!responsiblePerson && systemUsers.length > 0) {
+      const defaultUser = systemUsers.find(u => u.role === 'P2') || systemUsers[0];
+      setResponsiblePerson(`${defaultUser.username} (${defaultUser.department})`);
+    }
+  }, [systemUsers, responsiblePerson]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -53,14 +66,10 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
     }
   };
 
-  const handleSamplePhoto = (setter: (url: string) => void, sampleUrl: string) => {
-    setter(sampleUrl);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!location.trim() || !responsiblePerson.trim()) {
-      alert('กรุณากรอกสถานที่ติดตั้งและผู้รับผิดชอบ');
+      alert('กรุณากรอกสถานที่ติดตั้งและเลือกผู้รับผิดชอบอุปกรณ์');
       return;
     }
 
@@ -100,12 +109,10 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <div>
             <h3 className="font-bold text-lg text-slate-800">
-              {isEdit ? `แก้ไขข้อมูล: ${equipment?.code}` : 'เพิ่มอุปกรณ์ดับเพลิงใหม่'}
+              {isEdit ? `แก้ไขข้อมูล: ${equipment?.code}` : 'เพิ่มอุปกรณ์ใหม่'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              {!isEdit && type === 'EX'
-                ? 'ระบบจะรันเลขถังต่อกันอัตโนมัติ โดยแทนที่ตำแหน่งที่ว่างก่อนเสมอ'
-                : 'จัดการข้อมูลรายละเอียดอุปกรณ์ความปลอดภัย'}
+              จัดการข้อมูลรายละเอียดอุปกรณ์ความปลอดภัย
             </p>
           </div>
           <button
@@ -137,7 +144,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                รหัสอุปกรณ์ {isEdit ? '' : '(รันอัตโนมัติ/แทนที่ตัวว่าง)'}
+                รหัสอุปกรณ์
               </label>
               <div className="px-3.5 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-700">
                 {previewCode}
@@ -207,32 +214,36 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Responsible Person */}
+          {/* Responsible Person: Dropdown populated from users in system */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">ผู้รับผิดชอบอุปกรณ์ *</label>
-            <input
-              type="text"
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center space-x-1">
+              <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+              <span>ผู้รับผิดชอบอุปกรณ์ (เลือกจากสมาชิกในระบบ เพื่อรับการแจ้งเตือนรอบเดือน) *</span>
+            </label>
+            <select
               value={responsiblePerson}
               onChange={(e) => setResponsiblePerson(e.target.value)}
-              placeholder="เช่น นายสมชาย ใจดี (P2)"
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
               required
-            />
+            >
+              <option value="">-- เลือกผู้รับผิดชอบ --</option>
+              {systemUsers.map(u => {
+                const label = `${u.username} (${u.department}) - สิทธิ์ ${u.role}`;
+                const val = `${u.username} (${u.department})`;
+                return (
+                  <option key={u.id} value={val}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
           </div>
 
-          {/* Photo upload sections */}
+          {/* Photo upload sections without sample photo buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-700">รูปภาพใบตรวจเช็คคู่กับถัง</label>
-                <button
-                  type="button"
-                  onClick={() => handleSamplePhoto(setInspectionPhoto, 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600')}
-                  className="text-[10px] text-red-600 hover:underline flex items-center space-x-0.5"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>ตัวอย่าง</span>
-                </button>
               </div>
               {inspectionPhoto ? (
                 <div className="relative group h-28 rounded-xl overflow-hidden border border-slate-200">
@@ -240,7 +251,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setInspectionPhoto('')}
-                    className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full text-xs"
+                    className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full text-xs shadow-md"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -262,14 +273,6 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-700">รูปสถานที่ติดตั้ง</label>
-                <button
-                  type="button"
-                  onClick={() => handleSamplePhoto(setLocationPhoto, 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600')}
-                  className="text-[10px] text-red-600 hover:underline flex items-center space-x-0.5"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>ตัวอย่าง</span>
-                </button>
               </div>
               {locationPhoto ? (
                 <div className="relative group h-28 rounded-xl overflow-hidden border border-slate-200">
@@ -277,7 +280,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setLocationPhoto('')}
-                    className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full text-xs"
+                    className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full text-xs shadow-md"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -311,7 +314,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
               className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 flex items-center space-x-1.5"
             >
               {isEdit ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              <span>{isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มอุปกรณ์'}</span>
+              <span>{isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มอุปกรณ์ใหม่'}</span>
             </button>
           </div>
         </form>

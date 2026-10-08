@@ -71,17 +71,6 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     }
   };
 
-  // Fast sample photo loader for demo/testing convenience
-  const handleUseSamplePhoto = (type: 'sheet' | 'location' | 'defect') => {
-    if (type === 'sheet') {
-      setInspectionPhoto('https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600');
-    } else if (type === 'location') {
-      setLocationPhoto('https://images.unsplash.com/photo-1541888946425-d0fbb186f5f8?w=600');
-    } else {
-      setDefectPhoto('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600');
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -288,14 +277,6 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
               <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50/50">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-slate-700">1. รูปใบตรวจเช็คคู่กับอุปกรณ์ *</label>
-                  <button
-                    type="button"
-                    onClick={() => handleUseSamplePhoto('sheet')}
-                    className="text-[10px] text-red-600 hover:underline flex items-center space-x-0.5"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>ใช้รูปตัวอย่าง</span>
-                  </button>
                 </div>
                 {inspectionPhoto ? (
                   <div className="relative group rounded-xl overflow-hidden aspect-video bg-black/5 border border-slate-200">
@@ -327,14 +308,6 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
               <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50/50">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-slate-700">2. รูปสถานที่ติดตั้งอุปกรณ์ *</label>
-                  <button
-                    type="button"
-                    onClick={() => handleUseSamplePhoto('location')}
-                    className="text-[10px] text-red-600 hover:underline flex items-center space-x-0.5"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>ใช้รูปตัวอย่าง</span>
-                  </button>
                 </div>
                 {locationPhoto ? (
                   <div className="relative group rounded-xl overflow-hidden aspect-video bg-black/5 border border-slate-200">
@@ -401,14 +374,6 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                       <label className="block text-xs font-semibold text-slate-700">
                         แนบรูปจุดที่พบความผิดปกติ
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => handleUseSamplePhoto('defect')}
-                        className="text-[10px] text-red-600 hover:underline flex items-center space-x-0.5"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span>ใช้รูปตัวอย่าง</span>
-                      </button>
                     </div>
                     {defectPhoto ? (
                       <div className="relative group w-36 h-24 rounded-lg overflow-hidden border border-red-200">

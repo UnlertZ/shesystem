@@ -13,7 +13,7 @@ import { InspectionModal } from './components/InspectionModal';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => storageService.getCurrentUser());
-  const [activeTab, setActiveTab] = useState<string>('equipment');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [authView, setAuthView] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
   // Shared state for notifications & tasks
@@ -43,7 +43,7 @@ export const App: React.FC = () => {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    setActiveTab('equipment');
+    setActiveTab('dashboard');
     setNotifications(storageService.getNotifications(user.id, user.role));
     setTasks(storageService.getTasks(user.id));
   };
@@ -52,21 +52,6 @@ export const App: React.FC = () => {
     storageService.setCurrentUser(null);
     setCurrentUser(null);
     setAuthView('LOGIN');
-  };
-
-  const handleSwitchUserRole = (role: User['role']) => {
-    if (!currentUser) return;
-    const allUsers = storageService.getUsers();
-    // Find matching user with that role or update current user's role
-    const matched = allUsers.find(u => u.role === role);
-    if (matched) {
-      storageService.setCurrentUser(matched);
-      setCurrentUser(matched);
-    } else {
-      const updated = { ...currentUser, role };
-      storageService.setCurrentUser(updated);
-      setCurrentUser(updated);
-    }
   };
 
   const handleMarkNotificationRead = (id: string) => {
@@ -113,7 +98,6 @@ export const App: React.FC = () => {
           notifications={notifications}
           onMarkNotificationRead={handleMarkNotificationRead}
           onLogout={handleLogout}
-          onSwitchUserRole={handleSwitchUserRole}
         />
 
         {/* Main Views */}
