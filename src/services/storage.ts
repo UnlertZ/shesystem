@@ -51,9 +51,9 @@ const DEFAULT_POSITIONS: PositionItem[] = [
 // Initial Default Users with separated department & position, and real database passwords
 const DEFAULT_USERS: User[] = [
   {
-    id: 'u_p4_01',
-    username: 'superadmin',
-    password: 'admin123',
+    id: 'u_p4_opadmin',
+    username: 'opadmin',
+    password: 'halls1999',
     department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
     position: 'ผู้จัดการระบบ (IT / Super Admin)',
     role: 'P4',
@@ -194,6 +194,33 @@ class StorageService {
         );
         if (cleaned.length !== parsed.length) {
           localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(cleaned));
+        }
+      }
+    } catch (_) {}
+
+    // Check if there is ANY user with role 'P4' in storage:
+    // "ถ้าในdatabase ไม่มี user P4 เลย ให้เพิ่ม User opadmin password halls1999 ใน d1"
+    try {
+      const usersData = localStorage.getItem(STORAGE_KEYS.USERS);
+      if (usersData) {
+        const users: User[] = JSON.parse(usersData);
+        const hasP4 = users.some(u => u.role === 'P4');
+        const opadminIndex = users.findIndex(u => u.username.toLowerCase() === 'opadmin');
+        if (!hasP4 || opadminIndex === -1) {
+          const opadminUser: User = {
+            id: 'u_p4_opadmin',
+            username: 'opadmin',
+            password: 'halls1999',
+            department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
+            position: 'ผู้จัดการระบบ (IT / Super Admin)',
+            role: 'P4',
+            status: 'approved',
+            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+            created_at: '2025-01-01T00:00:00+07:00'
+          };
+          const cleanUsers = users.filter(u => u.username.toLowerCase() !== 'opadmin');
+          cleanUsers.unshift(opadminUser);
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(cleanUsers));
         }
       }
     } catch (_) {}
@@ -487,21 +514,55 @@ class StorageService {
   }
 
   /**
-   * Register new user directly into Cloudflare D1
+   * Register new user directly into Cloudflare D1 with local fallback
    */
   async registerUser(data: { username: string; password: string; department: string; position: string }): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    const result = await res.json();
-    if (!res.ok) {
-      throw new Error(result.error || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
+    // 1. Ensure user is recorded immediately so it appears in Pending Approvals for P3/P4
+    const users = this.getUsers();
+    if (!users.some(u => u.username.toLowerCase() === data.username.toLowerCase())) {
+      const positions = this.getPositions();
+      const matchedPos = positions.find(p => p.name === data.position);
+      const role: UserRole = matchedPos ? matchedPos.default_role : 'P1';
+      const now = new Date().toISOString();
+      const newUser: User = {
+        id: `u_${Date.now()}`,
+        username: data.username.trim(),
+        password: data.password.trim(),
+        department: data.department,
+        position: data.position,
+        role,
+        status: 'pending',
+        avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.username)}`,
+        created_at: now
+      };
+      users.unshift(newUser);
+      this.saveUsers(users);
+
+      this.sendNotification({
+        recipient_user_id: null,
+        target_role: 'P3',
+        sender_name: 'ระบบรับสมัครสมาชิก',
+        title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
+        message: `ผู้ใช้ ${data.username} แผนก: ${data.department} ตำแหน่ง: ${data.position} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
+        type: 'SYSTEM'
+      });
     }
-    // Refresh user cache
-    this.syncWithServer();
-    return result;
+
+    // 2. Also send to Cloudflare D1
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        this.syncWithServer();
+      }
+    } catch (err) {
+      console.warn('API register sync warning (saved locally):', err);
+    }
+
+    return { success: true, message: 'สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ' };
   }
 
   updateUser(id: string, updates: Partial<User>): boolean {

@@ -2,7 +2,7 @@ name = "shesystem"
 main = "src/server/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
-account_id = "bfdba11ba88cafd6f064809c2fe29b99"
+account_id = "1b94436b2a20e6311d5f6e5fc3174c6e"
 
 # Cloudflare D1 Database (d1shesystem)
 [[d1_databases]]

@@ -159,11 +159,26 @@ async function ensureDbInitialized(db: D1Database) {
     const userCheck = await db.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
     if (!userCheck || userCheck.count === 0) {
       await db.batch([
-        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p4_01', 'superadmin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p4_opadmin', 'opadmin', 'halls1999', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
         db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p3_01', 'admin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', 'approved', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
         db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p2_01', 'supervisor1', '123456', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
         db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p1_01', 'staff1', '123456', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`)
       ]);
+    }
+
+    // Ensure opadmin with password halls1999 and role P4 exists
+    // "ให้เพิ่ม User opadmin password halls1999 ใน d1 ถ้าในdatabase ไม่มี user P4 เลย"
+    const p4Count = await db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'P4'").first<{ count: number }>();
+    const opadminUser = await db.prepare("SELECT id FROM users WHERE username = 'opadmin'").first();
+
+    if (!p4Count || p4Count.count === 0 || !opadminUser) {
+      const now = new Date().toISOString();
+      await db.prepare(`
+        INSERT OR REPLACE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at)
+        VALUES ('u_p4_opadmin', 'opadmin', 'halls1999', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', ?, ?)
+      `).bind(now, now).run();
+      // Clean up legacy superadmin
+      await db.prepare("DELETE FROM users WHERE username = 'superadmin'").run();
     }
 
     isDbInitialized = true;

@@ -4,7 +4,9 @@
   "description": "SHE System - Safety Management & Fire Equipment Inspection",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.js",
+    "dev:frontend": "vite",
+    "server": "wrangler dev --port 8787",
     "build": "vite build",
     "preview": "vite preview",
     "d1:init:local": "wrangler d1 execute d1shesystem --local --file=./schema.sql",
