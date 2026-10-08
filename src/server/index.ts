@@ -37,6 +37,7 @@ async function ensureDbInitialized(db: D1Database) {
           id TEXT PRIMARY KEY,
           username TEXT UNIQUE NOT NULL,
           password TEXT NOT NULL,
+          full_name TEXT DEFAULT '',
           department TEXT NOT NULL,
           position TEXT NOT NULL DEFAULT '',
           role TEXT NOT NULL,
@@ -129,6 +130,10 @@ async function ensureDbInitialized(db: D1Database) {
       `)
     ]);
 
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN full_name TEXT').run();
+    } catch (_) {}
+
     // Seed default departments if table is empty
     const deptCheck = await db.prepare('SELECT COUNT(*) as count FROM departments').first<{ count: number }>();
     if (!deptCheck || deptCheck.count === 0) {
@@ -159,10 +164,10 @@ async function ensureDbInitialized(db: D1Database) {
     const userCheck = await db.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
     if (!userCheck || userCheck.count === 0) {
       await db.batch([
-        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p4_opadmin', 'opadmin', 'halls1999', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
-        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p3_01', 'admin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', 'approved', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
-        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p2_01', 'supervisor1', '123456', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
-        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p1_01', 'staff1', '123456', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`)
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p4_opadmin', 'opadmin', 'halls1999', 'ผู้จัดการระบบ โอพีแอดมิน', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p3_01', 'admin', 'admin123', 'สมบัติ ปลอดภัย (จป.วิชาชีพ)', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', 'approved', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p2_01', 'supervisor1', '123456', 'เกียรติศักดิ์ หัวหน้างาน', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`),
+        db.prepare(`INSERT OR IGNORE INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at) VALUES ('u_p1_01', 'staff1', '123456', 'สมชาย ใจดี', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00')`)
       ]);
     }
 
@@ -174,8 +179,8 @@ async function ensureDbInitialized(db: D1Database) {
     if (!p4Count || p4Count.count === 0 || !opadminUser) {
       const now = new Date().toISOString();
       await db.prepare(`
-        INSERT OR REPLACE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at)
-        VALUES ('u_p4_opadmin', 'opadmin', 'halls1999', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', ?, ?)
+        INSERT OR REPLACE INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at)
+        VALUES ('u_p4_opadmin', 'opadmin', 'halls1999', 'ผู้จัดการระบบ โอพีแอดมิน', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', ?, ?)
       `).bind(now, now).run();
       // Clean up legacy superadmin
       await db.prepare("DELETE FROM users WHERE username = 'superadmin'").run();
@@ -309,7 +314,7 @@ app.post('/api/auth/login', async (c) => {
 });
 
 app.post('/api/auth/register', async (c) => {
-  const { username, password, department, position } = await c.req.json();
+  const { username, password, full_name, department, position } = await c.req.json();
   const db = c.env.DB;
 
   const existing = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
@@ -334,16 +339,17 @@ app.post('/api/auth/register', async (c) => {
 
   const id = 'u_' + Date.now();
   const now = new Date().toISOString();
+  const displayName = (full_name && full_name.trim()) ? full_name.trim() : username.trim();
 
   await db.prepare(
-    'INSERT INTO users (id, username, password, department, position, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, username, password, department || '', position || '', role, 'pending', now, now).run();
+    'INSERT INTO users (id, username, password, full_name, department, position, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, username.trim(), password, displayName, department || '', position || '', role, 'pending', now, now).run();
 
   // Notify admin of new registration
   const notifId = 'notif_' + Date.now();
   await db.prepare(
     'INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${username} (${department || ''} - ${position || ''}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
+  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${displayName} (${username.trim()} - ${department || ''} - ${position || ''}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
 
   return c.json({ success: true, message: 'สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ' });
 });
@@ -377,7 +383,7 @@ app.post('/api/auth/forgot-password', async (c) => {
 // ==========================================
 app.get('/api/users', async (c) => {
   const db = c.env.DB;
-  const { results } = await db.prepare('SELECT id, username, password, department, position, role, status, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
+  const { results } = await db.prepare('SELECT id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
   return c.json({ users: results });
 });
 
@@ -388,10 +394,10 @@ app.post('/api/users', async (c) => {
   const now = new Date().toISOString();
 
   await db.prepare(`
-    INSERT INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+    INSERT INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
   `).bind(
-    id, data.username, data.password || '123456', data.department || '',
+    id, data.username, data.password || '123456', data.full_name || data.username, data.department || '',
     data.position || '', data.role || 'P1', data.avatar_url || '', now, now
   ).run();
 
@@ -406,16 +412,18 @@ app.put('/api/users/:id', async (c) => {
 
   await db.prepare(`
     UPDATE users SET
+      full_name = COALESCE(?, full_name),
       department = COALESCE(?, department),
       position = COALESCE(?, position),
       role = COALESCE(?, role),
       status = COALESCE(?, status),
       password = COALESCE(?, password),
+      avatar_url = COALESCE(?, avatar_url),
       updated_at = ?
     WHERE id = ?
   `).bind(
-    data.department || null, data.position || null, data.role || null,
-    data.status || null, data.password || null, now, id
+    data.full_name || null, data.department || null, data.position || null, data.role || null,
+    data.status || null, data.password || null, data.avatar_url || null, now, id
   ).run();
 
   return c.json({ success: true });

@@ -19,6 +19,7 @@ export interface User {
   id: string;
   username: string;
   password?: string;
+  full_name?: string; // ชื่อจริง นามสกุล
   department: string; // แผนก เช่น แผนกความปลอดภัย (SHE), แผนกผลิต, แผนกคลังสินค้า
   position: string;   // ระดับ/ตำแหน่ง เช่น พนักงาน, หัวหน้างาน, รองผู้จัดการ, ผู้จัดการ
   role: UserRole;     // P1, P2, P3, P4

@@ -51,9 +51,63 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
   useEffect(() => {
     if (!responsiblePerson && systemUsers.length > 0) {
       const defaultUser = systemUsers.find(u => u.role === 'P2') || systemUsers[0];
-      setResponsiblePerson(`${defaultUser.username} (${defaultUser.department})`);
+      const nameDisplay = defaultUser.full_name ? `${defaultUser.full_name} (${defaultUser.username})` : defaultUser.username;
+      setResponsiblePerson(`${nameDisplay} (${defaultUser.department})`);
     }
   }, [systemUsers, responsiblePerson]);
+
+  const getCategoryConfig = () => {
+    switch (type) {
+      case 'EX':
+        return {
+          label: 'ชนิดของถัง',
+          placeholder: 'เช่น ผงเคมีแห้ง (Dry Chemical), CO2, โฟม, สารสะอาด'
+        };
+      case 'FHC':
+        return {
+          label: 'ประเภทของตู้ดับเพลิง',
+          placeholder: 'เช่น ตู้เดี่ยว, ตู้คู่, แบบมีกระจกเซฟตี้'
+        };
+      case 'FH':
+        return {
+          label: 'ประเภทตู้สายฉีด',
+          placeholder: 'เช่น สายผ้าใบสังเคราะห์, แบบสายโฮสรีล (Hose Reel)'
+        };
+      case 'HD':
+        return {
+          label: 'ชนิดหัวรับน้ำดับเพลิง',
+          placeholder: 'เช่น แบบสวมเร็วทองเหลือง, ข้อต่อสวมเร็ว 2 ทาง'
+        };
+    }
+  };
+
+  const getWeightConfig = () => {
+    switch (type) {
+      case 'EX':
+        return {
+          label: 'น้ำหนัก',
+          placeholder: 'เช่น 10 lbs, 15 lbs, 5 kg'
+        };
+      case 'FHC':
+        return {
+          label: 'ขนาดตู้และสายฉีด',
+          placeholder: 'เช่น ตู้ 80x110x35 ซม., สาย 1.5 นิ้ว x 30 ม.'
+        };
+      case 'FH':
+        return {
+          label: 'ขนาดและระยะสายฉีด',
+          placeholder: 'เช่น 2.5 นิ้ว x 30 ม.'
+        };
+      case 'HD':
+        return {
+          label: 'ขนาดข้อต่อทางน้ำเข้า',
+          placeholder: 'เช่น 2.5 นิ้ว 2 ทาง, 4 นิ้ว'
+        };
+    }
+  };
+
+  const categoryConfig = getCategoryConfig();
+  const weightConfig = getWeightConfig();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
     const file = e.target.files?.[0];
@@ -162,13 +216,13 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center space-x-1">
                 <Layers className="w-3.5 h-3.5 text-slate-400" />
-                <span>ชนิด / ประเภทของถังหรือตู้</span>
+                <span>{categoryConfig.label}</span>
               </label>
               <input
                 type="text"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="เช่น Dry Chemical, CO2, Foam"
+                placeholder={categoryConfig.placeholder}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
               />
             </div>
@@ -176,13 +230,13 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center space-x-1">
                 <Scale className="w-3.5 h-3.5 text-slate-400" />
-                <span>น้ำหนัก / ขนาด</span>
+                <span>{weightConfig.label}</span>
               </label>
               <input
                 type="text"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                placeholder="เช่น 10 lbs, 15 lbs, 2.5 นิ้ว"
+                placeholder={weightConfig.placeholder}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
               />
             </div>
@@ -219,7 +273,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Responsible Person: Dropdown populated from users in system */}
+          {/* Responsible Person: Dropdown populated from users in system with full name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center space-x-1">
               <UserCheck className="w-3.5 h-3.5 text-slate-400" />
@@ -233,8 +287,9 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             >
               <option value="">-- เลือกผู้รับผิดชอบ --</option>
               {systemUsers.map(u => {
-                const label = `${u.username} (${u.department}) - สิทธิ์ ${u.role}`;
-                const val = `${u.username} (${u.department})`;
+                const nameDisplay = u.full_name ? `${u.full_name} (${u.username})` : u.username;
+                const label = `${nameDisplay} (${u.department}) - สิทธิ์ ${u.role}`;
+                const val = `${nameDisplay} (${u.department})`;
                 return (
                   <option key={u.id} value={val}>
                     {label}

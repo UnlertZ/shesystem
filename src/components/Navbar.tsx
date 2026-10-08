@@ -10,6 +10,7 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   notifications: AppNotification[];
   onMarkNotificationRead: (id: string) => void;
+  onClearNotifications?: () => void;
   onLogout: () => void;
 }
 
@@ -19,6 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   notifications,
   onMarkNotificationRead,
+  onClearNotifications,
   onLogout
 }) => {
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -110,7 +112,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                     <span className="font-bold text-sm text-slate-800">กล่องแจ้งเตือน ({notifications.length})</span>
-                    <span className="text-xs text-red-600 font-semibold">ยังไม่อ่าน {unreadNotifs.length}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-red-600 font-semibold">ยังไม่อ่าน {unreadNotifs.length}</span>
+                      {notifications.length > 0 && onClearNotifications && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('คุณต้องการล้างการแจ้งเตือนทั้งหมดใช่หรือไม่?')) {
+                              onClearNotifications();
+                            }
+                          }}
+                          className="text-[11px] text-slate-400 hover:text-red-600 underline font-medium"
+                        >
+                          ล้างทั้งหมด
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
                     {notifications.length === 0 ? (

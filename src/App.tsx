@@ -67,6 +67,13 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleClearNotifications = () => {
+    if (currentUser) {
+      storageService.clearNotifications(currentUser.id);
+      setNotifications([]);
+    }
+  };
+
   // If user is not logged in, enforce login page as first screen
   if (!currentUser) {
     if (authView === 'REGISTER') {
@@ -103,6 +110,7 @@ export const App: React.FC = () => {
           setActiveTab={setActiveTab}
           notifications={notifications}
           onMarkNotificationRead={handleMarkNotificationRead}
+          onClearNotifications={handleClearNotifications}
           onLogout={handleLogout}
         />
 

@@ -99,11 +99,13 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 
     setIsSubmitting(true);
 
+    const inspectorDisplayName = currentUser.full_name ? `${currentUser.full_name} (${currentUser.username})` : currentUser.username;
+
     try {
       storageService.submitInspection({
         equipment_id: equipment.id,
         inspector_id: currentUser.id,
-        inspector_name: currentUser.username,
+        inspector_name: inspectorDisplayName,
         ready_status: isAbnormal ? 'NOT_READY' : 'READY',
         checklist_results: checklistResults,
         inspection_photo: inspectionPhoto,
@@ -116,7 +118,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 
       // If user checked resolve defect
       if (isResolved && equipment.defect_status === 'DEFECT') {
-        storageService.resolveDefect(equipment.id, resolveNotes || 'แก้ไขตามมาตรฐานเรียบร้อย', currentUser.username);
+        storageService.resolveDefect(equipment.id, resolveNotes || 'แก้ไขตามมาตรฐานเรียบร้อย', inspectorDisplayName);
       }
 
       onInspectionComplete();

@@ -41,12 +41,14 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   const [notifMessage, setNotifMessage] = useState('');
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editFullName, setEditFullName] = useState<string>('');
   const [editDepartment, setEditDepartment] = useState<string>('');
   const [editPosition, setEditPosition] = useState<string>('');
   const [editRole, setEditRole] = useState<UserRole>('P1');
 
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
+  const [newFullName, setNewFullName] = useState('');
   const [newPassword, setNewPassword] = useState('123456');
   const [newDepartment, setNewDepartment] = useState<string>('');
   const [newPosition, setNewPosition] = useState<string>('');
@@ -129,9 +131,10 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setAlertBanner({ type: 'success', message: `รีเซ็ทรหัสผ่านของ ${user.username} เป็น "0000" เรียบร้อยแล้ว` });
   };
 
-  // 4. Edit Department, Position and Role
+  // 4. Edit Department, Position, Role and Full Name
   const openEditUserModal = (user: User) => {
     setEditingUser(user);
+    setEditFullName(user.full_name || '');
     setEditDepartment(user.department || departments[0]?.name || '');
     setEditPosition(user.position || positions[0]?.name || '');
     setEditRole(user.role);
@@ -142,6 +145,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     if (!editingUser) return;
 
     storageService.updateUser(editingUser.id, {
+      full_name: editFullName.trim() || undefined,
       department: editDepartment,
       position: editPosition,
       role: editRole
@@ -192,6 +196,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   // 7. Add Employee directly
   const openAddUserModal = () => {
     setNewUsername('');
+    setNewFullName('');
     setNewPassword('123456');
     setNewDepartment(departments[0]?.name || 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)');
     setNewPosition(positions[0]?.name || 'พนักงาน');
@@ -211,12 +216,13 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     const newUser: User = {
       id: `u_${Date.now()}`,
       username: newUsername.trim(),
+      full_name: newFullName.trim() || undefined,
       password: newPassword.trim() || '123456',
       department: newDepartment || (departments[0]?.name || 'แผนกทั่วไป'),
       position: newPosition || (positions[0]?.name || 'พนักงาน'),
       role: newRole,
       status: 'approved',
-      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(newUsername)}`,
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(newFullName || newUsername)}`,
       created_at: new Date().toISOString()
     };
 
@@ -230,6 +236,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
     setIsAddUserModalOpen(false);
     setNewUsername('');
+    setNewFullName('');
     refreshList();
     setAlertBanner({ type: 'success', message: `เพิ่มพนักงาน ${newUser.username} เรียบร้อยแล้ว` });
   };
@@ -447,7 +454,9 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                       className="w-10 h-10 rounded-full object-cover border border-slate-200"
                     />
                     <div>
-                      <div className="font-bold text-sm text-slate-800">{user.username}</div>
+                      <div className="font-bold text-sm text-slate-800">
+                        {user.full_name ? `${user.full_name} (${user.username})` : user.username}
+                      </div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         แผนก: <span className="font-semibold text-slate-700">{user.department}</span> | ระดับ/ตำแหน่ง: <span className="font-semibold text-slate-700">{user.position}</span> | ลงทะเบียนเมื่อ: {formatThaiDate(user.created_at, true)}
                       </div>
@@ -484,7 +493,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase text-[11px]">
                 <tr>
-                  <th className="py-3.5 px-4">ชื่อผู้ใช้ (Username)</th>
+                  <th className="py-3.5 px-4">ชื่อสมาชิก / ชื่อผู้ใช้</th>
                   <th className="py-3.5 px-4">แผนก (Department)</th>
                   <th className="py-3.5 px-4">ระดับ / ตำแหน่ง (Position)</th>
                   <th className="py-3.5 px-4">ระดับสิทธิ์ (Role)</th>
@@ -495,16 +504,23 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
               <tbody className="divide-y divide-slate-100">
                 {approvedUsers.map(user => (
                   <tr key={user.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3.5 px-4 font-semibold text-slate-800 flex items-center space-x-2.5">
+                    <td className="py-3.5 px-4 text-slate-800 flex items-center space-x-2.5">
                       <img
                         src={user.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}
                         alt={user.username}
-                        className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                        className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
                       />
-                      <span>{user.username}</span>
-                      {user.id === currentUser?.id && (
-                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-bold">คุณ</span>
-                      )}
+                      <div>
+                        <div className="font-semibold text-slate-800 flex items-center space-x-1.5">
+                          <span>{user.full_name || user.username}</span>
+                          {user.id === currentUser?.id && (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-bold">คุณ</span>
+                          )}
+                        </div>
+                        {user.full_name && (
+                          <div className="text-[10px] text-slate-400 font-normal">@{user.username}</div>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3.5 px-4 font-medium text-slate-600">
@@ -729,6 +745,17 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
             <form onSubmit={handleSaveEditUser} className="space-y-3.5 text-xs">
               <div>
+                <label className="block font-semibold text-slate-700 mb-1">ชื่อ-นามสกุลจริง (Full Name)</label>
+                <input
+                  type="text"
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  placeholder="เช่น นายสมบัติ ปลอดภัย"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                />
+              </div>
+
+              <div>
                 <label className="block font-semibold text-slate-700 mb-1">แผนก (Department)</label>
                 <select
                   value={editDepartment}
@@ -871,6 +898,17 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                   placeholder="เช่น employee02"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">ชื่อ-นามสกุลจริง (Full Name)</label>
+                <input
+                  type="text"
+                  value={newFullName}
+                  onChange={(e) => setNewFullName(e.target.value)}
+                  placeholder="เช่น นายสมชาย ใจดี"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>
 

@@ -49,10 +49,11 @@ const DEFAULT_POSITIONS: PositionItem[] = [
 ];
 
 // Initial Default Users with separated department & position, and real database passwords
-const DEFAULT_USERS: User[] = [
+export const DEFAULT_USERS: User[] = [
   {
     id: 'u_p4_opadmin',
     username: 'opadmin',
+    full_name: 'ผู้จัดการระบบ โอพีแอดมิน',
     password: 'halls1999',
     department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
     position: 'ผู้จัดการระบบ (IT / Super Admin)',
@@ -64,6 +65,7 @@ const DEFAULT_USERS: User[] = [
   {
     id: 'u_p3_01',
     username: 'admin',
+    full_name: 'สมบัติ ปลอดภัย (จป.วิชาชีพ)',
     password: 'admin123',
     department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
     position: 'เจ้าหน้าที่ความปลอดภัย (จป.)',
@@ -75,6 +77,7 @@ const DEFAULT_USERS: User[] = [
   {
     id: 'u_p2_01',
     username: 'supervisor1',
+    full_name: 'เกียรติศักดิ์ หัวหน้างาน',
     password: '123456',
     department: 'แผนกผลิต (Production)',
     position: 'หัวหน้างาน',
@@ -86,6 +89,7 @@ const DEFAULT_USERS: User[] = [
   {
     id: 'u_p1_01',
     username: 'staff1',
+    full_name: 'สมชาย ใจดี',
     password: '123456',
     department: 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)',
     position: 'พนักงาน',
@@ -95,6 +99,11 @@ const DEFAULT_USERS: User[] = [
     created_at: '2025-01-01T00:00:00+07:00'
   }
 ];
+
+export function getUserDisplayName(user?: { full_name?: string; username: string } | null): string {
+  if (!user) return '-';
+  return user.full_name ? `${user.full_name} (${user.username})` : user.username;
+}
 
 // Initial Equipment - Clean Production Database (Starts empty)
 const DEFAULT_EQUIPMENT: Equipment[] = [];
@@ -516,7 +525,7 @@ class StorageService {
   /**
    * Register new user directly into Cloudflare D1 with local fallback
    */
-  async registerUser(data: { username: string; password: string; department: string; position: string }): Promise<{ success: boolean; message: string }> {
+  async registerUser(data: { username: string; password: string; department: string; position: string; full_name?: string }): Promise<{ success: boolean; message: string }> {
     // 1. Ensure user is recorded immediately so it appears in Pending Approvals for P3/P4
     const users = this.getUsers();
     if (!users.some(u => u.username.toLowerCase() === data.username.toLowerCase())) {
@@ -527,23 +536,25 @@ class StorageService {
       const newUser: User = {
         id: `u_${Date.now()}`,
         username: data.username.trim(),
+        full_name: data.full_name?.trim() || undefined,
         password: data.password.trim(),
         department: data.department,
         position: data.position,
         role,
         status: 'pending',
-        avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.username)}`,
+        avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.full_name || data.username)}`,
         created_at: now
       };
       users.unshift(newUser);
       this.saveUsers(users);
 
+      const displayName = data.full_name ? `${data.full_name} (${data.username})` : data.username;
       this.sendNotification({
         recipient_user_id: null,
         target_role: 'P3',
         sender_name: 'ระบบรับสมัครสมาชิก',
         title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
-        message: `ผู้ใช้ ${data.username} แผนก: ${data.department} ตำแหน่ง: ${data.position} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
+        message: `ผู้ใช้ ${displayName} แผนก: ${data.department} ตำแหน่ง: ${data.position} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
         type: 'SYSTEM'
       });
     }
@@ -760,6 +771,18 @@ class StorageService {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Bulk import equipment (for Excel import)
+   */
+  bulkAddEquipment(items: Array<Omit<Equipment, 'id' | 'code' | 'sequence_number' | 'created_at' | 'updated_at'>>): Equipment[] {
+    const results: Equipment[] = [];
+    for (const item of items) {
+      const added = this.addEquipment(item);
+      results.push(added);
+    }
+    return results;
   }
 
   // --- Inspections (D1) ---
@@ -983,6 +1006,28 @@ class StorageService {
 
     fetch(`/api/notifications/${id}/read`, {
       method: 'POST'
+    }).catch(console.error);
+  }
+
+  /**
+   * Clear all notifications for the user
+   */
+  clearNotifications(userId?: string) {
+    if (!this.isBrowser) return;
+    if (!userId) {
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+    } else {
+      const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+      const notifs: AppNotification[] = data ? JSON.parse(data) : [];
+      // Keep notifications belonging to other specific users or broadcast
+      const remaining = notifs.filter(n => n.recipient_user_id && n.recipient_user_id !== userId);
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(remaining));
+    }
+
+    fetch('/api/notifications/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
     }).catch(console.error);
   }
 

@@ -18,7 +18,8 @@ import {
   KeyRound,
   ShieldCheck,
   Calendar,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 
@@ -122,6 +123,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setNotifications(storageService.getNotifications(currentUser.id, currentUser.role));
   };
 
+  const handleClearNotifications = () => {
+    if (confirm('คุณต้องการล้างการแจ้งเตือนทั้งหมดใช่หรือไม่?')) {
+      storageService.clearNotifications(currentUser.id);
+      setNotifications([]);
+    }
+  };
+
   // Create Task (Delegation from P2 to P1 or Admin assignment)
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,15 +143,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     const targetEquip = allEquipment.find(e => e.id === targetEquipId);
 
+    const assignerName = currentUser.full_name ? `${currentUser.full_name} (${currentUser.username})` : currentUser.username;
+    const assigneeName = targetUser.full_name ? `${targetUser.full_name} (${targetUser.username})` : targetUser.username;
+
     storageService.createTask({
       title: taskTitle.trim(),
       description: taskDescription.trim(),
       equipment_id: targetEquip?.id,
       equipment_code: targetEquip?.code,
       assigned_by_id: currentUser.id,
-      assigned_by_name: `${currentUser.username} (${currentUser.department})`,
+      assigned_by_name: `${assignerName} (${currentUser.department})`,
       assigned_to_id: targetUser.id,
-      assigned_to_name: `${targetUser.username} (${targetUser.department})`,
+      assigned_to_name: `${assigneeName} (${targetUser.department})`,
       task_type: taskType,
       due_date: taskDueDate || undefined
     });
@@ -152,7 +163,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setTaskTitle('');
     setTaskDescription('');
     setTasks(storageService.getTasks(currentUser.id));
-    alert(`มอบหมายงานให้ ${targetUser.username} เรียบร้อยแล้ว พร้อมส่งการแจ้งเตือนส่วนตัว`);
+    alert(`มอบหมายงานให้ ${assigneeName} เรียบร้อยแล้ว พร้อมส่งการแจ้งเตือนส่วนตัว`);
   };
 
   return (
@@ -173,7 +184,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         <div className="flex-1 text-center md:text-left space-y-2">
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-            <h1 className="text-2xl font-bold text-slate-800">{currentUser.username}</h1>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {currentUser.full_name || currentUser.username}
+            </h1>
+            {currentUser.full_name && (
+              <span className="text-sm text-slate-400 font-medium">({currentUser.username})</span>
+            )}
             <span className="text-xs bg-red-100 text-red-700 font-bold px-3 py-1 rounded-full">
               สิทธิ์: {currentUser.role}
             </span>
@@ -405,9 +421,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <p className="text-xs text-slate-400">ข้อความและงานที่ส่งถึงคุณ</p>
                 </div>
               </div>
-              <span className="text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full">
-                {notifications.filter(n => !n.is_read).length} ใหม่
-              </span>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full">
+                  {notifications.filter(n => !n.is_read).length} ใหม่
+                </span>
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearNotifications}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="ล้างการแจ้งเตือนทั้งหมด"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {notifications.length === 0 ? (
@@ -484,11 +512,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   required
                 >
                   <option value="">-- เลือกพนักงานผู้รับมอบหมาย --</option>
-                  {users.filter(u => u.id !== currentUser.id).map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.username} ({u.department} - สิทธิ์ {u.role})
-                    </option>
-                  ))}
+                  {users.filter(u => u.id !== currentUser.id).map(u => {
+                    const nameDisplay = u.full_name ? `${u.full_name} (${u.username})` : u.username;
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {nameDisplay} ({u.department} - สิทธิ์ {u.role})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

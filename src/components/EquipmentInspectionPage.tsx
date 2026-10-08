@@ -3,6 +3,9 @@ import { Equipment, EquipmentType, User, Task } from '../types';
 import { storageService } from '../services/storage';
 import { InspectionModal } from './InspectionModal';
 import { EquipmentFormModal } from './EquipmentFormModal';
+import { EquipmentDetailModal } from './EquipmentDetailModal';
+import { ExcelImportModal } from './ExcelImportModal';
+import { ImageViewerModal } from './ImageViewerModal';
 import {
   Flame,
   CheckCircle2,
@@ -20,7 +23,9 @@ import {
   Layers,
   MapPin,
   User as UserIcon,
-  Info
+  Info,
+  FileSpreadsheet,
+  ZoomIn
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 
@@ -44,6 +49,9 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
   const [inspectingEquipment, setInspectingEquipment] = useState<Equipment | null>(null);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
+  const [selectedEquipmentForDetail, setSelectedEquipmentForDetail] = useState<Equipment | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title?: string } | null>(null);
   const [permissionErrorModal, setPermissionErrorModal] = useState<string | null>(null);
 
   const refreshEquipment = () => {
@@ -155,12 +163,21 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
           </p>
         </div>
 
-        {/* Admin Action Button */}
+        {/* Admin & P4 Action Buttons */}
         {isAdminOrSuper && (
           <div className="flex items-center space-x-2">
+            {currentUser?.role === 'P4' && (
+              <button
+                onClick={() => setIsExcelImportModalOpen(true)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-200 transition flex items-center space-x-1.5 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>นำเข้า Excel (P4)</span>
+              </button>
+            )}
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5"
+              className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มอุปกรณ์ใหม่</span>
@@ -312,13 +329,14 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
             return (
               <div
                 key={equip.id}
-                className="bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition overflow-hidden flex flex-col justify-between"
+                onClick={() => setSelectedEquipmentForDetail(equip)}
+                className="bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-lg hover:border-red-200 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
               >
                 <div>
                   {/* Card Header */}
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 group-hover:bg-red-50/30 transition">
                     <div className="flex items-center space-x-2">
-                      <span className="font-bold text-base text-slate-900">{equip.code}</span>
+                      <span className="font-bold text-base text-slate-900 group-hover:text-red-700 transition">{equip.code}</span>
                       {equip.inspection_status === 'INSPECTED' ? (
                         <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
                           <CheckCircle2 className="w-3 h-3" />
@@ -361,27 +379,29 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                       </div>
                     </div>
 
-                    {/* Specific details for EX */}
-                    {equip.type === 'EX' && (
-                      <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded-xl text-[11px] text-slate-600">
-                        <div>
-                          <span className="font-medium text-slate-400">ประเภท:</span>{' '}
-                          <span className="font-semibold text-slate-800">{equip.category || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-slate-400">น้ำหนัก:</span>{' '}
-                          <span className="font-semibold text-slate-800">{equip.weight || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-slate-400">เริ่มใช้งาน:</span>{' '}
-                          <span className="font-semibold text-slate-800">{equip.in_service_date || '-'}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-slate-400">อายุถัง:</span>{' '}
-                          <span className="font-semibold text-red-600">{equip.age?.formatted || '-'}</span>
-                        </div>
+                    {/* Dynamic specifications for all equipment types */}
+                    <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded-xl text-[11px] text-slate-600">
+                      <div>
+                        <span className="font-medium text-slate-400">
+                          {equip.type === 'EX' ? 'ชนิดถัง:' : equip.type === 'FHC' ? 'ประเภทตู้:' : equip.type === 'FH' ? 'ประเภทสาย:' : 'ชนิดหัวรับน้ำ:'}
+                        </span>{' '}
+                        <span className="font-semibold text-slate-800 truncate block">{equip.category || '-'}</span>
                       </div>
-                    )}
+                      <div>
+                        <span className="font-medium text-slate-400">
+                          {equip.type === 'EX' ? 'น้ำหนัก:' : equip.type === 'FHC' ? 'ขนาดตู้/สาย:' : equip.type === 'FH' ? 'ขนาด/ระยะ:' : 'ขนาดข้อต่อ:'}
+                        </span>{' '}
+                        <span className="font-semibold text-slate-800 truncate block">{equip.weight || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-slate-400">เริ่มใช้งาน:</span>{' '}
+                        <span className="font-semibold text-slate-800">{equip.in_service_date || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-slate-400">อายุอุปกรณ์:</span>{' '}
+                        <span className="font-semibold text-red-600">{equip.age?.formatted || '-'}</span>
+                      </div>
+                    </div>
 
                     {/* Defect note if present */}
                     {equip.defect_notes && (
@@ -394,13 +414,13 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                           {equip.defect_status === 'DEFECT' ? <AlertTriangle className="w-3.5 h-3.5" /> : <Wrench className="w-3.5 h-3.5" />}
                           <span>{equip.defect_status === 'DEFECT' ? 'ข้อบกพร่องที่พบ:' : 'บันทึกการแก้ไข:'}</span>
                         </div>
-                        <p>{equip.defect_notes}</p>
+                        <p className="line-clamp-2">{equip.defect_notes}</p>
                       </div>
                     )}
 
                     {/* People & Dates */}
                     <div className="space-y-1 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-                      <div>
+                      <div className="truncate">
                         <span className="font-medium">ผู้รับผิดชอบ:</span> {equip.responsible_person}
                       </div>
                       <div>
@@ -410,15 +430,24 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                       </div>
                     </div>
 
-                    {/* Photos Preview */}
+                    {/* Photos Preview with Click-to-Zoom */}
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       {equip.inspection_sheet_photo ? (
-                        <div className="rounded-lg overflow-hidden border border-slate-200 aspect-video relative group">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxImage({ url: equip.inspection_sheet_photo!, title: `ใบตรวจเช็ค - ${equip.code}` });
+                          }}
+                          className="rounded-lg overflow-hidden border border-slate-200 aspect-video relative group/img cursor-pointer bg-slate-900"
+                        >
                           <img
                             src={equip.inspection_sheet_photo}
                             alt="ใบตรวจเช็ค"
-                            className="w-full h-full object-cover group-hover:scale-105 transition"
+                            className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-85 transition"
                           />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition text-white">
+                            <ZoomIn className="w-4 h-4" />
+                          </div>
                           <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.2 rounded font-medium">
                             ใบตรวจเช็ค
                           </span>
@@ -430,12 +459,21 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                       )}
 
                       {equip.location_photo ? (
-                        <div className="rounded-lg overflow-hidden border border-slate-200 aspect-video relative group">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxImage({ url: equip.location_photo!, title: `สถานที่ - ${equip.code}` });
+                          }}
+                          className="rounded-lg overflow-hidden border border-slate-200 aspect-video relative group/img cursor-pointer bg-slate-900"
+                        >
                           <img
                             src={equip.location_photo}
                             alt="สถานที่"
-                            className="w-full h-full object-cover group-hover:scale-105 transition"
+                            className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-85 transition"
                           />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition text-white">
+                            <ZoomIn className="w-4 h-4" />
+                          </div>
                           <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.2 rounded font-medium">
                             รูปสถานที่
                           </span>
@@ -455,14 +493,20 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                     {isAdminOrSuper && (
                       <>
                         <button
-                          onClick={() => setEditingEquipment(equip)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingEquipment(equip);
+                          }}
                           className="p-1.5 text-slate-600 hover:text-red-600 hover:bg-slate-200 rounded-lg transition"
                           title="แก้ไขข้อมูลอุปกรณ์"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteEquipment(equip.id, equip.code)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEquipment(equip.id, equip.code);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                           title="ลบอุปกรณ์"
                         >
@@ -473,7 +517,10 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                   </div>
 
                   <button
-                    onClick={() => handleStartInspection(equip)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartInspection(equip);
+                    }}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1.5 ${
                       canInspect
                         ? 'bg-red-600 hover:bg-red-700 text-white'
@@ -503,6 +550,51 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
             setInspectingEquipment(null);
             refreshEquipment();
           }}
+        />
+      )}
+
+      {/* Expanded Equipment Detail Modal (Popup) */}
+      {selectedEquipmentForDetail && (
+        <EquipmentDetailModal
+          equipment={selectedEquipmentForDetail}
+          inspectionHistory={storageService.getInspections().filter(i => i.equipment_id === selectedEquipmentForDetail.id)}
+          canInspect={isSupervisorOrAbove || !!getAssignedTaskForEquipment(selectedEquipmentForDetail.id)}
+          isAdminOrSuper={isAdminOrSuper}
+          onClose={() => setSelectedEquipmentForDetail(null)}
+          onStartInspection={(eq) => {
+            setSelectedEquipmentForDetail(null);
+            handleStartInspection(eq);
+          }}
+          onEditEquipment={(eq) => {
+            setSelectedEquipmentForDetail(null);
+            setEditingEquipment(eq);
+          }}
+          onDeleteEquipment={(id, code) => {
+            setSelectedEquipmentForDetail(null);
+            handleDeleteEquipment(id, code);
+          }}
+          onViewImage={(url, title) => setLightboxImage({ url, title })}
+        />
+      )}
+
+      {/* Excel Import Modal for P4 */}
+      {isExcelImportModalOpen && currentUser && (
+        <ExcelImportModal
+          currentUser={currentUser}
+          defaultType={activeType}
+          onClose={() => setIsExcelImportModalOpen(false)}
+          onSuccess={() => {
+            refreshEquipment();
+          }}
+        />
+      )}
+
+      {/* Full-Screen Image Lightbox Viewer */}
+      {lightboxImage && (
+        <ImageViewerModal
+          imageUrl={lightboxImage.url}
+          title={lightboxImage.title}
+          onClose={() => setLightboxImage(null)}
         />
       )}
 
