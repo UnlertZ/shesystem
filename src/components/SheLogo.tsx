@@ -60,16 +60,27 @@ export const SheLogo: React.FC<SheLogoProps> = ({ size = 'md', showSubtext = tru
           }}
         >
           <span
-            className={`font-black tracking-tight whitespace-nowrap shrink-0 text-[#2D2924] ${
+            className={`font-black tracking-tight whitespace-nowrap shrink-0 text-black ${
               isSm ? 'text-xs' : isLg ? 'text-xl' : 'text-base sm:text-lg'
             }`}
             style={{
-              color: '#2D2924',
+              color: '#000000',
               fontWeight: 900,
               letterSpacing: '-0.02em'
             }}
           >
             SHE System
+          </span>
+          <span
+            className={`font-bold tracking-wide whitespace-nowrap shrink-0 text-black mt-0.5 ${
+              isSm ? 'text-[9px]' : isLg ? 'text-xs' : 'text-[10px] sm:text-[11px]'
+            }`}
+            style={{
+              color: '#000000',
+              fontWeight: 700
+            }}
+          >
+            Safety &bull; Health &bull; Environment
           </span>
         </div>
       )}

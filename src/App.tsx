@@ -175,10 +175,10 @@ export const App: React.FC = () => {
       <footer className="border-t border-[#E8DFC8] bg-[#F7EEDC] py-6 text-center text-xs text-[#5C5951]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-[#3F3A31]">JDE Peet's &bull; SHE System</span>
-            <span>&bull; Safety & Fire Inspection</span>
+            <span className="font-bold text-black">JDE Peet's &bull; SHE System</span>
+            <span className="text-black font-medium">&bull; Safety & Fire Inspection</span>
           </div>
-          <div className="text-[#8C7454] font-medium">
+          <div className="text-black font-semibold">
             ระบบบริหารจัดการความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม
           </div>
         </div>

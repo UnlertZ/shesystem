@@ -249,7 +249,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       )}
                     </div>
                     <span
-                      className="text-[10px] text-slate-500 truncate block leading-tight mt-0.5"
+                      className="text-[10px] text-black font-semibold truncate block leading-tight mt-0.5"
                       title={currentUser.department}
                     >
                       {currentUser.department}
@@ -285,11 +285,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 key={link.id}
                 onClick={() => setActiveTab(link.id)}
                 className={`flex flex-col items-center py-1 px-2 transition ${
-                  isActive ? 'text-[#A04830] font-bold' : 'text-[#3F3A31] hover:text-[#A04830]'
+                  isActive ? 'text-[#A04830] font-bold' : 'text-black hover:text-[#A04830]'
                 }`}
               >
-                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? 'text-[#A04830]' : 'text-[#5C5951]'}`} />
-                <span className="text-[10px] whitespace-nowrap font-semibold">{link.label.split(' ')[0]}</span>
+                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? 'text-[#A04830]' : 'text-black'}`} />
+                <span className={`text-[10px] whitespace-nowrap font-bold ${isActive ? 'text-[#A04830]' : 'text-black'}`}>{link.label.split(' ')[0]}</span>
               </button>
             );
           })}
