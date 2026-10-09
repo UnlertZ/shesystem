@@ -258,6 +258,18 @@ async function ensureDbInitialized(db: D1Database) {
       await db.prepare("DELETE FROM users WHERE username = 'superadmin'").run();
     }
 
+    // Clean up duplicate notifications in D1
+    try {
+      await db.prepare(`
+        DELETE FROM notifications
+        WHERE rowid NOT IN (
+          SELECT MIN(rowid)
+          FROM notifications
+          GROUP BY recipient_user_id, title, message
+        )
+      `).run();
+    } catch (_) {}
+
     isDbInitialized = true;
   } catch (err) {
     console.error('Database initialization error:', err);
@@ -1027,13 +1039,15 @@ app.post('/api/tasks', async (c) => {
 
   // Send personal notification to assigned user
   const notifId = 'notif_' + Date.now();
+  const assignerName = data.assigned_by_name || 'ผู้มอบหมายงาน';
+  const dueDateMsg = data.due_date ? ` (กำหนดเสร็จ: ${data.due_date})` : '';
   await db.prepare(`
     INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    notifId, data.assigned_to_id, null, data.assigned_by_name,
+    notifId, data.assigned_to_id, null, assignerName,
     'คุณได้รับมอบหมายงานใหม่',
-    `ได้รับมอบหมายงาน: ${data.title} กำหนดส่ง: ${data.due_date || 'เร็วที่สุด'}`,
+    `คุณได้รับมอบหมายงาน: "${data.title}" จาก ${assignerName}${dueDateMsg}`,
     'TASK', 0, now
   ).run();
 
@@ -1047,6 +1061,16 @@ app.patch('/api/tasks/:id/status', async (c) => {
   const db = c.env.DB;
   const now = new Date().toISOString();
 
+  const existingTask = await db.prepare('SELECT * FROM tasks WHERE id = ?').bind(id).first() as any;
+  if (!existingTask) {
+    return c.json({ error: 'ไม่พบงานที่ระบุ' }, 404);
+  }
+
+  // If already completed and user tries to complete again, do not duplicate notification
+  if (status === 'COMPLETED' && existingTask.status === 'COMPLETED') {
+    return c.json({ success: true, message: 'Already completed' });
+  }
+
   const completedAt = status === 'COMPLETED' ? now : null;
 
   try {
@@ -1057,20 +1081,19 @@ app.patch('/api/tasks/:id/status', async (c) => {
     await db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, id).run();
   }
 
-  // If completed, fetch task and notify the assigner
-  if (status === 'COMPLETED') {
-    const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').bind(id).first() as any;
-    if (task && task.assigned_by_id) {
+  // If transitioning to COMPLETED, notify the assigner only once
+  if (status === 'COMPLETED' && existingTask.status !== 'COMPLETED') {
+    if (existingTask.assigned_by_id) {
       const notifId = 'notif_' + Date.now();
-      const doerName = completer_name || task.assigned_to_name || 'ผู้รับมอบหมาย';
+      const doerName = completer_name || existingTask.assigned_to_name || 'ผู้รับมอบหมาย';
       const notesMsg = notes ? ` (บันทึก: ${notes})` : '';
       await db.prepare(`
         INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
-        notifId, task.assigned_by_id, null, doerName,
+        notifId, existingTask.assigned_by_id, null, doerName,
         'งานที่มอบหมายดำเนินการเสร็จสิ้นแล้ว',
-        `งาน "${task.title}" ได้รับการทำสำเร็จเรียบร้อยแล้ว โดย ${doerName}${notesMsg}`,
+        `งาน "${existingTask.title}" ได้รับการทำสำเร็จเรียบร้อยแล้ว โดย ${doerName}${notesMsg}`,
         'TASK', 0, now
       ).run();
     }
@@ -1109,7 +1132,30 @@ app.get('/api/notifications', async (c) => {
     ORDER BY n.created_at DESC LIMIT 50
   `).bind(userId, role, userId).all();
 
-  return c.json({ notifications: results || [] });
+  const rawList: any[] = results || [];
+  // Smart deduplication: eliminate identical or near-duplicate notifications within 60s
+  const deduplicated: any[] = [];
+  for (const n of rawList) {
+    const isDuplicate = deduplicated.some(existing => {
+      if (existing.recipient_user_id === n.recipient_user_id && existing.title === n.title && existing.message === n.message) {
+        return true;
+      }
+      if (
+        existing.recipient_user_id === n.recipient_user_id &&
+        existing.title === n.title &&
+        Math.abs(new Date(existing.created_at).getTime() - new Date(n.created_at).getTime()) < 60000
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!isDuplicate) {
+      deduplicated.push(n);
+    }
+  }
+
+  return c.json({ notifications: deduplicated });
 });
 
 app.post('/api/notifications/send', async (c) => {

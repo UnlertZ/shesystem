@@ -762,21 +762,13 @@ class StorageService {
       this.setCurrentUser(updatedCurrent);
     }
 
-    // Send notification to Admins (P3/P4)
-    this.sendNotification({
-      recipient_user_id: null,
-      target_role: 'P3',
-      sender_name: 'ระบบเปลี่ยนชื่อ-นามสกุล',
-      title: 'มีคำขออนุมัติเปลี่ยนชื่อ-นามสกุล',
-      message: `ผู้ใช้ ${user.full_name || user.username} (${user.department}) ขอเปลี่ยนชื่อเป็น "${cleanName}" กรุณาตรวจสอบและอนุมัติในหน้าจัดการสมาชิก`,
-      type: 'SYSTEM'
-    });
-
-    // Cloudflare D1
+    // Cloudflare D1 (handles notification to P3/P4)
     fetch(`/api/users/${userId}/request-name-change`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ new_full_name: cleanName })
+    }).then(() => {
+      this.syncWithServer();
     }).catch(console.error);
 
     return true;
@@ -813,22 +805,13 @@ class StorageService {
       });
     }
 
-    // Send notification to user
-    this.sendNotification({
-      recipient_user_id: userId,
-      sender_name: adminName || 'แอดมิน',
-      title: approve ? 'คำขอเปลี่ยนชื่อได้รับการอนุมัติแล้ว' : 'คำขอเปลี่ยนชื่อไม่ได้รับการอนุมัติ',
-      message: approve
-        ? `แอดมินได้อนุมัติการเปลี่ยนชื่อของคุณเป็น "${targetPendingName}" เรียบร้อยแล้ว`
-        : `ขออภัย คำขอเปลี่ยนชื่อเป็น "${targetPendingName}" ไม่ได้รับการอนุมัติจากแอดมิน`,
-      type: 'SYSTEM'
-    });
-
-    // Cloudflare D1
+    // Cloudflare D1 (handles notification to user)
     fetch(`/api/users/${userId}/approve-name-change`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approve, admin_name: adminName })
+    }).then(() => {
+      this.syncWithServer();
     }).catch(console.error);
 
     return true;
@@ -1130,7 +1113,7 @@ class StorageService {
       photo_history: photoHistory
     });
 
-    // Send inspection to Cloudflare D1
+    // Send inspection to Cloudflare D1 (which also sends defect notification if abnormal)
     fetch('/api/inspections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1138,28 +1121,22 @@ class StorageService {
         ...data,
         equipment_code: equip.code
       })
+    }).then(() => {
+      this.syncWithServer();
     }).catch(console.error);
 
-    // If abnormal, send alert notification to P3 (Admin) and P4 (System Manager)
-    if (data.is_abnormal) {
-      this.sendNotification({
-        recipient_user_id: null,
-        target_role: 'P3',
-        sender_name: data.inspector_name,
-        title: 'แจ้งเตือนพบอุปกรณ์ชำรุด/ผิดปกติ',
-        message: `อุปกรณ์ ${equip.code} (${equip.location}) พบปัญหา: ${data.abnormal_description || 'ไม่ระบุสาเหตุ'}`,
-        type: 'DEFECT'
-      });
-    }
-
-    // If this inspection was tied to a delegated task, mark task completed & notify assigner
+    // If this inspection was tied to a delegated task, mark task completed only if not already completed
     if (data.task_id) {
-      this.updateTaskStatus(
-        data.task_id,
-        'COMPLETED',
-        { id: data.inspector_id, name: data.inspector_name },
-        'ตรวจเช็คอุปกรณ์ตามแบบฟอร์มเรียบร้อยแล้ว'
-      );
+      const allTasks = this.getTasks();
+      const existingTask = allTasks.find(t => t.id === data.task_id);
+      if (existingTask && existingTask.status !== 'COMPLETED') {
+        this.updateTaskStatus(
+          data.task_id,
+          'COMPLETED',
+          { id: data.inspector_id, name: data.inspector_name },
+          'ตรวจเช็คอุปกรณ์ตามแบบฟอร์มเรียบร้อยแล้ว'
+        );
+      }
     }
 
     return { success: true, record: inspRecord };
@@ -1210,23 +1187,14 @@ class StorageService {
     tasks.unshift(newTask);
     this.saveTasks(tasks);
 
-    // Send to Cloudflare D1
+    // Send to Cloudflare D1 (which inserts the single authoritative notification)
     fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
+    }).then(() => {
+      this.syncWithServer();
     }).catch(console.error);
-
-    // Requirement 1: Send notification to the assigned user
-    if (newTask.assigned_to_id) {
-      this.sendNotification({
-        recipient_user_id: newTask.assigned_to_id,
-        sender_name: newTask.assigned_by_name || 'ผู้มอบหมายงาน',
-        title: 'คุณได้รับมอบหมายงานใหม่',
-        message: `คุณได้รับมอบหมายงาน: "${newTask.title}" จาก ${newTask.assigned_by_name}${newTask.due_date ? ` (กำหนดเสร็จ: ${newTask.due_date})` : ''}`,
-        type: 'TASK'
-      });
-    }
 
     return newTask;
   }
@@ -1242,6 +1210,11 @@ class StorageService {
     if (index === -1) return false;
 
     const task = tasks[index];
+    // Guard against completing an already completed task
+    if (status === 'COMPLETED' && task.status === 'COMPLETED') {
+      return true;
+    }
+
     task.status = status;
     task.updated_at = new Date().toISOString();
 
@@ -1264,18 +1237,6 @@ class StorageService {
       task.completed_by_id = completerId || task.assigned_to_id;
       task.completed_by_name = completerName;
       task.completion_notes = notes || '';
-
-      // Send in-app notification to the person who assigned the task
-      if (task.assigned_by_id) {
-        const notesMsg = notes ? ` (บันทึก: ${notes})` : '';
-        this.sendNotification({
-          recipient_user_id: task.assigned_by_id,
-          sender_name: completerName,
-          title: 'งานที่มอบหมายดำเนินการเสร็จสิ้นแล้ว',
-          message: `งาน "${task.title}" ได้รับการทำสำเร็จเรียบร้อยแล้ว โดย ${completerName}${notesMsg}`,
-          type: 'TASK'
-        });
-      }
     } else {
       task.completed_at = undefined;
       task.completion_notes = undefined;
@@ -1283,6 +1244,7 @@ class StorageService {
 
     this.saveTasks(tasks);
 
+    // Send to Cloudflare D1 (which inserts the single authoritative completion notification)
     fetch(`/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1291,6 +1253,8 @@ class StorageService {
         completer_name: completerName,
         notes: notes || ''
       })
+    }).then(() => {
+      this.syncWithServer();
     }).catch(console.error);
 
     return true;
@@ -1325,7 +1289,7 @@ class StorageService {
 
     const dismissedIds = userId ? this.getDismissedNotificationIds(userId) : [];
 
-    return notifs.filter(n => {
+    const filtered = notifs.filter(n => {
       // Exclude dismissed notifications
       if (dismissedIds.includes(n.id)) return false;
 
@@ -1339,6 +1303,29 @@ class StorageService {
       }
       return false;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Deduplicate notifications (exact or near-duplicate within 60s)
+    const deduplicated: AppNotification[] = [];
+    for (const n of filtered) {
+      const isDuplicate = deduplicated.some(existing => {
+        if (existing.recipient_user_id === n.recipient_user_id && existing.title === n.title && existing.message === n.message) {
+          return true;
+        }
+        if (
+          existing.recipient_user_id === n.recipient_user_id &&
+          existing.title === n.title &&
+          Math.abs(new Date(existing.created_at).getTime() - new Date(n.created_at).getTime()) < 60000
+        ) {
+          return true;
+        }
+        return false;
+      });
+      if (!isDuplicate) {
+        deduplicated.push(n);
+      }
+    }
+
+    return deduplicated;
   }
 
   sendNotification(data: Omit<AppNotification, 'id' | 'created_at' | 'is_read'>): AppNotification {

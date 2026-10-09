@@ -135,6 +135,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     if (e) e.preventDefault();
     if (!completingTask) return;
 
+    if (completingTask.status === 'COMPLETED') {
+      setCompletingTask(null);
+      return;
+    }
+
     setIsSubmittingComplete(true);
     try {
       storageService.updateTaskStatus(
