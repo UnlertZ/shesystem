@@ -139,17 +139,15 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
     };
   }, []);
 
-  // Upload helper using R2 with base64 fallback
+  // Upload helper using R2 with base64 fallback (auto-compressed to reduce file size)
   const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
         const url = await uploadToR2(file);
         setter(url);
-      } catch (_) {
-        const reader = new FileReader();
-        reader.onloadend = () => setter(reader.result as string);
-        reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Upload patrol photo error:', err);
       }
     }
   };
@@ -1487,7 +1485,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                   <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl aspect-video max-h-48 flex flex-col items-center justify-center cursor-pointer transition bg-slate-50/50">
                     <Upload className="w-7 h-7 text-slate-400 mb-1" />
                     <span className="text-xs text-slate-600 font-semibold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปภาพ</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">รองรับไฟล์ JPG, PNG</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">รองรับ JPG, PNG (ระบบลดขนาดไฟล์อัตโนมัติเพื่อประหยัดพื้นที่)</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -1639,7 +1637,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                   <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl aspect-video max-h-48 flex flex-col items-center justify-center cursor-pointer transition bg-white">
                     <Upload className="w-7 h-7 text-slate-400 mb-1" />
                     <span className="text-xs text-slate-600 font-semibold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปภาพหลังแก้ไข</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพพื้นที่ที่ดำเนินการแก้ไขเรียบร้อยแล้ว</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพหลังแก้ไข (ระบบลดขนาดไฟล์อัตโนมัติเพื่อประหยัดพื้นที่)</span>
                     <input
                       type="file"
                       accept="image/*"

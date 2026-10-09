@@ -53,7 +53,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     });
   };
 
-  // Convert uploaded image to R2 url (or fallback to base64) for reliable storage and display
+  // Convert uploaded image to R2 url (or fallback to base64) with automatic client-side compression
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -61,11 +61,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
         const url = await uploadToR2(file);
         setter(url);
       } catch (err) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setter(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        console.error('Upload photo error:', err);
       }
     }
   };
@@ -365,7 +361,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                   <label className="border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-xl aspect-video flex flex-col items-center justify-center cursor-pointer transition bg-white p-4 text-center">
                     <Upload className="w-7 h-7 text-blue-500 mb-1" />
                     <span className="text-xs text-blue-700 font-bold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปตรวจ</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพตรวจเช็คคู่กับถัง (JPG, PNG)</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพตรวจเช็คคู่กับถัง (ระบบลดขนาดภาพให้อัตโนมัติเพื่อประหยัดพื้นที่)</span>
                     <input
                       type="file"
                       accept="image/*"

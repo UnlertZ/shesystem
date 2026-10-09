@@ -108,11 +108,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         const url = await uploadToR2(file);
         handleAvatarChange(url);
       } catch (err) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          handleAvatarChange(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        console.error('Upload avatar error:', err);
       }
     }
   };

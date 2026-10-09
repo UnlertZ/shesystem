@@ -20,6 +20,7 @@ import {
   calculateEquipmentAge,
   THAI_MONTHS
 } from '../utils/thaiDate';
+import { compressImage } from '../utils/imageCompressor';
 
 const STORAGE_KEYS = {
   USERS: 'she_users_prod_v1',
@@ -127,10 +128,19 @@ const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
 
 /**
  * Upload an image file directly to Cloudflare R2 bucket: r2shesystem
+ * Automatically compresses the image on the client side before upload
+ * to save storage space (reducing 5-15MB photos down to ~100-250KB) and accelerate upload speeds.
  */
 export async function uploadToR2(file: File): Promise<string> {
+  // Compress image before upload (max 1280x1280, JPEG quality 0.8)
+  const compressedFile = await compressImage(file, {
+    maxWidth: 1280,
+    maxHeight: 1280,
+    quality: 0.8
+  });
+
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', compressedFile);
   try {
     const res = await fetch('/api/upload', {
       method: 'POST',
@@ -143,11 +153,11 @@ export async function uploadToR2(file: File): Promise<string> {
   } catch (err) {
     console.error('Upload to Cloudflare R2 error:', err);
   }
-  // Fallback to base64 for seamless offline preview
+  // Fallback to base64 for seamless offline preview using the compressed file
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(compressedFile);
   });
 }
 

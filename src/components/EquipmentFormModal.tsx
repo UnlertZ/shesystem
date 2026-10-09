@@ -116,11 +116,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
         const url = await uploadToR2(file);
         setter(url);
       } catch (err) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setter(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        console.error('Upload equipment photo error:', err);
       }
     }
   };
