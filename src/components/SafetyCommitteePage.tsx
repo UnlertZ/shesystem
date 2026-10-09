@@ -51,6 +51,15 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
   // Filter & Search states
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const [patrolCategoryFilters, setPatrolCategoryFilters] = useState<Record<string, 'ALL' | 'RECOMMEND' | 'COMMEND'>>({});
+
+  const getPatrolFilter = (patrolId: string): 'ALL' | 'RECOMMEND' | 'COMMEND' => {
+    return patrolCategoryFilters[patrolId] || 'ALL';
+  };
+
+  const setPatrolFilter = (patrolId: string, filter: 'ALL' | 'RECOMMEND' | 'COMMEND') => {
+    setPatrolCategoryFilters(prev => ({ ...prev, [patrolId]: filter }));
+  };
 
   // Modals state
   const [isCreatePatrolModalOpen, setIsCreatePatrolModalOpen] = useState(false);
@@ -579,6 +588,12 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                 const recommendCount = patrolFindings.filter(f => f.category === 'RECOMMEND').length;
                 const commendCount = patrolFindings.filter(f => f.category === 'COMMEND').length;
                 const isOpen = patrol.status === 'OPEN';
+                const currentPatrolCategory = getPatrolFilter(patrol.id);
+                const displayedFindings = patrolFindings.filter(f => {
+                  if (currentPatrolCategory === 'RECOMMEND') return f.category === 'RECOMMEND';
+                  if (currentPatrolCategory === 'COMMEND') return f.category === 'COMMEND';
+                  return true;
+                });
 
                 return (
                   <div
@@ -693,18 +708,68 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                       </div>
                     </div>
 
-                    {/* Stats summary banner */}
-                    <div className="px-5 py-2.5 bg-slate-50/30 border-b border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                      <div className="flex items-center space-x-4">
-                        <span className="flex items-center space-x-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                          <span>ข้อเสนอแนะ/จุดเสี่ยง: <strong className="text-slate-800">{recommendCount}</strong></span>
+                    {/* Filter & Stats bar */}
+                    <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-slate-400 font-semibold mr-1 flex items-center space-x-1">
+                          <Filter className="w-3.5 h-3.5" />
+                          <span>ตัวกรอง:</span>
                         </span>
-                        <span className="flex items-center space-x-1">
-                          <ThumbsUp className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>เรื่องที่ชมเชย: <strong className="text-slate-800">{commendCount}</strong></span>
-                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setPatrolFilter(patrol.id, 'ALL')}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs ${
+                            currentPatrolCategory === 'ALL'
+                              ? 'bg-slate-800 text-white shadow-xs'
+                              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          <span>ทั้งหมด</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                            currentPatrolCategory === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {patrolFindings.length}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPatrolFilter(patrol.id, 'RECOMMEND')}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs ${
+                            currentPatrolCategory === 'RECOMMEND'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                          }`}
+                        >
+                          <AlertTriangle className={`w-3.5 h-3.5 ${currentPatrolCategory === 'RECOMMEND' ? 'text-white' : 'text-amber-600'}`} />
+                          <span>ข้อเสนอแนะ / จุดเสี่ยง</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                            currentPatrolCategory === 'RECOMMEND' ? 'bg-white/25 text-white' : 'bg-amber-200 text-amber-900'
+                          }`}>
+                            {recommendCount}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPatrolFilter(patrol.id, 'COMMEND')}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs ${
+                            currentPatrolCategory === 'COMMEND'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+                          }`}
+                        >
+                          <ThumbsUp className={`w-3.5 h-3.5 ${currentPatrolCategory === 'COMMEND' ? 'text-white' : 'text-emerald-600'}`} />
+                          <span>เรื่องที่ชมเชย</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                            currentPatrolCategory === 'COMMEND' ? 'bg-white/25 text-white' : 'bg-emerald-200 text-emerald-900'
+                          }`}>
+                            {commendCount}
+                          </span>
+                        </button>
                       </div>
+
                       <span className="text-[11px] text-slate-400">
                         สร้างโดย: {patrol.created_by_name}
                       </span>
@@ -712,13 +777,26 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
 
                     {/* Findings list inside this patrol round */}
                     <div className="p-5 sm:p-6">
-                      {patrolFindings.length === 0 ? (
-                        <div className="py-8 text-center text-slate-400 text-xs">
-                          ยังไม่มีการบันทึกรายการในรอบเดินตรวจนี้ {isOpen && '(สามารถกดปุ่ม "เข้าร่วม / บันทึกข้อมูล" เพื่อเริ่มแนบรูป)'}
+                      {displayedFindings.length === 0 ? (
+                        <div className="py-8 text-center text-slate-400 text-xs space-y-1.5">
+                          {patrolFindings.length === 0 ? (
+                            <div>ยังไม่มีการบันทึกรายการในรอบเดินตรวจนี้ {isOpen && '(สามารถกดปุ่ม "เข้าร่วม / บันทึกข้อมูล" เพื่อเริ่มแนบรูป)'}</div>
+                          ) : (
+                            <div>
+                              <span>ไม่พบรายการในหมวดที่เลือก ({currentPatrolCategory === 'RECOMMEND' ? 'ข้อเสนอแนะ/จุดเสี่ยง' : 'เรื่องที่ชมเชย'}) </span>
+                              <button
+                                type="button"
+                                onClick={() => setPatrolFilter(patrol.id, 'ALL')}
+                                className="text-emerald-600 font-bold underline hover:text-emerald-700 ml-1 cursor-pointer"
+                              >
+                                ดูทั้งหมด ({patrolFindings.length} รายการ)
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {patrolFindings.map(finding => (
+                          {displayedFindings.map(finding => (
                             <div
                               key={finding.id}
                               className={`rounded-2xl border p-4 flex flex-col justify-between space-y-3 transition ${
