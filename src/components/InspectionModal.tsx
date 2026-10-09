@@ -30,8 +30,10 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
   const [isResolved, setIsResolved] = useState(false);
   const [resolveNotes, setResolveNotes] = useState('');
 
-  // Photos: Inspection photo only (Location photo removed as per requirement 1)
-  const [inspectionPhoto, setInspectionPhoto] = useState<string>(equipment.inspection_sheet_photo || '');
+  // Previous tank photo before this inspection
+  const previousTankPhoto = equipment.inspection_sheet_photo || '';
+  // Photos: Inspection photo only (New inspection photo starts empty so inspector attaches fresh photo)
+  const [inspectionPhoto, setInspectionPhoto] = useState<string>('');
   const [defectPhoto, setDefectPhoto] = useState<string>(equipment.defect_photo || '');
 
   const [errorMessage, setErrorMessage] = useState('');
@@ -292,42 +294,87 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
             </div>
           </div>
 
-          {/* 2. Mandatory Photo Upload (Requirement 1: Inspection photo only, no location photo) */}
+          {/* 2. Mandatory Photo Upload - Inspection Photo Replaces Tank Photo */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                <Camera className="w-4 h-4 text-red-600" />
+                <Camera className="w-4 h-4 text-blue-600" />
                 <span>แนบรูปตรวจ (รูปภาพตรวจเช็คคู่กับอุปกรณ์) *</span>
               </h4>
-              <span className="text-[11px] text-slate-400">แนบเฉพาะรูปตรวจ ไม่ต้องแนบรูปสถานที่</span>
+              <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                รูปนี้จะแทนรูปถังทันที
+              </span>
             </div>
 
-            <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50/50">
-              {inspectionPhoto ? (
-                <div className="relative group rounded-xl overflow-hidden aspect-video max-h-60 bg-black/5 border border-slate-200 mx-auto">
-                  <img src={inspectionPhoto} alt="รูปตรวจคู่กับอุปกรณ์" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setInspectionPhoto('')}
-                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full text-xs shadow-md opacity-90 group-hover:opacity-100 transition"
-                    title="ลบรูป"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+            {/* Explanatory Notice */}
+            <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-800 flex items-start space-x-2">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <strong>ระบบจะอัปเดตรูปถังอัตโนมัติ:</strong> รูปที่แนบตรวจรอบนี้จะถูกนำไปแทนรูปถังปัจจุบันทันที และรูปถังเดิมจะถูกจัดเก็บเข้าคลังประวัติตามปี-เดือนอย่างปลอดภัย
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Previous Tank Photo (if available) */}
+              {previousTankPhoto && (
+                <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                    <span>รูปถังเดิมในระบบ</span>
+                    <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-medium">
+                      จะย้ายไปเก็บในประวัติ
+                    </span>
+                  </div>
+                  <div className="rounded-xl overflow-hidden aspect-video bg-black/5 border border-slate-200">
+                    <img src={previousTankPhoto} alt="รูปถังเดิม" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="text-[10px] text-slate-400 text-center">
+                    ถ่ายไว้รอบก่อนหน้านี้
+                  </div>
                 </div>
-              ) : (
-                <label className="border-2 border-dashed border-slate-300 hover:border-red-500 rounded-xl aspect-video max-h-56 flex flex-col items-center justify-center cursor-pointer transition bg-white">
-                  <Upload className="w-7 h-7 text-slate-400 mb-1" />
-                  <span className="text-xs text-slate-600 font-semibold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปตรวจ</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">ภาพใบตรวจเช็คคู่กับถัง/ตู้ดับเพลิง (JPG, PNG)</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
-                  />
-                </label>
               )}
+
+              {/* New Inspection Photo (Replaces Tank Photo) */}
+              <div className={`border rounded-2xl p-3 ${
+                inspectionPhoto ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50'
+              } ${!previousTankPhoto ? 'sm:col-span-2' : ''}`}>
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1.5">
+                  <span>แนบรูปตรวจเช็คใหม่ *</span>
+                  {inspectionPhoto && (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full font-bold">
+                      ✓ พร้อมแทนรูปถัง
+                    </span>
+                  )}
+                </div>
+
+                {inspectionPhoto ? (
+                  <div className="relative group rounded-xl overflow-hidden aspect-video bg-black/5 border border-emerald-200 mx-auto">
+                    <img src={inspectionPhoto} alt="รูปตรวจคู่กับอุปกรณ์" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setInspectionPhoto('')}
+                      className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full text-xs shadow-md opacity-90 group-hover:opacity-100 transition"
+                      title="ลบรูปเพื่อถ่ายใหม่"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded text-center font-medium">
+                      รูปตรวจเช็คใหม่ (จะบันทึกเป็นรูปถังล่าสุด)
+                    </div>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-xl aspect-video flex flex-col items-center justify-center cursor-pointer transition bg-white p-4 text-center">
+                    <Upload className="w-7 h-7 text-blue-500 mb-1" />
+                    <span className="text-xs text-blue-700 font-bold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปตรวจ</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพตรวจเช็คคู่กับถัง (JPG, PNG)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           </div>
 

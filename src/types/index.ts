@@ -36,6 +36,19 @@ export type ReadyStatus = 'READY' | 'NOT_READY';
 export type InspectionStatus = 'INSPECTED' | 'PENDING';
 export type DefectStatus = 'NORMAL' | 'DEFECT' | 'RESOLVED';
 
+export interface EquipmentPhotoArchiveItem {
+  id: string;
+  photo_url: string;
+  photo_type?: 'INSPECTION' | 'EQUIPMENT' | 'DEFECT';
+  year_be: number; // e.g. 2569
+  month_idx: number; // 0-11
+  month_name: string; // e.g. 'ตุลาคม'
+  date: string; // ISO string
+  inspector_name?: string;
+  note?: string;
+  is_abnormal?: boolean;
+}
+
 export interface Equipment {
   id: string;
   type: EquipmentType;
@@ -47,6 +60,7 @@ export interface Equipment {
   in_service_date?: string; // YYYY-MM-DD
   inspection_sheet_photo?: string;
   location_photo?: string;
+  photo_history?: EquipmentPhotoArchiveItem[]; // ประวัติรูปภาพถังจัดเก็บตามปี-เดือน
   ready_status: ReadyStatus;
   inspection_status: InspectionStatus; // ตรวจแล้ว / ยังไม่ตรวจ
   responsible_person: string;

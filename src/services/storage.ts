@@ -11,12 +11,14 @@ import {
   PositionItem,
   SafetyPatrolRound,
   SafetyFinding,
-  PatrolStatus
+  PatrolStatus,
+  EquipmentPhotoArchiveItem
 } from '../types';
 import {
   findLowestVacantNumber,
   formatEquipmentCode,
-  calculateEquipmentAge
+  calculateEquipmentAge,
+  THAI_MONTHS
 } from '../utils/thaiDate';
 
 const STORAGE_KEYS = {
@@ -941,6 +943,35 @@ class StorageService {
 
     // Update equipment state locally
     const defectStatus = data.is_abnormal ? 'DEFECT' : (data.defect_resolved ? 'RESOLVED' : 'NORMAL');
+    
+    // Archive old equipment photo by year & month when replaced by new inspection photo
+    const oldPhoto = equip.inspection_sheet_photo;
+    const newPhoto = data.inspection_photo || equip.inspection_sheet_photo;
+    let photoHistory = equip.photo_history ? [...equip.photo_history] : [];
+
+    if (oldPhoto && data.inspection_photo && oldPhoto !== data.inspection_photo) {
+      const oldDate = equip.latest_inspection_date || equip.updated_at || equip.created_at || now;
+      const d = new Date(oldDate);
+      const validD = isNaN(d.getTime()) ? new Date() : d;
+      const year_be = validD.getFullYear() + 543;
+      const month_idx = validD.getMonth();
+
+      // Check if not already archived
+      if (!photoHistory.some(p => p.photo_url === oldPhoto && p.year_be === year_be && p.month_idx === month_idx)) {
+        photoHistory.unshift({
+          id: `arch_${Date.now()}`,
+          photo_url: oldPhoto,
+          photo_type: 'EQUIPMENT',
+          year_be,
+          month_idx,
+          month_name: THAI_MONTHS[month_idx],
+          date: oldDate,
+          inspector_name: equip.latest_inspector || equip.responsible_person,
+          note: `รูปถังเดิมรอบเดือน ${THAI_MONTHS[month_idx]} ${year_be}`
+        });
+      }
+    }
+
     this.updateEquipment(equip.id, {
       ready_status: inspRecord.ready_status,
       inspection_status: 'INSPECTED',
@@ -948,8 +979,9 @@ class StorageService {
       latest_inspection_date: now,
       defect_status: defectStatus,
       defect_notes: data.abnormal_description || (defectStatus === 'RESOLVED' ? 'ปัญหาได้รับการแก้ไขเรียบร้อยแล้ว' : equip.defect_notes),
-      inspection_sheet_photo: data.inspection_photo || equip.inspection_sheet_photo,
-      location_photo: data.location_photo || equip.location_photo
+      inspection_sheet_photo: newPhoto,
+      location_photo: data.location_photo || equip.location_photo,
+      photo_history: photoHistory
     });
 
     // Send inspection to Cloudflare D1

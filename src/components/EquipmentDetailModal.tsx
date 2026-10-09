@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Equipment, InspectionRecord } from '../types';
 import { formatThaiDate } from '../utils/thaiDate';
+import { getEquipmentPhotoArchives } from '../utils/photoArchive';
 import {
   X,
   Flame,
@@ -17,7 +18,10 @@ import {
   Edit,
   Trash2,
   CheckSquare,
-  ZoomIn
+  ZoomIn,
+  Images,
+  FolderArchive,
+  ChevronRight
 } from 'lucide-react';
 
 interface EquipmentDetailModalProps {
@@ -44,6 +48,13 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
   onViewImage
 }) => {
   if (!equipment) return null;
+
+  const photoArchives = getEquipmentPhotoArchives(equipment, inspectionHistory);
+  const totalArchivedPhotos = photoArchives.reduce((acc, y) => acc + y.totalPhotos, 0);
+  const [selectedArchiveYear, setSelectedArchiveYear] = useState<number | null>(null);
+
+  const activeArchiveYear = selectedArchiveYear || photoArchives[0]?.yearBE || null;
+  const currentYearGroup = photoArchives.find(y => y.yearBE === activeArchiveYear) || photoArchives[0];
 
   const getTypeTitle = () => {
     switch (equipment.type) {
@@ -220,40 +231,52 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
             </div>
           )}
 
-          {/* Photos Section (Click to zoom lightbox) */}
-          <div className="space-y-2">
-            <h4 className="font-bold text-slate-800 flex items-center space-x-1.5">
-              <span>รูปภาพอุปกรณ์ (คลิกที่รูปเพื่อดูขนาดใหญ่)</span>
-            </h4>
+          {/* Photos Section: Current Photos & Photo Archive by Year/Month */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-slate-800 flex items-center space-x-1.5 text-sm">
+                <Images className="w-4 h-4 text-blue-600" />
+                <span>รูปภาพอุปกรณ์ปัจจุบัน (คลิกเพื่อดูขนาดใหญ่)</span>
+              </h4>
+              {totalArchivedPhotos > 1 && (
+                <span className="text-[11px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200">
+                  มีประวัติภาพ {totalArchivedPhotos} รูป
+                </span>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Current Tank Photo */}
               {equipment.inspection_sheet_photo ? (
                 <div
-                  onClick={() => onViewImage(equipment.inspection_sheet_photo!, `รูปภาพใบตรวจเช็ค - ${equipment.code}`)}
-                  className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900"
+                  onClick={() => onViewImage(equipment.inspection_sheet_photo!, `รูปถัง/อุปกรณ์ปัจจุบัน - ${equipment.code}`)}
+                  className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900 shadow-xs"
                 >
                   <img
                     src={equipment.inspection_sheet_photo}
-                    alt="ใบตรวจเช็คคู่กับถัง"
+                    alt="รูปถังปัจจุบัน"
                     className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white space-x-1 font-medium text-xs">
                     <ZoomIn className="w-4 h-4" />
                     <span>กดดูรูปขนาดใหญ่</span>
                   </div>
-                  <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-lg font-medium">
-                    รูปภาพใบตรวจเช็ค
+                  <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-lg font-medium flex items-center space-x-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span>รูปถัง/อุปกรณ์ปัจจุบัน (ล่าสุด)</span>
                   </span>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 aspect-video flex flex-col items-center justify-center text-slate-400 bg-slate-50 p-4 text-center">
-                  <span className="text-[11px]">ไม่มีรูปภาพใบตรวจเช็ค</span>
+                  <span className="text-[11px]">ไม่มีรูปถัง/อุปกรณ์</span>
                 </div>
               )}
 
+              {/* Location Photo */}
               {equipment.location_photo ? (
                 <div
                   onClick={() => onViewImage(equipment.location_photo!, `รูปสถานที่ติดตั้ง - ${equipment.code}`)}
-                  className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900"
+                  className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900 shadow-xs"
                 >
                   <img
                     src={equipment.location_photo}
@@ -271,6 +294,94 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 aspect-video flex flex-col items-center justify-center text-slate-400 bg-slate-50 p-4 text-center">
                   <span className="text-[11px]">ไม่มีรูปสถานที่ติดตั้ง</span>
+                </div>
+              )}
+            </div>
+
+            {/* Photo Archive Grouped by Year and Month (จัดเก็บตามปีเดือน) */}
+            <div className="mt-3 p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FolderArchive className="w-4 h-4 text-purple-600" />
+                  <span className="text-xs font-bold text-slate-800">
+                    คลังประวัติรูปภาพถัง/อุปกรณ์ (จัดเก็บตามปีและเดือน)
+                  </span>
+                </div>
+
+                {photoArchives.length > 1 && (
+                  <div className="flex items-center space-x-1">
+                    {photoArchives.map(yGroup => (
+                      <button
+                        key={yGroup.yearBE}
+                        onClick={() => setSelectedArchiveYear(yGroup.yearBE)}
+                        className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition ${
+                          activeArchiveYear === yGroup.yearBE
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        ปี พ.ศ. {yGroup.yearBE}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {photoArchives.length === 0 ? (
+                <div className="text-center py-4 text-slate-400 text-xs">
+                  ยังไม่มีประวัติรูปภาพก่อนหน้านี้
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {currentYearGroup?.months.map(mGroup => (
+                    <div
+                      key={`${currentYearGroup.yearBE}_${mGroup.monthIdx}`}
+                      className="bg-white rounded-xl p-3 border border-slate-200/70 space-y-2"
+                    >
+                      <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-1.5">
+                        <span className="font-extrabold text-slate-800 flex items-center space-x-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-purple-500" />
+                          <span>ประจำเดือน {mGroup.monthName} {currentYearGroup.yearBE}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {mGroup.photos.length} รูป
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {mGroup.photos.map(photo => (
+                          <div
+                            key={photo.id}
+                            onClick={() => onViewImage(photo.url, `[${equipment.code}] ${photo.label} (${mGroup.monthName} ${currentYearGroup.yearBE})`)}
+                            className="group relative rounded-xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900 shadow-2xs hover:border-purple-300 transition"
+                          >
+                            <img
+                              src={photo.url}
+                              alt={photo.label}
+                              className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white">
+                              <ZoomIn className="w-4 h-4" />
+                            </div>
+
+                            {/* Badges on thumbnail */}
+                            <div className="absolute bottom-1 left-1 right-1 flex flex-col space-y-0.5">
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold text-white truncate text-center ${
+                                photo.isCurrent ? 'bg-emerald-600/90' : 'bg-black/70'
+                              }`}>
+                                {photo.isCurrent ? '✓ รูปปัจจุบัน' : photo.label}
+                              </span>
+                              {photo.inspector && (
+                                <span className="text-[8px] text-slate-200 bg-black/60 px-1 py-0.2 rounded text-center truncate">
+                                  {photo.inspector}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

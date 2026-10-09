@@ -448,13 +448,18 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition text-white">
                             <ZoomIn className="w-4 h-4" />
                           </div>
-                          <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.2 rounded font-medium">
-                            ใบตรวจเช็ค
+                          <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.2 rounded font-medium flex items-center space-x-1">
+                            <span>รูปถัง</span>
+                            {equip.photo_history && equip.photo_history.length > 0 && (
+                              <span className="bg-purple-600 text-white text-[8px] px-1 rounded-full font-bold">
+                                +{equip.photo_history.length}
+                              </span>
+                            )}
                           </span>
                         </div>
                       ) : (
                         <div className="rounded-lg border border-dashed border-slate-200 aspect-video flex items-center justify-center text-[10px] text-slate-400 bg-slate-50">
-                          ไม่มีรูปใบตรวจ
+                          ไม่มีรูปถัง
                         </div>
                       )}
 

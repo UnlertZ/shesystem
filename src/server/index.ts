@@ -802,13 +802,16 @@ app.post('/api/inspections', async (c) => {
       latest_inspection_date = ?,
       defect_status = ?,
       defect_notes = ?,
+      inspection_sheet_photo = COALESCE(?, inspection_sheet_photo),
       defect_photo = COALESCE(?, defect_photo),
       updated_at = ?
     WHERE id = ?
   `).bind(
     readyStatus, data.inspector_name, now, defectStatus,
     data.abnormal_description || (defectStatus === 'RESOLVED' ? 'ปัญหาได้รับการแก้ไขเรียบร้อยแล้ว' : ''),
-    data.inspection_photo || null, now, data.equipment_id
+    data.inspection_photo || null,
+    (isAbnormal && data.inspection_photo) ? data.inspection_photo : null,
+    now, data.equipment_id
   ).run();
 
   // If abnormal, notify admin (P3, P4)
