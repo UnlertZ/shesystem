@@ -144,35 +144,129 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         })
       );
 
-      // 2. Render to canvas without tainting
+      // 2. Render to canvas with fixed standard A4 capture width (800px)
+      // This prevents the page from squishing on the left or having huge blank margins
+      const captureWidth = 800;
+      let detectedBlocks: { top: number; bottom: number }[] = [];
+
       const canvas = await html2canvas(element, {
-        scale: 1.5,
+        scale: 2,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
-        windowWidth: 1200,
-        scrollX: 0,
-        scrollY: 0
+        width: captureWidth,
+        windowWidth: captureWidth,
+        onclone: (clonedDoc) => {
+          const clonedReport = clonedDoc.getElementById('printable-patrol-report') as HTMLElement;
+          if (clonedReport) {
+            clonedReport.style.width = `${captureWidth}px`;
+            clonedReport.style.maxWidth = `${captureWidth}px`;
+            clonedReport.style.minWidth = `${captureWidth}px`;
+            clonedReport.style.boxSizing = 'border-box';
+            clonedReport.style.margin = '0 auto';
+            clonedReport.style.borderRadius = '0px';
+            clonedReport.style.boxShadow = 'none';
+            clonedReport.style.border = 'none';
+
+            // Measure blocks in clonedDoc under exact 800px layout
+            const reportRect = clonedReport.getBoundingClientRect();
+            const blocks = Array.from(
+              clonedReport.querySelectorAll(
+                '.break-inside-avoid, [data-break-avoid], table'
+              )
+            );
+            detectedBlocks = blocks
+              .map((b) => {
+                const r = b.getBoundingClientRect();
+                return {
+                  top: r.top - reportRect.top,
+                  bottom: r.bottom - reportRect.top
+                };
+              })
+              .filter((b) => b.bottom - b.top > 20);
+          }
+        }
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      // 3. Smart Slice Algorithm: Slices canvas ONLY between blocks (never cutting cards or photos)
+      const scaleFactor = canvas.width / captureWidth;
+      // Standard A4 aspect ratio height in canvas pixels:
+      const maxPageCanvasHeight = Math.floor(canvas.width * (297 / 210));
+
+      const pageBreakPoints: number[] = [0];
+      let currentY = 0;
+
+      while (currentY < canvas.height - 20) {
+        const targetY = currentY + maxPageCanvasHeight;
+        if (targetY >= canvas.height) {
+          pageBreakPoints.push(canvas.height);
+          break;
+        }
+
+        let bestCutY = targetY;
+        // Check if any block crosses targetY
+        const crossingBlock = detectedBlocks.find(
+          (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
+        );
+
+        if (crossingBlock) {
+          const blockTopCanvas = crossingBlock.top * scaleFactor;
+          // If the block starts reasonably down the page, cut just above it
+          if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.25)) {
+            bestCutY = blockTopCanvas - (8 * scaleFactor);
+          } else {
+            bestCutY = targetY;
+          }
+        }
+
+        // Safety guarantee: Ensure forward progress
+        if (bestCutY <= currentY + (maxPageCanvasHeight * 0.1)) {
+          bestCutY = targetY;
+        }
+
+        pageBreakPoints.push(bestCutY);
+        currentY = bestCutY;
+      }
+
+      // 4. Build jsPDF document with sliced pages
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfPageWidth = 210;
 
-      let position = 0;
-      let heightLeft = pdfHeight;
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      for (let i = 0; i < pageBreakPoints.length - 1; i++) {
+        const startY = pageBreakPoints[i];
+        const endY = pageBreakPoints[i + 1];
+        const sliceHeight = endY - startY;
+        if (sliceHeight <= 0) continue;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const pctx = pageCanvas.getContext('2d');
+        if (pctx) {
+          pctx.fillStyle = '#ffffff';
+          pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pctx.drawImage(
+            canvas,
+            0,
+            startY,
+            canvas.width,
+            sliceHeight,
+            0,
+            0,
+            canvas.width,
+            sliceHeight
+          );
+        }
 
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+        const renderedHeightMm = (sliceHeight * pdfPageWidth) / canvas.width;
+
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfPageWidth, renderedHeightMm);
       }
 
       const dateSuffix = currentPatrol?.patrol_date ? currentPatrol.patrol_date.replace(/[\/\\:]/g, '_') : 'All';
@@ -344,11 +438,12 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100">
           <div
             ref={reportRef}
+            id="printable-patrol-report"
             className="bg-white mx-auto max-w-4xl p-6 sm:p-10 rounded-2xl shadow-md border border-slate-200 text-slate-800 space-y-6 print:p-0 print:border-none print:shadow-none"
             style={{ minHeight: '297mm' }}
           >
             {/* Report Header */}
-            <div className="border-b-2 border-emerald-600 pb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="border-b-2 border-emerald-600 pb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4 break-inside-avoid">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <SheLogo size="sm" showSubtext={false} />
@@ -372,7 +467,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             </div>
 
             {/* Selected Patrol Round Information Box */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs break-inside-avoid">
               <div className="space-y-1.5">
                 <div className="flex items-center space-x-1.5">
                   <span className="font-bold text-slate-700">หัวข้อรอบตรวจ:</span>
@@ -419,7 +514,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             </div>
 
             {/* Statistics Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs break-inside-avoid">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
                 <div className="text-slate-400 font-medium text-[11px]">รายการตรวจพบทั้งหมด</div>
                 <div className="text-2xl font-extrabold text-slate-800 mt-1">{patrolFindings.length}</div>
@@ -665,7 +760,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             </div>
 
             {/* Footer */}
-            <div className="text-center pt-4 border-t border-slate-100 text-[10px] text-slate-400">
+            <div className="text-center pt-4 border-t border-slate-100 text-[10px] text-slate-400 break-inside-avoid">
               เอกสารนี้สร้างขึ้นโดยอัตโนมัติผ่านระบบ SHE SYSTEM สำหรับคณะกรรมการความปลอดภัย อาชีวอนามัย และสภาพแวดล้อมในการทำงาน (คปอ.)
             </div>
           </div>

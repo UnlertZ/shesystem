@@ -319,14 +319,49 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         })
       );
 
-      // 2. Render to canvas with html2canvas-pro (supports Tailwind v4 oklch colors)
+      // 2. Render to canvas with fixed standard A4 capture width (800px)
+      // This prevents the page from squishing on the left or having huge blank margins
+      const captureWidth = 800;
+      let detectedBlocks: { top: number; bottom: number }[] = [];
+
       const canvas = await html2canvas(element, {
-        scale: 1.5,
+        scale: 2,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
+        width: captureWidth,
+        windowWidth: captureWidth,
         onclone: (clonedDoc) => {
+          const clonedReport = clonedDoc.getElementById('printable-report') as HTMLElement;
+          if (clonedReport) {
+            clonedReport.style.width = `${captureWidth}px`;
+            clonedReport.style.maxWidth = `${captureWidth}px`;
+            clonedReport.style.minWidth = `${captureWidth}px`;
+            clonedReport.style.boxSizing = 'border-box';
+            clonedReport.style.margin = '0 auto';
+            clonedReport.style.borderRadius = '0px';
+            clonedReport.style.boxShadow = 'none';
+            clonedReport.style.border = 'none';
+
+            // Measure blocks in clonedDoc under exact 800px layout
+            const reportRect = clonedReport.getBoundingClientRect();
+            const blocks = Array.from(
+              clonedReport.querySelectorAll(
+                '.break-inside-avoid, [data-break-avoid], table'
+              )
+            );
+            detectedBlocks = blocks
+              .map((b) => {
+                const r = b.getBoundingClientRect();
+                return {
+                  top: r.top - reportRect.top,
+                  bottom: r.bottom - reportRect.top
+                };
+              })
+              .filter((b) => b.bottom - b.top > 20);
+          }
+
           // Replace all cloned canvas elements (e.g. Chart.js Doughnut/Bar) with static <img> data URLs
           const origCanvases = element.querySelectorAll('canvas');
           const clonedCanvases = clonedDoc.querySelectorAll('canvas');
@@ -350,23 +385,84 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         }
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      // 3. Smart Slice Algorithm: Slices canvas ONLY between blocks (never cutting cards or photos)
+      const scaleFactor = canvas.width / captureWidth;
+      // Standard A4 aspect ratio height in canvas pixels:
+      const maxPageCanvasHeight = Math.floor(canvas.width * (297 / 210));
+
+      const pageBreakPoints: number[] = [0];
+      let currentY = 0;
+
+      while (currentY < canvas.height - 20) {
+        const targetY = currentY + maxPageCanvasHeight;
+        if (targetY >= canvas.height) {
+          pageBreakPoints.push(canvas.height);
+          break;
+        }
+
+        let bestCutY = targetY;
+        // Check if any block crosses targetY
+        const crossingBlock = detectedBlocks.find(
+          (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
+        );
+
+        if (crossingBlock) {
+          const blockTopCanvas = crossingBlock.top * scaleFactor;
+          // If the block starts reasonably down the page, cut just above it
+          if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.25)) {
+            bestCutY = blockTopCanvas - (8 * scaleFactor);
+          } else {
+            bestCutY = targetY;
+          }
+        }
+
+        // Safety guarantee: Ensure forward progress
+        if (bestCutY <= currentY + (maxPageCanvasHeight * 0.1)) {
+          bestCutY = targetY;
+        }
+
+        pageBreakPoints.push(bestCutY);
+        currentY = bestCutY;
+      }
+
+      // 4. Build jsPDF document with sliced pages
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfPageWidth = 210;
 
-      let position = 0;
-      let heightLeft = pdfHeight;
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      for (let i = 0; i < pageBreakPoints.length - 1; i++) {
+        const startY = pageBreakPoints[i];
+        const endY = pageBreakPoints[i + 1];
+        const sliceHeight = endY - startY;
+        if (sliceHeight <= 0) continue;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const pctx = pageCanvas.getContext('2d');
+        if (pctx) {
+          pctx.fillStyle = '#ffffff';
+          pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          pctx.drawImage(
+            canvas,
+            0,
+            startY,
+            canvas.width,
+            sliceHeight,
+            0,
+            0,
+            canvas.width,
+            sliceHeight
+          );
+        }
 
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+        const renderedHeightMm = (sliceHeight * pdfPageWidth) / canvas.width;
+
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfPageWidth, renderedHeightMm);
       }
 
       pdf.save(`SHE_Report_${reportType}_${selectedPeriod.replace(/\s+/g, '_')}.pdf`);
@@ -441,7 +537,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             id="printable-report"
           >
             {/* 1. Executive Report Header */}
-            <div className="flex items-start justify-between border-b-2 border-red-600 pb-5">
+            <div className="flex items-start justify-between border-b-2 border-red-600 pb-5 break-inside-avoid">
               <div>
                 <SheLogo size="lg" />
                 <h2 className="text-xl font-black text-slate-900 mt-2">
@@ -460,7 +556,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </div>
 
             {/* 2. Executive Statistics KPI Bar */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-3 break-inside-avoid">
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-center">
                 <div className="text-[10px] text-slate-500 font-bold uppercase">อุปกรณ์ทั้งหมด</div>
                 <div className="text-2xl font-black text-slate-800 mt-0.5">{total}</div>
@@ -489,7 +585,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             {/* 3. Charts Section */}
             {/* รายเดือน: ลบกราฟแท่งออกตามคำสั่งผู้ใช้ และแสดงสัดส่วนโดนัทแบบชัดเจน */}
             {/* รายปี: แสดงกราฟแท่งเปรียบเทียบสถิติรายปี + กราฟโดนัท */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-2 break-inside-avoid">
               <h3 className="text-sm font-black text-slate-900 flex items-center space-x-1.5 border-b border-slate-200 pb-1.5">
                 <span className="w-2.5 h-2.5 bg-red-600 rounded-sm"></span>
                 <span>
@@ -604,7 +700,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
               </h3>
 
               {/* 4 Cards Grid - ตรงตามที่ผู้ใช้สั่งทั้ง 4 รายการ พร้อมหน่วย ถัง, ตู้, สาย, จุด */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 break-inside-avoid">
                 {typeSummaries.map((cat, idx) => (
                   <div
                     key={cat.type}
@@ -645,7 +741,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
               </div>
 
               {/* Summary Table - รายละเอียดตารางทางการสำหรับพิมพ์/PDF */}
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white break-inside-avoid">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-100 text-slate-700 font-bold text-[11px] border-b border-slate-200">
                     <tr>
@@ -856,7 +952,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                         return (
                           <div
                             key={`card-${item.id}`}
-                            className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3"
+                            className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3 break-inside-avoid"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
@@ -918,7 +1014,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </div>
 
             {/* 7. Signature Section */}
-            <div className="pt-8 border-t border-slate-200 grid grid-cols-2 gap-8 text-center text-xs text-slate-600">
+            <div className="pt-8 border-t border-slate-200 grid grid-cols-2 gap-8 text-center text-xs text-slate-600 break-inside-avoid">
               <div className="space-y-8">
                 <div>ลงชื่อ..........................................................</div>
                 <div>( เจ้าหน้าที่ความปลอดภัย / ผู้ตรวจสอบ )</div>
