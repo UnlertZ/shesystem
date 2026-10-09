@@ -68,6 +68,30 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
   const approvedCount = recommendFindings.filter(f => f.status === 'APPROVED').length;
   const pendingCount = recommendFindings.filter(f => f.status === 'PENDING_ACTION' || f.status === 'PENDING_REVIEW' || f.status === 'REJECTED').length;
 
+  // Fallback placeholder data URL if an image cannot be downloaded/converted
+  const createPlaceholderDataUrl = (title: string): string => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 225;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, 400, 225);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(8, 8, 384, 209);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title || 'รูปภาพประกอบ', 200, 115);
+      }
+      return canvas.toDataURL('image/jpeg', 0.85);
+    } catch (_) {
+      return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="225" fill="%23f8fafc"><rect width="100%" height="100%"/><text x="50%" y="50%" fill="%2364748b" font-size="14" text-anchor="middle">Photo</text></svg>';
+    }
+  };
+
   // Helper to convert images to Base64 to guarantee Same-Origin canvas rendering (prevents tainted canvas)
   const urlToBase64 = async (url: string): Promise<string> => {
     if (!url || url.startsWith('data:')) return url;
@@ -82,8 +106,8 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         reader.readAsDataURL(blob);
       });
     } catch (e) {
-      console.warn('Could not convert image to base64, keeping original:', url, e);
-      return url;
+      console.warn('Could not convert image to base64, using fallback:', url, e);
+      return '';
     }
   };
 
@@ -97,14 +121,14 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
     const originalAttrs: { img: HTMLImageElement; src: string; crossOrigin: string | null }[] = [];
 
     try {
-      // 1. Convert all report images to base64 data URLs in parallel
+      // 1. Convert all report images to base64 data URLs in parallel (guaranteed no cross-origin taint)
       await Promise.all(
         imgElements.map(async (img) => {
           originalAttrs.push({ img, src: img.src, crossOrigin: img.crossOrigin });
           img.crossOrigin = 'anonymous';
           if (img.src && !img.src.startsWith('data:')) {
             const b64 = await urlToBase64(img.src);
-            if (b64 && b64 !== img.src) {
+            if (b64 && b64.startsWith('data:')) {
               img.src = b64;
               if (!img.complete) {
                 await new Promise((r) => {
@@ -112,6 +136,9 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                   img.onerror = r;
                 });
               }
+            } else {
+              // Replace with local data URL placeholder so canvas is never tainted
+              img.src = createPlaceholderDataUrl(img.alt || 'รูปภาพประกอบ');
             }
           }
         })
@@ -119,11 +146,14 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
 
       // 2. Render to canvas without tainting
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        windowWidth: 1200,
+        scrollX: 0,
+        scrollY: 0
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -147,9 +177,10 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
 
       const dateSuffix = currentPatrol?.patrol_date ? currentPatrol.patrol_date.replace(/[\/\\:]/g, '_') : 'All';
       pdf.save(`SHE_Safety_Patrol_Report_${dateSuffix}.pdf`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('PDF export error:', err);
-      alert('ไม่สามารถประมวลผล PDF ได้ในขณะนี้ กำลังเปิดคำสั่งพิมพ์ผ่านเบราว์เซอร์แทน');
+      const msg = err?.message || String(err);
+      alert(`ไม่สามารถประมวลผล PDF ได้: ${msg}\nกำลังเปิดคำสั่งพิมพ์ผ่านเบราว์เซอร์เพื่อบันทึกเป็น PDF แทน`);
       window.print();
     } finally {
       // 3. Restore original image attributes
