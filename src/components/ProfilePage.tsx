@@ -76,6 +76,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const allEquipment = storageService.getEquipment();
 
   const isSupervisorOrAbove = currentUser.role === 'P2' || currentUser.role === 'P3' || currentUser.role === 'P4';
+  const isSafetyDept = 
+    currentUser.role === 'P3' || 
+    currentUser.role === 'P4' ||
+    (currentUser.department && (
+      currentUser.department.toLowerCase().includes('safety') ||
+      currentUser.department.toLowerCase().includes('she') ||
+      currentUser.department.includes('ความปลอดภัย')
+    ));
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
@@ -693,7 +701,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  มอบหมายให้แก่พนักงานในแผนก ({currentUser.department}) *
+                  {isSafetyDept 
+                    ? 'มอบหมายให้แก่พนักงาน (แผนก Safety สามารถเลือกได้ทุกแผนก) *'
+                    : `มอบหมายให้แก่พนักงานในแผนก (${currentUser.department}) *`
+                  }
                 </label>
                 <select
                   value={assigneeId}
@@ -701,20 +712,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                   required
                 >
-                  <option value="">-- เลือกพนักงานในแผนกผู้รับมอบหมาย --</option>
+                  <option value="">
+                    {isSafetyDept ? '-- เลือกพนักงานผู้รับมอบหมาย (ทุกแผนก) --' : '-- เลือกพนักงานในแผนกผู้รับมอบหมาย --'}
+                  </option>
                   {users
-                    .filter(u => u.id !== currentUser.id && u.department === currentUser.department && u.status === 'approved')
+                    .filter(u => u.id !== currentUser.id && (isSafetyDept || u.department === currentUser.department) && u.status === 'approved')
                     .map(u => {
                       const nameDisplay = u.full_name || u.username;
                       return (
                         <option key={u.id} value={u.id}>
-                          {nameDisplay} (ตำแหน่ง: {u.position || 'พนักงาน'})
+                          {nameDisplay} {isSafetyDept ? `(แผนก: ${u.department || 'ทั่วไป'} - ${u.position || 'พนักงาน'})` : `(ตำแหน่ง: ${u.position || 'พนักงาน'})`}
                         </option>
                       );
                     })}
                 </select>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  * ผู้มอบหมายสามารถมอบหมายงานได้เฉพาะพนักงานภายในแผนกของตนเองเท่านั้น
+                  {isSafetyDept
+                    ? '* เจ้าหน้าที่แผนกความปลอดภัย (Safety / SHE) สามารถมอบหมายงานให้พนักงานได้ทุกแผนก'
+                    : '* ผู้มอบหมายสามารถมอบหมายงานได้เฉพาะพนักงานภายในแผนกของตนเองเท่านั้น'
+                  }
                 </p>
               </div>
 
