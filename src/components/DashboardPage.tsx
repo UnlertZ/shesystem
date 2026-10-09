@@ -6,6 +6,7 @@ import { THAI_MONTHS, getNowThai } from '../utils/thaiDate';
 import { ReportPreviewModal } from './ReportPreviewModal';
 import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
 import { PhotoExportModal } from './PhotoExportModal';
+import { ExcelExportModal } from './ExcelExportModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -71,6 +72,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const [findings, setFindings] = useState<SafetyFinding[]>(() => storageService.getSafetyFindings());
   const [isSafetyExportModalOpen, setIsSafetyExportModalOpen] = useState(false);
   const [isPhotoExportModalOpen, setIsPhotoExportModalOpen] = useState(false);
+  const [isExcelExportModalOpen, setIsExcelExportModalOpen] = useState(false);
 
   const isCommittee = !!currentUser?.is_safety_committee;
 
@@ -232,8 +234,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   };
 
   const handleExportExcel = () => {
-    const period = `${THAI_MONTHS[selectedMonth]}_${selectedYear}`;
-    exportToExcel(filteredEquip, inspections, period);
+    setIsExcelExportModalOpen(true);
   };
 
   const handleExportPhotos = () => {
@@ -724,6 +725,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           initialYear={selectedYear}
           initialType={selectedEquipType}
           onClose={() => setIsPhotoExportModalOpen(false)}
+        />
+      )}
+
+      {/* Excel Export Modal (Admin Only) */}
+      {isExcelExportModalOpen && (
+        <ExcelExportModal
+          equipmentList={equipment}
+          inspections={inspections}
+          initialMonth={selectedMonth}
+          initialYear={selectedYear}
+          initialType={selectedEquipType}
+          onClose={() => setIsExcelExportModalOpen(false)}
         />
       )}
     </div>
