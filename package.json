@@ -28,6 +28,7 @@
   "dependencies": {
     "chart.js": "^4.5.1",
     "hono": "^4.13.13",
+    "html2canvas-pro": "^2.5.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.2",

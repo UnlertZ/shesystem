@@ -28,7 +28,7 @@ import {
   Calendar,
   Info
 } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 
 interface ReportPreviewModalProps {
@@ -244,6 +244,29 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     ]
   };
 
+  // Generate SVG fallback data URL to prevent tainted canvas on external image fetch errors
+  const createPlaceholderDataUrl = (text: string = 'รูปภาพ'): string => {
+    try {
+      const c = document.createElement('canvas');
+      c.width = 400;
+      c.height = 300;
+      const ctx = c.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(0, 0, 400, 300);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 200, 150);
+        return c.toDataURL('image/png');
+      }
+    } catch {
+      // fallback to inline svg
+    }
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="%23f1f5f9"/><text x="200" y="150" fill="%2394a3b8" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent(text)}</text></svg>`;
+  };
+
   // Helper to convert images to Base64 to guarantee Same-Origin canvas rendering (prevents tainted canvas)
   const urlToBase64 = async (url: string): Promise<string> => {
     if (!url || url.startsWith('data:')) return url;
@@ -258,8 +281,8 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         reader.readAsDataURL(blob);
       });
     } catch (e) {
-      console.warn('Could not convert image to base64, keeping original:', url, e);
-      return url;
+      console.warn('Could not convert image to base64, using placeholder:', url, e);
+      return createPlaceholderDataUrl('รูปภาพประกอบ');
     }
   };
 
@@ -278,27 +301,53 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
           originalAttrs.push({ img, src: img.src, crossOrigin: img.crossOrigin });
           img.crossOrigin = 'anonymous';
           if (img.src && !img.src.startsWith('data:')) {
-            const b64 = await urlToBase64(img.src);
-            if (b64 && b64 !== img.src) {
-              img.src = b64;
-              if (!img.complete) {
-                await new Promise((r) => {
-                  img.onload = r;
-                  img.onerror = r;
-                });
+            try {
+              const b64 = await urlToBase64(img.src);
+              if (b64 && b64 !== img.src) {
+                img.src = b64;
+                if (!img.complete) {
+                  await new Promise((r) => {
+                    img.onload = r;
+                    img.onerror = r;
+                  });
+                }
               }
+            } catch {
+              img.src = createPlaceholderDataUrl(img.alt || 'รูปภาพประกอบ');
             }
           }
         })
       );
 
-      // 2. Render to canvas without tainting
+      // 2. Render to canvas with html2canvas-pro (supports Tailwind v4 oklch colors)
       const canvas = await html2canvas(element, {
-        scale: 2, // 2x scale for sharp graphics and text
+        scale: 1.5,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        onclone: (clonedDoc) => {
+          // Replace all cloned canvas elements (e.g. Chart.js Doughnut/Bar) with static <img> data URLs
+          const origCanvases = element.querySelectorAll('canvas');
+          const clonedCanvases = clonedDoc.querySelectorAll('canvas');
+          origCanvases.forEach((origCanvas, i) => {
+            const clonedCanvas = clonedCanvases[i];
+            if (clonedCanvas && origCanvas) {
+              try {
+                const dataUrl = origCanvas.toDataURL('image/png');
+                const img = clonedDoc.createElement('img');
+                img.src = dataUrl;
+                img.style.width = origCanvas.style.width || `${origCanvas.width}px`;
+                img.style.height = origCanvas.style.height || `${origCanvas.height}px`;
+                img.style.display = 'block';
+                img.className = origCanvas.className;
+                clonedCanvas.parentNode?.replaceChild(img, clonedCanvas);
+              } catch (err) {
+                console.warn('Canvas clone replacement warning:', err);
+              }
+            }
+          });
+        }
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -321,9 +370,10 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
       }
 
       pdf.save(`SHE_Report_${reportType}_${selectedPeriod.replace(/\s+/g, '_')}.pdf`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('PDF generation error:', err);
-      alert('เกิดข้อผิดพลาดในการดาวน์โหลด PDF กำลังเปิดหน้าต่างพิมพ์ของเบราว์เซอร์แทน');
+      const msg = err?.message || String(err);
+      alert(`ไม่สามารถประมวลผล PDF ได้: ${msg}\nกำลังเปิดคำสั่งพิมพ์ผ่านเบราว์เซอร์เพื่อบันทึกเป็น PDF แทน`);
       window.print();
     } finally {
       // 3. Restore original image attributes
