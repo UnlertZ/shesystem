@@ -324,13 +324,20 @@ class StorageService {
         }
       }
 
-      // 7. Fetch notifications
-      const notifRes = await fetch('/api/notifications');
-      if (notifRes.ok) {
-        const data = await notifRes.json();
-        if (Array.isArray(data.notifications)) {
-          localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
+      // 7. Fetch notifications (Only for active registered users, excluding dismissed items)
+      const user = this.getCurrentUser();
+      if (user && user.role !== 'GUEST' && !user.id.startsWith('guest')) {
+        const notifRes = await fetch(`/api/notifications?userId=${encodeURIComponent(user.id)}&role=${encodeURIComponent(user.role)}`);
+        if (notifRes.ok) {
+          const data = await notifRes.json();
+          if (Array.isArray(data.notifications)) {
+            const dismissedIds = this.getDismissedNotificationIds(user.id);
+            const filteredNotifs = data.notifications.filter((n: AppNotification) => !dismissedIds.includes(n.id));
+            localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(filteredNotifs));
+          }
         }
+      } else {
+        localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
       }
 
       // 8. Fetch safety committee patrols
@@ -1160,6 +1167,25 @@ class StorageService {
   }
 
   // --- Notifications (D1) ---
+  getDismissedNotificationIds(userId: string): string[] {
+    if (!this.isBrowser || !userId) return [];
+    try {
+      const data = localStorage.getItem(`${STORAGE_KEYS.NOTIFICATIONS}_dismissed_${userId}`);
+      return data ? JSON.parse(data) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  addDismissedNotificationIds(userId: string, ids: string[]) {
+    if (!this.isBrowser || !userId || !ids.length) return;
+    try {
+      const current = this.getDismissedNotificationIds(userId);
+      const updated = Array.from(new Set([...current, ...ids]));
+      localStorage.setItem(`${STORAGE_KEYS.NOTIFICATIONS}_dismissed_${userId}`, JSON.stringify(updated));
+    } catch (_) {}
+  }
+
   getNotifications(userId?: string, role?: string): AppNotification[] {
     if (!this.isBrowser) return DEFAULT_NOTIFICATIONS;
     // Guest users should never receive or see notifications
@@ -1167,7 +1193,12 @@ class StorageService {
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
     const notifs: AppNotification[] = data ? JSON.parse(data) : DEFAULT_NOTIFICATIONS;
 
+    const dismissedIds = userId ? this.getDismissedNotificationIds(userId) : [];
+
     return notifs.filter(n => {
+      // Exclude dismissed notifications
+      if (dismissedIds.includes(n.id)) return false;
+
       // Direct recipient match
       if (userId && n.recipient_user_id === userId) return true;
       // Target role match or broadcast
@@ -1217,25 +1248,44 @@ class StorageService {
   }
 
   /**
-   * Clear all notifications for the user
+   * Clear all notifications for the user or dismiss a specific notification
    */
-  clearNotifications(userId?: string) {
+  clearNotifications(userId?: string, notificationId?: string) {
     if (!this.isBrowser) return;
-    if (!userId) {
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
-    } else {
+
+    if (userId) {
+      if (notificationId) {
+        this.addDismissedNotificationIds(userId, [notificationId]);
+      } else {
+        // Collect all currently visible notification IDs and mark as dismissed
+        const current = this.getNotifications(userId);
+        const ids = current.map(n => n.id);
+        if (ids.length > 0) {
+          this.addDismissedNotificationIds(userId, ids);
+        }
+      }
+
+      // Filter local storage notifications
+      const dismissedIds = this.getDismissedNotificationIds(userId);
       const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
       const notifs: AppNotification[] = data ? JSON.parse(data) : [];
-      // Keep notifications belonging to other specific users or broadcast
-      const remaining = notifs.filter(n => n.recipient_user_id && n.recipient_user_id !== userId);
+      const remaining = notifs.filter(n => !dismissedIds.includes(n.id));
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(remaining));
+    } else {
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
     }
 
+    // Call server API to persist in D1
     fetch('/api/notifications/clear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId })
+      body: JSON.stringify({ user_id: userId, notification_id: notificationId })
     }).catch(console.error);
+
+    // Notify listeners so UI updates instantly
+    try {
+      window.dispatchEvent(new Event('she_data_synced'));
+    } catch (_) {}
   }
 
   // --- Password Reset Requests ---

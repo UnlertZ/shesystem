@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { User, AppNotification } from '../types';
-import { Bell, User as UserIcon, LogOut, CheckCircle2, AlertTriangle, Flame, Users, LayoutDashboard, Calendar, ShieldCheck } from 'lucide-react';
+import { Bell, User as UserIcon, LogOut, CheckCircle2, AlertTriangle, Flame, Users, LayoutDashboard, Calendar, ShieldCheck, Trash2 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 import { SheLogo } from './SheLogo';
+import { storageService } from '../services/storage';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -176,13 +177,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <Bell className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                             )}
                             <div className="flex-1">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-1">
                                 <span className={`text-xs ${!n.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
                                   {n.title}
                                 </span>
-                                <span className="text-[10px] text-slate-400">
-                                  {formatThaiDate(n.created_at, true, true)}
-                                </span>
+                                <div className="flex items-center space-x-1 shrink-0">
+                                  <span className="text-[10px] text-slate-400">
+                                    {formatThaiDate(n.created_at, true, true)}
+                                  </span>
+                                  {currentUser && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        storageService.clearNotifications(currentUser.id, n.id);
+                                      }}
+                                      className="p-1 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                                      title="ลบรายการนี้"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.message}</p>
                             </div>

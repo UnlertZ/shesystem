@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Task, AppNotification, Equipment } from '../types';
 import { storageService, uploadToR2 } from '../services/storage';
 import {
@@ -152,8 +152,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
+  useEffect(() => {
+    const handleSync = () => {
+      setNotifications(storageService.getNotifications(currentUser.id, currentUser.role));
+      setTasks(storageService.getTasks(currentUser.id));
+    };
+    window.addEventListener('she_data_synced', handleSync);
+    return () => window.removeEventListener('she_data_synced', handleSync);
+  }, [currentUser]);
+
   const handleMarkNotification = (id: string) => {
     storageService.markNotificationAsRead(id);
+    setNotifications(storageService.getNotifications(currentUser.id, currentUser.role));
+  };
+
+  const handleDeleteNotification = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    storageService.clearNotifications(currentUser.id, id);
     setNotifications(storageService.getNotifications(currentUser.id, currentUser.role));
   };
 
@@ -534,13 +549,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
                     }`}
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <span className={`text-xs ${!notif.is_read ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
                         {notif.title}
                       </span>
-                      <span className="text-[10px] text-slate-400">
-                        {formatThaiDate(notif.created_at, true, true)}
-                      </span>
+                      <div className="flex items-center space-x-1.5 shrink-0">
+                        <span className="text-[10px] text-slate-400">
+                          {formatThaiDate(notif.created_at, true, true)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteNotification(e, notif.id)}
+                          className="p-1 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                          title="ลบการแจ้งเตือนนี้"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
                     <div className="text-[10px] text-slate-400 mt-1">

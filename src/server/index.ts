@@ -121,6 +121,14 @@ async function ensureDbInitialized(db: D1Database) {
         )
       `),
       db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_dismissed_notifications (
+          user_id TEXT NOT NULL,
+          notification_id TEXT NOT NULL,
+          dismissed_at TEXT NOT NULL,
+          PRIMARY KEY (user_id, notification_id)
+        )
+      `),
+      db.prepare(`
         CREATE TABLE IF NOT EXISTS password_resets (
           id TEXT PRIMARY KEY,
           username TEXT NOT NULL,
@@ -1006,17 +1014,25 @@ app.delete('/api/tasks/:id', async (c) => {
 // ==========================================
 app.get('/api/notifications', async (c) => {
   const db = c.env.DB;
-  const userId = c.req.query('userId');
-  const role = c.req.query('role');
+  const userId = c.req.query('userId') || '';
+  const role = c.req.query('role') || '';
+
+  // Guest users should never receive or see notifications
+  if (role === 'GUEST' || userId.startsWith('guest')) {
+    return c.json({ notifications: [] });
+  }
 
   const { results } = await db.prepare(`
-    SELECT * FROM notifications
-    WHERE (recipient_user_id = ? OR recipient_user_id IS NULL)
-      AND (target_role IS NULL OR target_role = 'ALL' OR target_role = ?)
-    ORDER BY created_at DESC LIMIT 50
-  `).bind(userId || '', role || '').all();
+    SELECT n.* FROM notifications n
+    WHERE (n.recipient_user_id = ? OR n.recipient_user_id IS NULL)
+      AND (n.target_role IS NULL OR n.target_role = 'ALL' OR n.target_role = ?)
+      AND n.id NOT IN (
+        SELECT notification_id FROM user_dismissed_notifications WHERE user_id = ?
+      )
+    ORDER BY n.created_at DESC LIMIT 50
+  `).bind(userId, role, userId).all();
 
-  return c.json({ notifications: results });
+  return c.json({ notifications: results || [] });
 });
 
 app.post('/api/notifications/send', async (c) => {
@@ -1044,6 +1060,58 @@ app.post('/api/notifications/mark-all-read', async (c) => {
   const { userId } = await c.req.json();
   const db = c.env.DB;
   await db.prepare('UPDATE notifications SET is_read = 1 WHERE recipient_user_id = ? OR recipient_user_id IS NULL').bind(userId || '').run();
+  return c.json({ success: true });
+});
+
+// Clear all notifications or dismiss a specific notification for a user
+app.post('/api/notifications/clear', async (c) => {
+  const { user_id, notification_id } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  if (!user_id) {
+    return c.json({ success: true });
+  }
+
+  if (notification_id) {
+    // Single notification dismissal
+    await db.prepare('DELETE FROM notifications WHERE id = ? AND recipient_user_id = ?').bind(notification_id, user_id).run();
+    await db.prepare(`
+      INSERT OR REPLACE INTO user_dismissed_notifications (user_id, notification_id, dismissed_at)
+      VALUES (?, ?, ?)
+    `).bind(user_id, notification_id, now).run();
+  } else {
+    // Clear ALL notifications for this user:
+    // 1. Delete user-specific direct notifications
+    await db.prepare('DELETE FROM notifications WHERE recipient_user_id = ?').bind(user_id).run();
+    // 2. Mark all broadcast notifications as dismissed for this user
+    await db.prepare(`
+      INSERT OR REPLACE INTO user_dismissed_notifications (user_id, notification_id, dismissed_at)
+      SELECT ?, id, ? FROM notifications
+      WHERE recipient_user_id IS NULL OR recipient_user_id = ?
+    `).bind(user_id, now, user_id).run();
+  }
+
+  return c.json({ success: true });
+});
+
+// Delete specific notification endpoint
+app.delete('/api/notifications/:id', async (c) => {
+  const id = c.req.param('id');
+  const userId = c.req.query('userId') || '';
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  if (userId) {
+    await db.prepare('DELETE FROM notifications WHERE id = ? AND recipient_user_id = ?').bind(id, userId).run();
+    await db.prepare(`
+      INSERT OR REPLACE INTO user_dismissed_notifications (user_id, notification_id, dismissed_at)
+      VALUES (?, ?, ?)
+    `).bind(userId, id, now).run();
+  } else {
+    await db.prepare('DELETE FROM notifications WHERE id = ?').bind(id).run();
+  }
+
   return c.json({ success: true });
 });
 

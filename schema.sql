@@ -115,6 +115,16 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(recipient_user_id);
 
+-- 5.1 User Dismissed Notifications (Per-user notification clear / dismissal tracking)
+CREATE TABLE IF NOT EXISTS user_dismissed_notifications (
+    user_id TEXT NOT NULL,
+    notification_id TEXT NOT NULL,
+    dismissed_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, notification_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_dismissed_notifs ON user_dismissed_notifications(user_id);
+
 -- 6. Password Reset Requests Table
 CREATE TABLE IF NOT EXISTS password_resets (
     id TEXT PRIMARY KEY,
