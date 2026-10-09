@@ -118,7 +118,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action Icons & User Badge */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-            {/* Notification Bell */}
+            {/* Notification Bell (Hidden for Guest users) */}
+            {currentUser && currentUser.role !== 'GUEST' && !currentUser.id.startsWith('guest') && (
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
@@ -204,6 +205,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               )}
             </div>
+            )}
 
             {/* User Profile Pill & Logout */}
             {currentUser ? (
@@ -266,12 +268,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={link.id}
                 onClick={() => setActiveTab(link.id)}
-                className={`flex flex-col items-center py-1 px-2 ${
-                  isActive ? 'text-[#A04830] font-bold' : 'text-[#8C7454]'
+                className={`flex flex-col items-center py-1 px-2 transition ${
+                  isActive ? 'text-[#A04830] font-bold' : 'text-[#3F3A31] hover:text-[#A04830]'
                 }`}
               >
-                <Icon className="w-4 h-4 mb-0.5" />
-                <span className="text-[10px] whitespace-nowrap">{link.label.split(' ')[0]}</span>
+                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? 'text-[#A04830]' : 'text-[#5C5951]'}`} />
+                <span className="text-[10px] whitespace-nowrap font-semibold">{link.label.split(' ')[0]}</span>
               </button>
             );
           })}

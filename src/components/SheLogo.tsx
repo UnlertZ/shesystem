@@ -45,30 +45,31 @@ export const SheLogo: React.FC<SheLogoProps> = ({ size = 'md', showSubtext = tru
 
       {showSubtext && (
         <div
-          className="flex flex-col border-l border-slate-200 pl-2.5 sm:pl-3 ml-2.5 sm:ml-3 shrink-0 whitespace-nowrap text-left"
+          className="flex flex-col border-l-2 border-[#CC902D]/70 pl-2.5 sm:pl-3 ml-2.5 sm:ml-3 shrink-0 whitespace-nowrap text-left justify-center"
           style={{
             display: 'flex',
             flexDirection: 'column',
-            borderLeft: '1px solid #cbd5e1',
+            justifyContent: 'center',
+            borderLeft: '2px solid rgba(204, 144, 45, 0.7)',
             paddingLeft: '10px',
             marginLeft: '10px',
-            lineHeight: 1.2,
+            lineHeight: 1.15,
             whiteSpace: 'nowrap',
             flexShrink: 0,
             textAlign: 'left'
           }}
         >
           <span
-            className={`font-black text-slate-800 tracking-tight whitespace-nowrap shrink-0 ${isSm ? 'text-xs' : isLg ? 'text-lg' : 'text-sm'}`}
-            style={{ color: '#0f172a' }}
+            className={`font-black tracking-tight whitespace-nowrap shrink-0 text-[#2D2924] ${
+              isSm ? 'text-xs' : isLg ? 'text-xl' : 'text-base sm:text-lg'
+            }`}
+            style={{
+              color: '#2D2924',
+              fontWeight: 900,
+              letterSpacing: '-0.02em'
+            }}
           >
-            SHE SYSTEM
-          </span>
-          <span
-            className="hidden xl:block text-[10px] text-slate-400 font-medium tracking-wide mt-0.5 whitespace-nowrap shrink-0"
-            style={{ color: '#94a3b8' }}
-          >
-            Safety &bull; Health &bull; Environment
+            SHE System
           </span>
         </div>
       )}

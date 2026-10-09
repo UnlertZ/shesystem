@@ -88,7 +88,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
             <div className="mb-4">
               <SheLogo size="lg" showSubtext={false} />
             </div>
-            <h1 className="text-2xl font-black text-[#3F3A31] tracking-tight">SHE SAFETY SYSTEM</h1>
+            <h1 className="text-2xl font-black text-[#3F3A31] tracking-tight">SHE System</h1>
             <p className="text-[#8C7454] text-xs mt-1 font-medium">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
           </div>
 

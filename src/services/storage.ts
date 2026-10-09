@@ -1162,6 +1162,8 @@ class StorageService {
   // --- Notifications (D1) ---
   getNotifications(userId?: string, role?: string): AppNotification[] {
     if (!this.isBrowser) return DEFAULT_NOTIFICATIONS;
+    // Guest users should never receive or see notifications
+    if (role === 'GUEST' || (userId && userId.startsWith('guest'))) return [];
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
     const notifs: AppNotification[] = data ? JSON.parse(data) : DEFAULT_NOTIFICATIONS;
 
