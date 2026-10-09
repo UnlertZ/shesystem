@@ -24,9 +24,12 @@ import {
   Send,
   Sparkles,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
+import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
 
 interface SafetyCommitteePageProps {
   currentUser?: User | null;
@@ -82,6 +85,10 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
 
   // Full Image Viewer Modal
   const [viewingImage, setViewingImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Export Safety Patrol Modal (Admin P3 / P4 only)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportInitialPatrolId, setExportInitialPatrolId] = useState<string | undefined>(undefined);
 
   const isAdmin = currentUser?.role === 'P3' || currentUser?.role === 'P4';
 
@@ -405,13 +412,27 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
           {/* Quick Header Actions */}
           <div className="flex flex-wrap items-center gap-3">
             {isAdmin && (
-              <button
-                onClick={handleOpenCreatePatrol}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-900/40 transition flex items-center space-x-2 shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ สร้างรายการเดินตรวจ คปอ.</span>
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setExportInitialPatrolId('ALL');
+                    setIsExportModalOpen(true);
+                  }}
+                  className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-2 shrink-0 border border-slate-700 hover:border-slate-600"
+                  title="Export รายงานการเดินตรวจ คปอ. (PDF, Excel, รูปภาพ)"
+                >
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <span>Export รายงาน คปอ.</span>
+                </button>
+
+                <button
+                  onClick={handleOpenCreatePatrol}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-900/40 transition flex items-center space-x-2 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ สร้างรายการเดินตรวจ คปอ.</span>
+                </button>
+              </>
             )}
 
             <button
@@ -604,6 +625,21 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                                 <span>เปิดรายการใหม่</span>
                               </>
                             )}
+                          </button>
+                        )}
+
+                        {/* Export specific patrol round (Admin only) */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setExportInitialPatrolId(patrol.id);
+                              setIsExportModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition flex items-center space-x-1 shadow-2xs"
+                            title="Export รายงานสำหรับรอบเดินตรวจนี้ (PDF, Excel, รูปภาพ)"
+                          >
+                            <Download className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Export</span>
                           </button>
                         )}
 
@@ -1612,6 +1648,17 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
             </div>
           </div>
         </div>
+      )}
+
+      {/* Safety Patrol Export Modal (Admin P3 / P4 only) */}
+      {isExportModalOpen && (
+        <SafetyPatrolExportModal
+          currentUser={currentUser}
+          patrols={patrols}
+          findings={findings}
+          initialPatrolId={exportInitialPatrolId}
+          onClose={() => setIsExportModalOpen(false)}
+        />
       )}
     </div>
   );

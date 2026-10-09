@@ -99,6 +99,10 @@ export interface Task {
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   task_type: 'INSPECTION' | 'ACTIVITY';
   due_date?: string;
+  completed_at?: string;
+  completed_by_id?: string;
+  completed_by_name?: string;
+  completion_notes?: string;
   created_at: string;
   updated_at: string;
 }

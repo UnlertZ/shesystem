@@ -138,6 +138,13 @@ async function ensureDbInitialized(db: D1Database) {
       await db.prepare('ALTER TABLE users ADD COLUMN is_safety_committee INTEGER DEFAULT 0').run();
     } catch (_) {}
 
+    try {
+      await db.prepare('ALTER TABLE tasks ADD COLUMN completed_at TEXT').run();
+    } catch (_) {}
+    try {
+      await db.prepare('ALTER TABLE tasks ADD COLUMN completion_notes TEXT').run();
+    } catch (_) {}
+
     await db.batch([
       db.prepare(`
         CREATE TABLE IF NOT EXISTS safety_patrols (
@@ -834,11 +841,40 @@ app.post('/api/tasks', async (c) => {
 
 app.patch('/api/tasks/:id/status', async (c) => {
   const id = c.req.param('id');
-  const { status } = await c.req.json();
+  const body = await c.req.json();
+  const { status, completer_name, notes } = body;
   const db = c.env.DB;
   const now = new Date().toISOString();
 
-  await db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, id).run();
+  const completedAt = status === 'COMPLETED' ? now : null;
+
+  try {
+    await db.prepare('UPDATE tasks SET status = ?, updated_at = ?, completed_at = ?, completion_notes = ? WHERE id = ?')
+      .bind(status, now, completedAt, notes || '', id)
+      .run();
+  } catch (_) {
+    await db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, id).run();
+  }
+
+  // If completed, fetch task and notify the assigner
+  if (status === 'COMPLETED') {
+    const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').bind(id).first() as any;
+    if (task && task.assigned_by_id) {
+      const notifId = 'notif_' + Date.now();
+      const doerName = completer_name || task.assigned_to_name || 'ผู้รับมอบหมาย';
+      const notesMsg = notes ? ` (บันทึก: ${notes})` : '';
+      await db.prepare(`
+        INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        notifId, task.assigned_by_id, null, doerName,
+        'งานที่มอบหมายดำเนินการเสร็จสิ้นแล้ว',
+        `งาน "${task.title}" ได้รับการทำสำเร็จเรียบร้อยแล้ว โดย ${doerName}${notesMsg}`,
+        'TASK', 0, now
+      ).run();
+    }
+  }
+
   return c.json({ success: true });
 });
 

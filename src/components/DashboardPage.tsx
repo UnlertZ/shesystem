@@ -4,6 +4,7 @@ import { storageService } from '../services/storage';
 import { exportToPDF, exportToExcel, exportEquipmentPhotos } from '../utils/reportExport';
 import { THAI_MONTHS, getNowThai } from '../utils/thaiDate';
 import { ReportPreviewModal } from './ReportPreviewModal';
+import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -67,6 +68,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const [inspections, setInspections] = useState<InspectionRecord[]>(() => storageService.getInspections());
   const [patrols, setPatrols] = useState<SafetyPatrolRound[]>(() => storageService.getSafetyPatrols());
   const [findings, setFindings] = useState<SafetyFinding[]>(() => storageService.getSafetyFindings());
+  const [isSafetyExportModalOpen, setIsSafetyExportModalOpen] = useState(false);
 
   const isCommittee = !!currentUser?.is_safety_committee;
 
@@ -299,7 +301,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 </p>
               </div>
 
-              <div className="flex items-center space-x-3 shrink-0">
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                {isAdminOrSuper && (
+                  <button
+                    onClick={() => setIsSafetyExportModalOpen(true)}
+                    className="px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-white rounded-xl text-xs font-bold border border-emerald-400/40 shadow-xs transition flex items-center space-x-1.5"
+                    title="Export รายงานการเดินตรวจ คปอ. (PDF, Excel, รูปภาพ)"
+                  >
+                    <Download className="w-4 h-4 text-emerald-300" />
+                    <span>Export รายงาน คปอ.</span>
+                  </button>
+                )}
                 <div className="text-right">
                   <div className="text-xs text-slate-300">อัตราการแก้ไขปัญหาสำเร็จ</div>
                   <div className="text-3xl font-extrabold text-emerald-400">{resolutionRate}%</div>
@@ -688,6 +700,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
             />
           )}
         </div>
+      )}
+
+      {/* Safety Patrol Export Modal (Admin Only) */}
+      {isSafetyExportModalOpen && (
+        <SafetyPatrolExportModal
+          currentUser={currentUser}
+          patrols={patrols}
+          findings={findings}
+          onClose={() => setIsSafetyExportModalOpen(false)}
+        />
       )}
     </div>
   );

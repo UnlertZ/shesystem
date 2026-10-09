@@ -906,9 +906,14 @@ class StorageService {
       });
     }
 
-    // If this inspection was tied to a delegated task, mark task completed
+    // If this inspection was tied to a delegated task, mark task completed & notify assigner
     if (data.task_id) {
-      this.updateTaskStatus(data.task_id, 'COMPLETED');
+      this.updateTaskStatus(
+        data.task_id,
+        'COMPLETED',
+        { id: data.inspector_id, name: data.inspector_name },
+        'ตรวจเช็คอุปกรณ์ตามแบบฟอร์มเรียบร้อยแล้ว'
+      );
     }
 
     return { success: true, record: inspRecord };
@@ -969,19 +974,66 @@ class StorageService {
     return newTask;
   }
 
-  updateTaskStatus(taskId: string, status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'): boolean {
+  updateTaskStatus(
+    taskId: string,
+    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED',
+    completerUser?: User | { id?: string; name?: string; full_name?: string; username?: string } | null,
+    notes?: string
+  ): boolean {
     const tasks = this.getTasks();
     const index = tasks.findIndex(t => t.id === taskId);
     if (index === -1) return false;
 
-    tasks[index].status = status;
-    tasks[index].updated_at = new Date().toISOString();
+    const task = tasks[index];
+    task.status = status;
+    task.updated_at = new Date().toISOString();
+
+    let completerName = '';
+    let completerId = '';
+    if (completerUser) {
+      completerId = ('id' in completerUser && completerUser.id) ? completerUser.id : '';
+      if ('full_name' in completerUser && completerUser.full_name) {
+        completerName = completerUser.full_name;
+      } else if ('username' in completerUser && completerUser.username) {
+        completerName = completerUser.username;
+      } else if ('name' in completerUser && (completerUser as any).name) {
+        completerName = (completerUser as any).name;
+      }
+    }
+    if (!completerName) completerName = task.assigned_to_name || 'ผู้รับมอบหมาย';
+
+    if (status === 'COMPLETED') {
+      task.completed_at = new Date().toISOString();
+      task.completed_by_id = completerId || task.assigned_to_id;
+      task.completed_by_name = completerName;
+      task.completion_notes = notes || '';
+
+      // Send in-app notification to the person who assigned the task
+      if (task.assigned_by_id) {
+        const notesMsg = notes ? ` (บันทึก: ${notes})` : '';
+        this.sendNotification({
+          recipient_user_id: task.assigned_by_id,
+          sender_name: completerName,
+          title: 'งานที่มอบหมายดำเนินการเสร็จสิ้นแล้ว',
+          message: `งาน "${task.title}" ได้รับการทำสำเร็จเรียบร้อยแล้ว โดย ${completerName}${notesMsg}`,
+          type: 'TASK'
+        });
+      }
+    } else {
+      task.completed_at = undefined;
+      task.completion_notes = undefined;
+    }
+
     this.saveTasks(tasks);
 
     fetch(`/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({
+        status,
+        completer_name: completerName,
+        notes: notes || ''
+      })
     }).catch(console.error);
 
     return true;

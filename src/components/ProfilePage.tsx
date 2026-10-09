@@ -60,6 +60,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [targetEquipId, setTargetEquipId] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
 
+  // Complete Task Modal state & notification
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [isSubmittingComplete, setIsSubmittingComplete] = useState(false);
+
   const users = storageService.getUsers();
   const allEquipment = storageService.getEquipment();
 
@@ -114,8 +119,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleTaskStatusToggle = (task: Task) => {
     const nextStatus = task.status === 'PENDING' ? 'IN_PROGRESS' : task.status === 'IN_PROGRESS' ? 'COMPLETED' : 'PENDING';
-    storageService.updateTaskStatus(task.id, nextStatus);
+    storageService.updateTaskStatus(task.id, nextStatus, currentUser);
     setTasks(storageService.getTasks(currentUser.id));
+  };
+
+  const handleOpenCompleteTask = (task: Task) => {
+    setCompletingTask(task);
+    setCompletionNotes('');
+  };
+
+  const handleConfirmCompleteTask = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!completingTask) return;
+
+    setIsSubmittingComplete(true);
+    try {
+      storageService.updateTaskStatus(
+        completingTask.id,
+        'COMPLETED',
+        currentUser,
+        completionNotes.trim()
+      );
+
+      setTasks(storageService.getTasks(currentUser.id));
+      setPasswordMsg({
+        type: 'success',
+        text: `บันทึกว่าทำสำเร็จแล้ว และส่งการแจ้งเตือนไปยังผู้มอบหมาย (${completingTask.assigned_by_name}) เรียบร้อยแล้ว`
+      });
+      setCompletingTask(null);
+      setCompletionNotes('');
+      window.dispatchEvent(new Event('she_data_synced'));
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกสถานะงาน');
+    } finally {
+      setIsSubmittingComplete(false);
+    }
   };
 
   const handleMarkNotification = (id: string) => {
@@ -280,11 +318,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   return (
                     <div
                       key={task.id}
-                      className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition space-y-3"
+                      className={`p-4 rounded-2xl border transition space-y-3 ${
+                        task.status === 'COMPLETED'
+                          ? 'border-emerald-200 bg-emerald-50/20'
+                          : 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50'
+                      }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="font-bold text-sm text-slate-900">{task.title}</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                               task.task_type === 'INSPECTION'
@@ -293,6 +335,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             }`}>
                               {task.task_type === 'INSPECTION' ? 'ตรวจเช็คอุปกรณ์' : 'กิจกรรม Safety'}
                             </span>
+                            {task.status === 'COMPLETED' ? (
+                              <span className="bg-emerald-100 text-emerald-800 text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>ทำสำเร็จแล้ว</span>
+                              </span>
+                            ) : task.status === 'IN_PROGRESS' ? (
+                              <span className="bg-blue-100 text-blue-800 text-[11px] px-2.5 py-0.5 rounded-full font-bold">
+                                กำลังดำเนินการ
+                              </span>
+                            ) : (
+                              <span className="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-0.5 rounded-full font-bold">
+                                รอดำเนินการ
+                              </span>
+                            )}
                           </div>
                           {task.description && (
                             <p className="text-xs text-slate-600 leading-relaxed">{task.description}</p>
@@ -306,21 +362,43 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           </div>
                         </div>
 
-                        {/* Status Badge */}
-                        <button
-                          onClick={() => handleTaskStatusToggle(task)}
-                          className={`text-xs px-3 py-1 rounded-xl font-bold transition shrink-0 ${
-                            task.status === 'COMPLETED'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : task.status === 'IN_PROGRESS'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                          title="กดเพื่อเปลี่ยนสถานะงาน"
-                        >
-                          {task.status === 'COMPLETED' ? 'เสร็จสิ้น' : task.status === 'IN_PROGRESS' ? 'กำลังทำ' : 'รอดำเนินการ'}
-                        </button>
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+                          {task.status !== 'COMPLETED' ? (
+                            <button
+                              onClick={() => handleOpenCompleteTask(task)}
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5 cursor-pointer"
+                              title="กดเมื่อทำงานเสร็จสิ้น เพื่อส่งการแจ้งเตือนไปยังผู้มอบหมาย"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>ทำสำเร็จแล้ว</span>
+                            </button>
+                          ) : (
+                            <div className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200 flex items-center space-x-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>เสร็จสิ้นเรียบร้อย</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Completed summary details if available */}
+                      {task.status === 'COMPLETED' && (
+                        <div className="pt-2 border-t border-emerald-100 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 bg-emerald-50/50 p-2.5 rounded-xl">
+                          <span className="flex items-center space-x-1 text-emerald-800 font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>
+                              ทำสำเร็จเมื่อ: {task.completed_at ? formatThaiDate(task.completed_at, true) : 'เรียบร้อย'}
+                              {task.completed_by_name && ` โดย ${task.completed_by_name}`}
+                            </span>
+                          </span>
+                          {task.completion_notes && (
+                            <span className="text-slate-700">
+                              บันทึก: <strong className="text-slate-900">{task.completion_notes}</strong>
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* If task has equipment and assigned to current user, provide direct inspect button */}
                       {targetEquipment && isAssignedToMe && task.status !== 'COMPLETED' && onInspectAssignedEquipment && (
@@ -330,7 +408,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           </span>
                           <button
                             onClick={() => onInspectAssignedEquipment(targetEquipment, task)}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1"
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1 cursor-pointer"
                           >
                             <CheckSquare className="w-3.5 h-3.5" />
                             <span>เริ่มตรวจเช็คจากงานนี้ทันที</span>
@@ -594,6 +672,80 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>บันทึกและส่งมอบหมาย</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Task Confirmation Modal */}
+      {completingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                  <CheckCircle2 className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base text-slate-800">ยืนยันทำภารกิจ/งานสำเร็จ</h3>
+                  <p className="text-xs text-slate-400">ระบบจะส่งการแจ้งเตือนไปยังผู้มอบหมายงาน</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCompletingTask(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCompleteTask} className="space-y-4 text-xs">
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1.5">
+                <div className="font-bold text-slate-800 text-sm">{completingTask.title}</div>
+                {completingTask.description && (
+                  <p className="text-slate-600 leading-relaxed">{completingTask.description}</p>
+                )}
+                <div className="pt-2 border-t border-slate-200/60 text-[11px] text-slate-500 space-y-0.5">
+                  <div>ผู้มอบหมายที่จะได้รับแจ้งเตือน: <strong className="text-slate-700">{completingTask.assigned_by_name}</strong></div>
+                  {completingTask.due_date && (
+                    <div>กำหนดส่ง: <strong className="text-red-600">{completingTask.due_date}</strong></div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">บันทึก/หมายเหตุผลการดำเนินงาน (ไม่บังคับ):</label>
+                <textarea
+                  value={completionNotes}
+                  onChange={(e) => setCompletionNotes(e.target.value)}
+                  placeholder="เช่น ตรวจเช็คอุปกรณ์และแก้ไขสิ่งผิดปกติเรียบร้อยแล้ว, ปฏิบัติงานตามขั้นตอนเสร็จสิ้น..."
+                  className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 flex items-start space-x-2">
+                <Bell className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>เมื่อกดยืนยัน ระบบจะเปลี่ยนสถานะเป็น "ทำสำเร็จแล้ว" และส่งข้อความแจ้งเตือนไปยัง <strong>{completingTask.assigned_by_name}</strong> ทันที</span>
+              </div>
+
+              <div className="flex space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCompletingTask(null)}
+                  className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingComplete}
+                  className="w-2/3 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl font-bold shadow-xs transition flex items-center justify-center space-x-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSubmittingComplete ? 'กำลังบันทึก...' : 'บันทึกทำสำเร็จแล้ว'}</span>
                 </button>
               </div>
             </form>
