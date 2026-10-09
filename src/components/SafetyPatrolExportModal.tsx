@@ -68,18 +68,62 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
   const approvedCount = recommendFindings.filter(f => f.status === 'APPROVED').length;
   const pendingCount = recommendFindings.filter(f => f.status === 'PENDING_ACTION' || f.status === 'PENDING_REVIEW' || f.status === 'REJECTED').length;
 
+  // Helper to convert images to Base64 to guarantee Same-Origin canvas rendering (prevents tainted canvas)
+  const urlToBase64 = async (url: string): Promise<string> => {
+    if (!url || url.startsWith('data:')) return url;
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Could not convert image to base64, keeping original:', url, e);
+      return url;
+    }
+  };
+
   // Handlers
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setIsExportingPDF(true);
 
+    const element = reportRef.current;
+    const imgElements = Array.from(element.querySelectorAll('img'));
+    const originalAttrs: { img: HTMLImageElement; src: string; crossOrigin: string | null }[] = [];
+
     try {
-      const element = reportRef.current;
+      // 1. Convert all report images to base64 data URLs in parallel
+      await Promise.all(
+        imgElements.map(async (img) => {
+          originalAttrs.push({ img, src: img.src, crossOrigin: img.crossOrigin });
+          img.crossOrigin = 'anonymous';
+          if (img.src && !img.src.startsWith('data:')) {
+            const b64 = await urlToBase64(img.src);
+            if (b64 && b64 !== img.src) {
+              img.src = b64;
+              if (!img.complete) {
+                await new Promise((r) => {
+                  img.onload = r;
+                  img.onerror = r;
+                });
+              }
+            }
+          }
+        })
+      );
+
+      // 2. Render to canvas without tainting
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -95,7 +139,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
       heightLeft -= pageHeight;
 
       while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
+        position -= pageHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
         heightLeft -= pageHeight;
@@ -108,6 +152,15 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
       alert('ไม่สามารถประมวลผล PDF ได้ในขณะนี้ กำลังเปิดคำสั่งพิมพ์ผ่านเบราว์เซอร์แทน');
       window.print();
     } finally {
+      // 3. Restore original image attributes
+      for (const item of originalAttrs) {
+        item.img.src = item.src;
+        if (item.crossOrigin) {
+          item.img.crossOrigin = item.crossOrigin;
+        } else {
+          item.img.removeAttribute('crossorigin');
+        }
+      }
       setIsExportingPDF(false);
     }
   };
@@ -430,6 +483,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                                 <img
                                   src={finding.photo_url}
                                   alt="Before"
+                                  crossOrigin="anonymous"
                                   className="w-full h-full object-cover"
                                 />
                               </div>
@@ -448,6 +502,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                                   <img
                                     src={finding.after_photo_url}
                                     alt="After"
+                                    crossOrigin="anonymous"
                                     className="w-full h-full object-cover"
                                   />
                                 </div>
@@ -527,6 +582,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                             <img
                               src={finding.photo_url}
                               alt="Commendation"
+                              crossOrigin="anonymous"
                               className="w-full h-full object-cover"
                             />
                           </div>

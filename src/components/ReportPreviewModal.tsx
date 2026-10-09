@@ -244,17 +244,61 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     ]
   };
 
+  // Helper to convert images to Base64 to guarantee Same-Origin canvas rendering (prevents tainted canvas)
+  const urlToBase64 = async (url: string): Promise<string> => {
+    if (!url || url.startsWith('data:')) return url;
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Could not convert image to base64, keeping original:', url, e);
+      return url;
+    }
+  };
+
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsExporting(true);
 
+    const element = reportRef.current;
+    const imgElements = Array.from(element.querySelectorAll('img'));
+    const originalAttrs: { img: HTMLImageElement; src: string; crossOrigin: string | null }[] = [];
+
     try {
-      const element = reportRef.current;
+      // 1. Convert all report images to base64 data URLs in parallel
+      await Promise.all(
+        imgElements.map(async (img) => {
+          originalAttrs.push({ img, src: img.src, crossOrigin: img.crossOrigin });
+          img.crossOrigin = 'anonymous';
+          if (img.src && !img.src.startsWith('data:')) {
+            const b64 = await urlToBase64(img.src);
+            if (b64 && b64 !== img.src) {
+              img.src = b64;
+              if (!img.complete) {
+                await new Promise((r) => {
+                  img.onload = r;
+                  img.onerror = r;
+                });
+              }
+            }
+          }
+        })
+      );
+
+      // 2. Render to canvas without tainting
       const canvas = await html2canvas(element, {
         scale: 2, // 2x scale for sharp graphics and text
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -282,6 +326,15 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
       alert('เกิดข้อผิดพลาดในการดาวน์โหลด PDF กำลังเปิดหน้าต่างพิมพ์ของเบราว์เซอร์แทน');
       window.print();
     } finally {
+      // 3. Restore original image attributes
+      for (const item of originalAttrs) {
+        item.img.src = item.src;
+        if (item.crossOrigin) {
+          item.img.crossOrigin = item.crossOrigin;
+        } else {
+          item.img.removeAttribute('crossorigin');
+        }
+      }
       setIsExporting(false);
     }
   };

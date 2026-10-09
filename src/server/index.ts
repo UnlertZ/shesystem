@@ -889,7 +889,20 @@ app.get('/api/images/*', async (c) => {
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
   headers.set('cache-control', 'public, max-age=31536000');
+  headers.set('access-control-allow-origin', '*');
+  headers.set('access-control-allow-methods', 'GET, HEAD, OPTIONS');
   return new Response(object.body, { headers });
+});
+
+app.options('/api/images/*', (c) => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, HEAD, OPTIONS',
+      'access-control-allow-headers': '*'
+    }
+  });
 });
 
 // ==========================================
