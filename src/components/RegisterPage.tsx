@@ -14,14 +14,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   
   const [departments] = useState<DepartmentItem[]>(() => storageService.getDepartments());
-  const [positions] = useState<PositionItem[]>(() => storageService.getPositions());
 
   const [selectedDepartment, setSelectedDepartment] = useState<string>(
     () => departments[0]?.name || 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)'
   );
-  const [selectedPosition, setSelectedPosition] = useState<string>(
-    () => positions[0]?.name || 'พนักงาน'
-  );
+  const [selectedPosition, setSelectedPosition] = useState<string>('พนักงาน');
 
   const [errorMsg, setErrorMsg] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -170,26 +167,22 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  ระดับ / ตำแหน่ง (Position)
+                  ตำแหน่งงาน (Job Title / Position)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <ShieldAlert className="w-4 h-4" />
                   </div>
-                  <select
+                  <input
+                    type="text"
                     value={selectedPosition}
                     onChange={(e) => setSelectedPosition(e.target.value)}
+                    placeholder="เช่น พนักงานฝ่ายผลิต, เจ้าหน้าที่คลังสินค้า"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                  >
-                    {positions.map((pos) => (
-                      <option key={pos.id} value={pos.name}>
-                        {pos.name} ({pos.default_role})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  * เมื่อสมัครสมาชิกแล้ว ต้องรอแอดมินหรือผู้จัดการระบบอนุมัติก่อนเริ่มใช้งาน
+                <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                  * สมาชิกใหม่ทุกคนจะได้รับสิทธิ์เริ่มต้นเป็น <strong>P1 (พนักงาน)</strong> โดยแอดมินสามารถปรับระดับสิทธิ์เพิ่มเติมได้ในภายหลัง
                 </p>
               </div>
 

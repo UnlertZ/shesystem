@@ -28,6 +28,7 @@ export interface User {
   avatar_url?: string;
   created_at: string;
   updated_at?: string;
+  pending_full_name?: string; // คำขอเปลี่ยนชื่อ-นามสกุลที่รอแอดมินอนุมัติ
 }
 
 export type EquipmentType = 'EX' | 'FHC' | 'FH' | 'HD';

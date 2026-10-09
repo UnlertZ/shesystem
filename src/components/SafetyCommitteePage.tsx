@@ -181,7 +181,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
       description: patrolFormDesc.trim() || undefined,
       status: 'OPEN',
       created_by_id: currentUser?.id || 'admin',
-      created_by_name: currentUser?.full_name ? `${currentUser.full_name} (${currentUser.username})` : (currentUser?.username || 'แอดมิน คปอ.')
+      created_by_name: currentUser?.full_name || currentUser?.username || 'แอดมิน คปอ.'
     });
 
     setIsCreatePatrolModalOpen(false);
@@ -272,7 +272,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
     setIsSubmittingFinding(true);
 
     try {
-      const reporterDisplayName = currentUser?.full_name ? `${currentUser.full_name} (${currentUser.username})` : (currentUser?.username || 'สมาชิก คปอ.');
+      const reporterDisplayName = currentUser?.full_name || currentUser?.username || 'สมาชิก คปอ.';
 
       storageService.createSafetyFinding({
         patrol_id: selectedPatrolForFinding.id,
@@ -1228,7 +1228,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                           คปอ.
                         </span>
                       </div>
-                      <div className="text-xs text-slate-500">@{user.username}</div>
+                      <div className="text-xs text-slate-500 font-medium">{user.position}</div>
                       <div className="text-[11px] text-slate-400">{user.department}</div>
                     </div>
                   </div>

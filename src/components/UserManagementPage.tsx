@@ -35,7 +35,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   const [departments, setDepartments] = useState<DepartmentItem[]>(() => storageService.getDepartments());
   const [positions, setPositions] = useState<PositionItem[]>(() => storageService.getPositions());
 
-  const [activeTab, setActiveTab] = useState<'MEMBERS' | 'PENDING_APPROVALS' | 'DEPT_POSITION_CONFIG'>('MEMBERS');
+  const [activeTab, setActiveTab] = useState<'MEMBERS' | 'PENDING_APPROVALS' | 'NAME_CHANGE_REQUESTS' | 'DEPT_POSITION_CONFIG'>('MEMBERS');
 
   // Modals state for Users
   const [sendNotifUser, setSendNotifUser] = useState<User | null>(null);
@@ -79,6 +79,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   };
 
   const pendingUsers = users.filter(u => u.status === 'pending');
+  const pendingNameChangeUsers = users.filter(u => u.pending_full_name);
   const approvedUsers = users.filter(u => u.status === 'approved');
 
   // 1. Approve / Reject Registration
@@ -88,7 +89,19 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
     setAlertBanner({
       type: 'success',
-      message: `${approve ? 'อนุมัติ' : 'ปฏิเสธ'}การสมัครของ ${user.username} เรียบร้อยแล้ว`
+      message: `${approve ? 'อนุมัติ' : 'ปฏิเสธ'}การสมัครของ ${user.full_name || user.username} เรียบร้อยแล้ว`
+    });
+  };
+
+  // Requirement 6: Approve / Reject Name Change
+  const handleApproveNameChange = (user: User, approve: boolean) => {
+    const adminName = currentUser?.full_name || currentUser?.username || 'แอดมิน';
+    storageService.approveNameChange(user.id, approve, adminName);
+    refreshList();
+
+    setAlertBanner({
+      type: 'success',
+      message: `${approve ? 'อนุมัติการเปลี่ยนชื่อเป็น "' + user.pending_full_name + '"' : 'ปฏิเสธการขอเปลี่ยนชื่อ'} ของ ${user.full_name || user.username} เรียบร้อยแล้ว`
     });
   };
 
@@ -109,7 +122,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       type: 'SYSTEM'
     });
 
-    setAlertBanner({ type: 'success', message: `เลื่อนระดับ ${user.username} เป็น P2 เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `เลื่อนระดับ ${user.full_name || user.username} เป็น P2 เรียบร้อยแล้ว` });
   };
 
   // 3. Reset Password to "0000" as requested
@@ -118,7 +131,8 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       alert('แอดมิน (P3) ไม่มีสิทธิ์รีเซ็ทรหัสผ่านของผู้จัดการระบบ (P4)');
       return;
     }
-    if (!confirm(`คุณต้องการรีเซ็ทรหัสผ่านของ ${user.username} เป็น "0000" ใช่หรือไม่?`)) return;
+    const displayName = user.full_name || user.username;
+    if (!confirm(`คุณต้องการรีเซ็ทรหัสผ่านของ ${displayName} เป็น "0000" ใช่หรือไม่?`)) return;
 
     storageService.resetPasswordToZero(user.id);
     refreshList();
@@ -126,13 +140,13 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     // Send notification
     storageService.sendNotification({
       recipient_user_id: user.id,
-      sender_name: currentUser?.username || 'แอดมิน',
+      sender_name: currentUser?.full_name || currentUser?.username || 'แอดมิน',
       title: 'รหัสผ่านของคุณถูกรีเซ็ทเรียบร้อยแล้ว',
       message: 'แอดมินได้ทำการรีเซ็ทรหัสผ่านของคุณเป็น "0000" กรุณาเข้าสู่ระบบและเปลี่ยนรหัสผ่านใหม่',
       type: 'PASSWORD_RESET'
     });
 
-    setAlertBanner({ type: 'success', message: `รีเซ็ทรหัสผ่านของ ${user.username} เป็น "0000" เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `รีเซ็ทรหัสผ่านของ ${displayName} เป็น "0000" เรียบร้อยแล้ว` });
   };
 
   // 4. Edit Department, Position, Role, Full Name and Committee status
@@ -163,13 +177,13 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
     setEditingUser(null);
     refreshList();
-    setAlertBanner({ type: 'success', message: `แก้ไขข้อมูลของ ${editingUser.username} เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `แก้ไขข้อมูลของ ${editingUser.full_name || editingUser.username} เรียบร้อยแล้ว` });
   };
 
   // Requirement 3: Appoint / Remove Safety Committee (คปอ.) member
   const handleToggleSafetyCommittee = (user: User) => {
     const nextState = !user.is_safety_committee;
-    const displayName = user.full_name ? `${user.full_name} (@${user.username})` : `@${user.username}`;
+    const displayName = user.full_name || user.username;
     const confirmMsg = nextState
       ? `ยืนยันการแต่งตั้ง "${displayName}" เป็นคณะกรรมการ คปอ.?\n\nเมื่อแต่งตั้งแล้ว สมาชิกจะได้รับแท็กพิเศษ "คปอ." และสามารถเข้าใช้งานฟังก์ชัน คปอ. รวมถึงดูแดชบอร์ด คปอ. ได้`
       : `ยืนยันการถอดถอน "${displayName}" ออกจากตำแหน่ง คปอ.?\n\nสมาชิกจะไม่สามารถเข้าถึงฟังก์ชัน คปอ. ได้อีก`;
@@ -180,7 +194,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     refreshList();
     setAlertBanner({
       type: 'success',
-      message: `${nextState ? 'แต่งตั้ง' : 'ถอดถอน'} ${user.username} ${nextState ? 'เป็น' : 'ออกจาก'}คณะกรรมการ คปอ. เรียบร้อยแล้ว`
+      message: `${nextState ? 'แต่งตั้ง' : 'ถอดถอน'} ${displayName} ${nextState ? 'เป็น' : 'ออกจาก'}คณะกรรมการ คปอ. เรียบร้อยแล้ว`
     });
   };
 
@@ -192,7 +206,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     storageService.sendNotification({
       recipient_user_id: sendNotifUser.id,
       target_role: undefined,
-      sender_name: currentUser?.username || 'แอดมิน',
+      sender_name: currentUser?.full_name || currentUser?.username || 'แอดมิน',
       title: notifTitle.trim(),
       message: notifMessage.trim(),
       type: 'ALERT'
@@ -201,7 +215,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setSendNotifUser(null);
     setNotifTitle('');
     setNotifMessage('');
-    setAlertBanner({ type: 'success', message: `ส่งข้อความแจ้งเตือนไปยัง ${sendNotifUser.username} เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `ส่งข้อความแจ้งเตือนไปยัง ${sendNotifUser.full_name || sendNotifUser.username} เรียบร้อยแล้ว` });
   };
 
   // 6. Delete Employee
@@ -214,11 +228,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       alert('ไม่สามารถลบบัญชีของตัวเองได้');
       return;
     }
-    if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ ${user.username} ออกจากระบบ?`)) return;
+    const displayName = user.full_name || user.username;
+    if (!confirm(`คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ ${displayName} ออกจากระบบ?`)) return;
 
     storageService.deleteUser(user.id);
     refreshList();
-    setAlertBanner({ type: 'success', message: `ลบผู้ใช้ ${user.username} เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `ลบผู้ใช้ ${displayName} เรียบร้อยแล้ว` });
   };
 
   // 7. Add Employee directly
@@ -268,7 +283,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setNewUsername('');
     setNewFullName('');
     refreshList();
-    setAlertBanner({ type: 'success', message: `เพิ่มพนักงาน ${newUser.username} เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `เพิ่มพนักงาน ${newUser.full_name || newUser.username} เรียบร้อยแล้ว` });
   };
 
   // --- Department CRUD Handlers ---
@@ -447,6 +462,23 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
         </button>
 
         <button
+          onClick={() => setActiveTab('NAME_CHANGE_REQUESTS')}
+          className={`px-4 py-3 text-xs font-bold rounded-t-xl transition flex items-center space-x-2 ${
+            activeTab === 'NAME_CHANGE_REQUESTS'
+              ? 'border-b-2 border-[#A04830] text-[#A04830] bg-[#F7EEDC]'
+              : 'text-[#5C5951] hover:text-[#3F3A31] hover:bg-[#FCF9F4]'
+          }`}
+        >
+          <Edit className="w-4 h-4" />
+          <span>รออนุมัติเปลี่ยนชื่อ</span>
+          {pendingNameChangeUsers.length > 0 && (
+            <span className="bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+              {pendingNameChangeUsers.length}
+            </span>
+          )}
+        </button>
+
+        <button
           onClick={() => setActiveTab('DEPT_POSITION_CONFIG')}
           className={`px-4 py-3 text-xs font-bold rounded-t-xl transition flex items-center space-x-2 ${
             activeTab === 'DEPT_POSITION_CONFIG'
@@ -485,7 +517,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                     />
                     <div>
                       <div className="font-bold text-sm text-slate-800">
-                        {user.full_name ? `${user.full_name} (${user.username})` : user.username}
+                        {user.full_name || user.username}
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         แผนก: <span className="font-semibold text-slate-700">{user.department}</span> | ระดับ/ตำแหน่ง: <span className="font-semibold text-slate-700">{user.position}</span> | ลงทะเบียนเมื่อ: {formatThaiDate(user.created_at, true)}
@@ -516,6 +548,72 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
         </div>
       )}
 
+      {/* Tab: Name Change Requests */}
+      {activeTab === 'NAME_CHANGE_REQUESTS' && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-amber-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center space-x-2">
+              <span className="p-1.5 bg-amber-100 text-amber-800 rounded-lg">
+                <Edit className="w-4 h-4" />
+              </span>
+              <span className="font-bold text-xs text-slate-800">คำขอเปลี่ยนชื่อ-นามสกุล ที่รอการอนุมัติ ({pendingNameChangeUsers.length})</span>
+            </div>
+            <span className="text-[11px] text-amber-800 font-medium">สมาชิกสามารถส่งคำขอเปลี่ยนชื่อได้จากหน้าข้อมูลส่วนตัว (Profile)</span>
+          </div>
+
+          {pendingNameChangeUsers.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs">
+              ไม่มีคำขอเปลี่ยนชื่อ-นามสกุลที่รอการอนุมัติในขณะนี้
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {pendingNameChangeUsers.map(user => (
+                <div key={user.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition">
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={user.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}
+                      alt={user.full_name || user.username}
+                      className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                    />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-500 line-through">
+                          {user.full_name || user.username}
+                        </span>
+                        <span className="text-xs text-slate-400 font-bold">➜</span>
+                        <span className="text-sm font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-300">
+                          {user.pending_full_name}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        แผนก: <span className="font-semibold text-slate-700">{user.department}</span> | ระดับ/ตำแหน่ง: <span className="font-semibold text-slate-700">{user.position}</span> | ระดับสิทธิ์: <span className="font-semibold text-slate-700">{user.role}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 self-end sm:self-center">
+                    <button
+                      onClick={() => handleApproveNameChange(user, true)}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>อนุมัติเปลี่ยนชื่อ</span>
+                    </button>
+                    <button
+                      onClick={() => handleApproveNameChange(user, false)}
+                      className="px-3.5 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-xl text-xs font-semibold transition flex items-center space-x-1"
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                      <span>ปฏิเสธ</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tab 2: Approved Members List */}
       {activeTab === 'MEMBERS' && (
         <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -523,7 +621,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase text-[11px]">
                 <tr>
-                  <th className="py-3.5 px-4">ชื่อสมาชิก / ชื่อผู้ใช้</th>
+                  <th className="py-3.5 px-4">ชื่อสมาชิก</th>
                   <th className="py-3.5 px-4">แผนก (Department)</th>
                   <th className="py-3.5 px-4">ระดับ / ตำแหน่ง (Position)</th>
                   <th className="py-3.5 px-4">ระดับสิทธิ์ (Role)</th>
@@ -537,7 +635,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                     <td className="py-3.5 px-4 text-slate-800 flex items-center space-x-2.5">
                       <img
                         src={user.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}
-                        alt={user.username}
+                        alt={user.full_name || user.username}
                         className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
                       />
                       <div>
@@ -553,8 +651,25 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                             </span>
                           )}
                         </div>
-                        {user.full_name && (
-                          <div className="text-[10px] text-slate-400 font-normal">@{user.username}</div>
+                        {user.pending_full_name && (
+                          <div className="mt-1 flex items-center space-x-1.5">
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                              ขอเปลี่ยนชื่อเป็น: <strong>{user.pending_full_name}</strong>
+                            </span>
+                            <button
+                              onClick={() => handleApproveNameChange(user, true)}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline"
+                            >
+                              อนุมัติ
+                            </button>
+                            <span className="text-[10px] text-slate-300">|</span>
+                            <button
+                              onClick={() => handleApproveNameChange(user, false)}
+                              className="text-[10px] font-bold text-red-600 hover:text-red-700 underline"
+                            >
+                              ปฏิเสธ
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -801,7 +916,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
-            <h3 className="font-bold text-base text-slate-800 mb-1">แก้ไขข้อมูลผู้ใช้: {editingUser.username}</h3>
+            <h3 className="font-bold text-base text-slate-800 mb-1">แก้ไขข้อมูลผู้ใช้: {editingUser.full_name || editingUser.username}</h3>
             <p className="text-xs text-slate-400 mb-4">ปรับแผนก ระดับ/ตำแหน่ง และสิทธิ์การใช้งาน</p>
 
             <form onSubmit={handleSaveEditUser} className="space-y-3.5 text-xs">
@@ -906,10 +1021,10 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
               <Mail className="w-5 h-5" />
             </div>
             <h3 className="font-bold text-sm text-slate-800 text-center">
-              ส่งข้อความแจ้งเตือนไปยัง: <span className="text-blue-600">{sendNotifUser.username}</span>
+              ส่งข้อความแจ้งเตือนไปยัง: <span className="text-blue-600">{sendNotifUser.full_name || sendNotifUser.username}</span>
             </h3>
             <p className="text-xs text-slate-400 text-center mb-4">
-              ข้อความจะแสดงในกล่องแจ้งเตือนเฉพาะตัวของ {sendNotifUser.username}
+              ข้อความจะแสดงในกล่องแจ้งเตือนเฉพาะตัวของ {sendNotifUser.full_name || sendNotifUser.username}
             </p>
 
             <form onSubmit={handleSendNotification} className="space-y-3 text-xs">

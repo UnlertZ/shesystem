@@ -51,7 +51,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
   useEffect(() => {
     if (!responsiblePerson && systemUsers.length > 0) {
       const defaultUser = systemUsers.find(u => u.role === 'P2') || systemUsers[0];
-      const nameDisplay = defaultUser.full_name ? `${defaultUser.full_name} (${defaultUser.username})` : defaultUser.username;
+      const nameDisplay = defaultUser.full_name || defaultUser.username;
       setResponsiblePerson(`${nameDisplay} (${defaultUser.department})`);
     }
   }, [systemUsers, responsiblePerson]);
@@ -283,7 +283,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
             >
               <option value="">-- เลือกผู้รับผิดชอบ --</option>
               {systemUsers.map(u => {
-                const nameDisplay = u.full_name ? `${u.full_name} (${u.username})` : u.username;
+                const nameDisplay = u.full_name || u.username;
                 const label = `${nameDisplay} (${u.department}) - สิทธิ์ ${u.role}`;
                 const val = `${nameDisplay} (${u.department})`;
                 return (

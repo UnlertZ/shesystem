@@ -237,8 +237,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   />
                   <div className="hidden lg:block text-left min-w-0 max-w-[150px] lg:max-w-[200px]">
                     <div className="flex items-center space-x-1.5 flex-nowrap">
-                      <span className="text-xs font-bold text-slate-800 truncate max-w-[70px] lg:max-w-[90px] shrink-0" title={currentUser.username}>
-                        {currentUser.username}
+                      <span className="text-xs font-bold text-slate-800 truncate max-w-[100px] lg:max-w-[140px] shrink-0" title={currentUser.full_name || currentUser.username}>
+                        {currentUser.full_name || currentUser.username}
                       </span>
                       {getRoleBadge(currentUser.role)}
                       {currentUser.is_safety_committee && (

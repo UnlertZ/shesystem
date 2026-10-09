@@ -141,6 +141,9 @@ async function ensureDbInitialized(db: D1Database) {
     try {
       await db.prepare('ALTER TABLE users ADD COLUMN full_name TEXT').run();
     } catch (_) {}
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN pending_full_name TEXT').run();
+    } catch (_) {}
 
     try {
       await db.prepare('ALTER TABLE users ADD COLUMN is_safety_committee INTEGER DEFAULT 0').run();
@@ -397,20 +400,9 @@ app.post('/api/auth/register', async (c) => {
     return c.json({ error: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' }, 400);
   }
 
-  // Determine role from position
-  let role = 'P1';
-  if (position) {
-    const pos = await db.prepare('SELECT default_role FROM positions WHERE name = ?').bind(position).first<any>();
-    if (pos) {
-      role = pos.default_role;
-    } else if (position.includes('หัวหน้า') || position.includes('ผู้จัดการ')) {
-      role = 'P2';
-    }
-  } else if (department === 'พนักงาน') {
-    role = 'P1';
-  } else {
-    role = 'P2';
-  }
+  // Requirement 3: All new user registrations receive P1 role only (admin can upgrade later)
+  const role = 'P1';
+  const userPosition = (position && position.trim()) ? position.trim() : 'พนักงาน';
 
   const id = 'u_' + Date.now();
   const now = new Date().toISOString();
@@ -418,13 +410,13 @@ app.post('/api/auth/register', async (c) => {
 
   await db.prepare(
     'INSERT INTO users (id, username, password, full_name, department, position, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, cleanUsername, password, displayName, department || '', position || '', role, 'pending', now, now).run();
+  ).bind(id, cleanUsername, password, displayName, department || '', userPosition, role, 'pending', now, now).run();
 
   // Notify admin of new registration
   const notifId = 'notif_' + Date.now();
   await db.prepare(
     'INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${displayName} (${cleanUsername} - ${department || ''} - ${position || ''}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
+  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${displayName} (${department || ''} - ${userPosition}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
 
   return c.json({ success: true, message: 'สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ' });
 });
@@ -576,6 +568,82 @@ app.post('/api/users/:id/change-password', async (c) => {
 
   await db.prepare('UPDATE users SET password = ?, updated_at = ? WHERE id = ?').bind(newPassword, now, id).run();
   return c.json({ success: true, message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว' });
+});
+
+// Request Name Change (Requirement 6: User submits, pending admin approval)
+app.post('/api/users/:id/request-name-change', async (c) => {
+  const id = c.req.param('id');
+  const { new_full_name } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  if (!new_full_name || !new_full_name.trim()) {
+    return c.json({ error: 'กรุณากรอกชื่อ-นามสกุลใหม่' }, 400);
+  }
+
+  const cleanName = new_full_name.trim();
+  const user = await db.prepare('SELECT id, username, full_name, department FROM users WHERE id = ?').bind(id).first<any>();
+  if (!user) {
+    return c.json({ error: 'ไม่พบผู้ใช้งาน' }, 404);
+  }
+
+  await db.prepare('UPDATE users SET pending_full_name = ?, updated_at = ? WHERE id = ?').bind(cleanName, now, id).run();
+
+  // Notify Admins
+  const notifId = 'notif_' + Date.now();
+  await db.prepare(`
+    INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    notifId, null, 'P3', 'ระบบเปลี่ยนชื่อ-นามสกุล',
+    'มีคำขออนุมัติเปลี่ยนชื่อ-นามสกุล',
+    `ผู้ใช้ ${user.full_name || user.username} (${user.department}) ขอเปลี่ยนชื่อเป็น "${cleanName}" กรุณาตรวจสอบและอนุมัติในหน้าจัดการสมาชิก`,
+    'SYSTEM', 0, now
+  ).run();
+
+  return c.json({ success: true, pending_full_name: cleanName });
+});
+
+// Approve or Reject Name Change (Requirement 6: Admin action)
+app.post('/api/users/:id/approve-name-change', async (c) => {
+  const id = c.req.param('id');
+  const { approve, admin_name } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  const user = await db.prepare('SELECT id, username, full_name, pending_full_name FROM users WHERE id = ?').bind(id).first<any>();
+  if (!user) {
+    return c.json({ error: 'ไม่พบผู้ใช้งาน' }, 404);
+  }
+
+  const targetPendingName = user.pending_full_name;
+  if (!targetPendingName) {
+    return c.json({ error: 'ไม่มีคำขอเปลี่ยนชื่อที่ค้างอยู่' }, 400);
+  }
+
+  if (approve) {
+    await db.prepare('UPDATE users SET full_name = ?, pending_full_name = NULL, updated_at = ? WHERE id = ?')
+      .bind(targetPendingName, now, id).run();
+  } else {
+    await db.prepare('UPDATE users SET pending_full_name = NULL, updated_at = ? WHERE id = ?')
+      .bind(now, id).run();
+  }
+
+  // Notify the user
+  const notifId = 'notif_' + Date.now();
+  await db.prepare(`
+    INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    notifId, id, null, admin_name || 'แอดมิน',
+    approve ? 'คำขอเปลี่ยนชื่อได้รับการอนุมัติแล้ว' : 'คำขอเปลี่ยนชื่อไม่ได้รับการอนุมัติ',
+    approve
+      ? `แอดมินได้อนุมัติการเปลี่ยนชื่อของคุณเป็น "${targetPendingName}" เรียบร้อยแล้ว`
+      : `ขออภัย คำขอเปลี่ยนชื่อเป็น "${targetPendingName}" ไม่ได้รับการอนุมัติจากแอดมิน`,
+    'SYSTEM', 0, now
+  ).run();
+
+  return c.json({ success: true, approved: !!approve, new_full_name: approve ? targetPendingName : user.full_name });
 });
 
 app.delete('/api/users/:id', async (c) => {

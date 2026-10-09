@@ -339,16 +339,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               </div>
 
               <div className="flex flex-wrap items-center gap-3 shrink-0">
-                {isAdminOrSuper && (
-                  <button
-                    onClick={() => setIsSafetyExportModalOpen(true)}
-                    className="px-3.5 py-2 bg-[#CC902D]/20 hover:bg-[#CC902D]/30 text-white rounded-xl text-xs font-bold border border-[#CC902D]/40 shadow-xs transition flex items-center space-x-1.5"
-                    title="Export รายงานการเดินตรวจ คปอ. (PDF, Excel, รูปภาพ)"
-                  >
-                    <Download className="w-4 h-4 text-[#CC902D]" />
-                    <span>Export รายงาน คปอ.</span>
-                  </button>
-                )}
                 <div className="text-right">
                   <div className="text-xs text-[#E8DFC8]">อัตราการแก้ไขปัญหาสำเร็จ</div>
                   <div className="text-3xl font-extrabold text-[#CC902D]">{resolutionRate}%</div>

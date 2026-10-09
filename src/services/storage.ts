@@ -114,7 +114,7 @@ export const DEFAULT_USERS: User[] = [
 
 export function getUserDisplayName(user?: { full_name?: string; username: string } | null): string {
   if (!user) return '-';
-  return user.full_name ? `${user.full_name} (${user.username})` : user.username;
+  return user.full_name || user.username;
 }
 
 // Initial Equipment - Clean Production Database (Starts empty)
@@ -591,9 +591,8 @@ class StorageService {
     // 1. Ensure user is recorded immediately so it appears in Pending Approvals for P3/P4
     const users = this.getUsers();
     if (!users.some(u => (u.username || '').trim().toLowerCase() === cleanUsername.toLowerCase())) {
-      const positions = this.getPositions();
-      const matchedPos = positions.find(p => p.name === data.position);
-      const role: UserRole = matchedPos ? matchedPos.default_role : 'P1';
+      const role: UserRole = 'P1';
+      const userPosition = data.position?.trim() || 'พนักงาน';
       const now = new Date().toISOString();
       const newUser: User = {
         id: `u_${Date.now()}`,
@@ -601,7 +600,7 @@ class StorageService {
         full_name: data.full_name?.trim() || undefined,
         password: data.password.trim(),
         department: data.department,
-        position: data.position,
+        position: userPosition,
         role,
         status: 'pending',
         avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.full_name || data.username)}`,
@@ -610,13 +609,13 @@ class StorageService {
       users.unshift(newUser);
       this.saveUsers(users);
 
-      const displayName = data.full_name ? `${data.full_name} (${data.username})` : data.username;
+      const displayName = data.full_name?.trim() || cleanUsername;
       this.sendNotification({
         recipient_user_id: null,
         target_role: 'P3',
         sender_name: 'ระบบรับสมัครสมาชิก',
         title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
-        message: `ผู้ใช้ ${displayName} แผนก: ${data.department} ตำแหน่ง: ${data.position} ได้ลงทะเบียนเข้าสู่ระบบ กรุณาตรวจสอบและอนุมัติ`,
+        message: `ผู้ใช้ ${displayName} แผนก: ${data.department} ตำแหน่ง: ${userPosition} ได้ลงทะเบียนเข้าสู่ระบบ (สิทธิ์ P1) กรุณาตรวจสอบและอนุมัติ`,
         type: 'SYSTEM'
       });
     }
@@ -710,6 +709,100 @@ class StorageService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newPassword })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  /**
+   * Request Full Name Change (Requirement 6: User submits, pending admin approval)
+   */
+  requestNameChange(userId: string, newFullName: string): boolean {
+    const cleanName = (newFullName || '').trim();
+    if (!cleanName) return false;
+
+    const users = this.getUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return false;
+
+    const user = users[userIndex];
+    user.pending_full_name = cleanName;
+    user.updated_at = new Date().toISOString();
+    this.saveUsers(users);
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      const updatedCurrent = { ...currentUser, pending_full_name: cleanName };
+      this.setCurrentUser(updatedCurrent);
+    }
+
+    // Send notification to Admins (P3/P4)
+    this.sendNotification({
+      recipient_user_id: null,
+      target_role: 'P3',
+      sender_name: 'ระบบเปลี่ยนชื่อ-นามสกุล',
+      title: 'มีคำขออนุมัติเปลี่ยนชื่อ-นามสกุล',
+      message: `ผู้ใช้ ${user.full_name || user.username} (${user.department}) ขอเปลี่ยนชื่อเป็น "${cleanName}" กรุณาตรวจสอบและอนุมัติในหน้าจัดการสมาชิก`,
+      type: 'SYSTEM'
+    });
+
+    // Cloudflare D1
+    fetch(`/api/users/${userId}/request-name-change`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_full_name: cleanName })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  /**
+   * Approve or Reject Name Change (Requirement 6: Admin action)
+   */
+  approveNameChange(userId: string, approve: boolean, adminName?: string): boolean {
+    const users = this.getUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return false;
+
+    const user = users[userIndex];
+    const targetPendingName = user.pending_full_name;
+    if (!targetPendingName) return false;
+
+    const now = new Date().toISOString();
+    if (approve) {
+      user.full_name = targetPendingName;
+      user.pending_full_name = undefined;
+    } else {
+      user.pending_full_name = undefined;
+    }
+    user.updated_at = now;
+    this.saveUsers(users);
+
+    const currentUser = this.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      this.setCurrentUser({
+        ...currentUser,
+        full_name: approve ? targetPendingName : currentUser.full_name,
+        pending_full_name: undefined
+      });
+    }
+
+    // Send notification to user
+    this.sendNotification({
+      recipient_user_id: userId,
+      sender_name: adminName || 'แอดมิน',
+      title: approve ? 'คำขอเปลี่ยนชื่อได้รับการอนุมัติแล้ว' : 'คำขอเปลี่ยนชื่อไม่ได้รับการอนุมัติ',
+      message: approve
+        ? `แอดมินได้อนุมัติการเปลี่ยนชื่อของคุณเป็น "${targetPendingName}" เรียบร้อยแล้ว`
+        : `ขออภัย คำขอเปลี่ยนชื่อเป็น "${targetPendingName}" ไม่ได้รับการอนุมัติจากแอดมิน`,
+      type: 'SYSTEM'
+    });
+
+    // Cloudflare D1
+    fetch(`/api/users/${userId}/approve-name-change`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approve, admin_name: adminName })
     }).catch(console.error);
 
     return true;
@@ -1097,6 +1190,17 @@ class StorageService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }).catch(console.error);
+
+    // Requirement 1: Send notification to the assigned user
+    if (newTask.assigned_to_id) {
+      this.sendNotification({
+        recipient_user_id: newTask.assigned_to_id,
+        sender_name: newTask.assigned_by_name || 'ผู้มอบหมายงาน',
+        title: 'คุณได้รับมอบหมายงานใหม่',
+        message: `คุณได้รับมอบหมายงาน: "${newTask.title}" จาก ${newTask.assigned_by_name}${newTask.due_date ? ` (กำหนดเสร็จ: ${newTask.due_date})` : ''}`,
+        type: 'TASK'
+      });
+    }
 
     return newTask;
   }

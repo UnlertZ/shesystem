@@ -91,7 +91,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 
     setIsSubmitting(true);
 
-    const inspectorDisplayName = currentUser.full_name ? `${currentUser.full_name} (${currentUser.username})` : currentUser.username;
+    const inspectorDisplayName = currentUser.full_name || currentUser.username;
 
     try {
       storageService.submitInspection({

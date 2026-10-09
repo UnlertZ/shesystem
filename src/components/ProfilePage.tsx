@@ -19,7 +19,8 @@ import {
   ShieldCheck,
   Calendar,
   X,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 
@@ -64,6 +65,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
   const [isSubmittingComplete, setIsSubmittingComplete] = useState(false);
+  const [taskActionMsg, setTaskActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Name Change Modal state (Requirement 6: User requests name change)
+  const [isNameChangeModalOpen, setIsNameChangeModalOpen] = useState(false);
+  const [newNameInput, setNewNameInput] = useState(currentUser.full_name || '');
+  const [nameChangeMsg, setNameChangeMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const users = storageService.getUsers();
   const allEquipment = storageService.getEquipment();
@@ -138,7 +145,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       );
 
       setTasks(storageService.getTasks(currentUser.id));
-      setPasswordMsg({
+      setTaskActionMsg({
         type: 'success',
         text: `บันทึกว่าทำสำเร็จแล้ว และส่งการแจ้งเตือนไปยังผู้มอบหมาย (${completingTask.assigned_by_name}) เรียบร้อยแล้ว`
       });
@@ -146,7 +153,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setCompletionNotes('');
       window.dispatchEvent(new Event('she_data_synced'));
     } catch (err: any) {
-      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกสถานะงาน');
+      setTaskActionMsg({ type: 'error', text: err.message || 'เกิดข้อผิดพลาดในการบันทึกสถานะงาน' });
     } finally {
       setIsSubmittingComplete(false);
     }
@@ -179,6 +186,37 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
+  const handleRequestNameChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    setNameChangeMsg(null);
+
+    const clean = newNameInput.trim();
+    if (!clean) {
+      setNameChangeMsg({ type: 'error', text: 'กรุณากรอกชื่อ-นามสกุลใหม่' });
+      return;
+    }
+
+    if (clean === currentUser.full_name) {
+      setNameChangeMsg({ type: 'error', text: 'ชื่อใหม่เหมือนกับชื่อปัจจุบัน กรุณากรอกชื่อที่ต้องการเปลี่ยน' });
+      return;
+    }
+
+    const success = storageService.requestNameChange(currentUser.id, clean);
+    if (success) {
+      setNameChangeMsg({
+        type: 'success',
+        text: `ส่งคำขอเปลี่ยนชื่อเป็น "${clean}" เรียบร้อยแล้ว อยู่ระหว่างรอแอดมินอนุมัติ`
+      });
+      const updated = { ...currentUser, pending_full_name: clean };
+      onUpdateCurrentUser(updated);
+      setTimeout(() => {
+        setIsNameChangeModalOpen(false);
+      }, 1500);
+    } else {
+      setNameChangeMsg({ type: 'error', text: 'เกิดข้อผิดพลาดในการส่งคำขอเปลี่ยนชื่อ' });
+    }
+  };
+
   // Create Task (Delegation from P2 to P1 or Admin assignment)
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,8 +230,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     const targetEquip = allEquipment.find(e => e.id === targetEquipId);
 
-    const assignerName = currentUser.full_name ? `${currentUser.full_name} (${currentUser.username})` : currentUser.username;
-    const assigneeName = targetUser.full_name ? `${targetUser.full_name} (${targetUser.username})` : targetUser.username;
+    // Requirement 4: Display full name only
+    const assignerName = currentUser.full_name || currentUser.username;
+    const assigneeName = targetUser.full_name || targetUser.username;
 
     storageService.createTask({
       title: taskTitle.trim(),
@@ -236,9 +275,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <h1 className="text-2xl font-bold text-[#3F3A31]">
               {currentUser.full_name || currentUser.username}
             </h1>
-            {currentUser.full_name && (
-              <span className="text-sm text-[#5C5951] font-medium">({currentUser.username})</span>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setNewNameInput(currentUser.full_name || '');
+                setNameChangeMsg(null);
+                setIsNameChangeModalOpen(true);
+              }}
+              className="text-xs bg-[#F7EEDC] hover:bg-[#F1E1C1] text-[#A04830] px-2.5 py-1 rounded-full border border-[#E8DFC8] font-bold transition flex items-center space-x-1 cursor-pointer"
+              title="ขอแก้ไขชื่อ-นามสกุล (ส่งคำขอให้แอดมินอนุมัติ)"
+            >
+              <Edit className="w-3 h-3 text-[#A04830]" />
+              <span>ขอเปลี่ยนชื่อ-นามสกุล</span>
+            </button>
             <span className="text-xs bg-[#F7EEDC] text-[#A04830] font-bold px-3 py-1 rounded-full border border-[#E8DFC8]">
               สิทธิ์: {currentUser.role}
             </span>
@@ -253,6 +302,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <span>อนุมัติแล้ว</span>
             </span>
           </div>
+
+          {currentUser.pending_full_name && (
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center space-x-2">
+              <Clock className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>
+                คุณได้ส่งคำขอเปลี่ยนชื่อเป็น: <strong>"{currentUser.pending_full_name}"</strong> เรียบร้อยแล้ว (อยู่ระหว่างรอแอดมินอนุมัติ)
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-[#5C5951]">
             <span className="flex items-center space-x-1">
@@ -316,6 +374,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               )}
             </div>
 
+            {taskActionMsg && (
+              <div className={`p-3 rounded-xl border text-xs flex items-center space-x-2 ${
+                taskActionMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                {taskActionMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                )}
+                <span>{taskActionMsg.text}</span>
+              </div>
+            )}
+
             {tasks.length === 0 ? (
               <div className="p-8 text-center text-[#5C5951] text-xs border border-dashed border-[#E8DFC8] rounded-2xl">
                 ไม่มีงานที่ได้รับมอบหมายในขณะนี้
@@ -373,17 +444,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           </div>
                         </div>
 
-                        {/* Action buttons */}
+                        {/* Action buttons (Requirement 2: Only assignee has complete button) */}
                         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
                           {task.status !== 'COMPLETED' ? (
-                            <button
-                              onClick={() => handleOpenCompleteTask(task)}
-                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5 cursor-pointer"
-                              title="กดเมื่อทำงานเสร็จสิ้น เพื่อส่งการแจ้งเตือนไปยังผู้มอบหมาย"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>ทำสำเร็จแล้ว</span>
-                            </button>
+                            isAssignedToMe ? (
+                              <button
+                                onClick={() => handleOpenCompleteTask(task)}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5 cursor-pointer"
+                                title="กดเมื่อทำงานเสร็จสิ้น เพื่อส่งการแจ้งเตือนไปยังผู้มอบหมาย"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>เสร็จงาน</span>
+                              </button>
+                            ) : (
+                              <span className="px-2.5 py-1 bg-amber-50 text-amber-800 rounded-xl text-xs font-semibold border border-amber-200 flex items-center space-x-1" title="รอให้ผู้ถูกมอบหมายทำและกดยืนยัน">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                <span>รอผู้รับมอบหมายทำมา</span>
+                              </span>
+                            )
                           ) : (
                             <div className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200 flex items-center space-x-1">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -609,23 +687,30 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">มอบหมายให้แก่พนักงาน *</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  มอบหมายให้แก่พนักงานในแผนก ({currentUser.department}) *
+                </label>
                 <select
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                   required
                 >
-                  <option value="">-- เลือกพนักงานผู้รับมอบหมาย --</option>
-                  {users.filter(u => u.id !== currentUser.id).map(u => {
-                    const nameDisplay = u.full_name ? `${u.full_name} (${u.username})` : u.username;
-                    return (
-                      <option key={u.id} value={u.id}>
-                        {nameDisplay} ({u.department} - สิทธิ์ {u.role})
-                      </option>
-                    );
-                  })}
+                  <option value="">-- เลือกพนักงานในแผนกผู้รับมอบหมาย --</option>
+                  {users
+                    .filter(u => u.id !== currentUser.id && u.department === currentUser.department && u.status === 'approved')
+                    .map(u => {
+                      const nameDisplay = u.full_name || u.username;
+                      return (
+                        <option key={u.id} value={u.id}>
+                          {nameDisplay} (ตำแหน่ง: {u.position || 'พนักงาน'})
+                        </option>
+                      );
+                    })}
                 </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  * ผู้มอบหมายสามารถมอบหมายงานได้เฉพาะพนักงานภายในแผนกของตนเองเท่านั้น
+                </p>
               </div>
 
               {taskType === 'INSPECTION' && (
@@ -767,6 +852,88 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{isSubmittingComplete ? 'กำลังบันทึก...' : 'บันทึกทำสำเร็จแล้ว'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Request Name Change (Requirement 6) */}
+      {isNameChangeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="p-2 bg-[#F7EEDC] text-[#A04830] rounded-xl">
+                  <Edit className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base text-slate-800">ขอแก้ไขชื่อ-นามสกุล</h3>
+                  <p className="text-xs text-slate-400">ระบบจะส่งคำขอไปยังแอดมินเพื่อรอการอนุมัติ</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNameChangeModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {nameChangeMsg && (
+              <div className={`p-3 rounded-xl border text-xs flex items-center space-x-2 ${
+                nameChangeMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                {nameChangeMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                )}
+                <span>{nameChangeMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleRequestNameChange} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">ชื่อ-นามสกุลปัจจุบัน:</label>
+                <div className="p-2.5 bg-slate-100 rounded-xl text-slate-700 font-medium">
+                  {currentUser.full_name || currentUser.username}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">ชื่อ-นามสกุลใหม่ที่ต้องการเปลี่ยน *</label>
+                <input
+                  type="text"
+                  value={newNameInput}
+                  onChange={(e) => setNewNameInput(e.target.value)}
+                  placeholder="เช่น นายมีดี ใจดี"
+                  className="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#A04830]/20 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start space-x-2">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>เมื่อส่งคำขอแล้ว แอดมินจะเข้ามาตรวจสอบและอนุมัติการเปลี่ยนชื่อในหน้าจัดการสมาชิก</span>
+              </div>
+
+              <div className="flex space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsNameChangeModalOpen(false)}
+                  className="w-1/3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-bold shadow-xs transition flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>ส่งคำขอเปลี่ยนชื่อ</span>
                 </button>
               </div>
             </form>
