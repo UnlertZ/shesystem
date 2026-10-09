@@ -719,9 +719,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     .filter(u => u.id !== currentUser.id && (isSafetyDept || u.department === currentUser.department) && u.status === 'approved')
                     .map(u => {
                       const nameDisplay = u.full_name || u.username;
+                      const label = isSafetyDept 
+                        ? `${nameDisplay} (${u.department || 'ทั่วไป'})` 
+                        : `${nameDisplay}${u.position && u.position !== 'พนักงาน' ? ` (${u.position})` : ''}`;
                       return (
                         <option key={u.id} value={u.id}>
-                          {nameDisplay} {isSafetyDept ? `(แผนก: ${u.department || 'ทั่วไป'} - ${u.position || 'พนักงาน'})` : `(ตำแหน่ง: ${u.position || 'พนักงาน'})`}
+                          {label}
                         </option>
                       );
                     })}
