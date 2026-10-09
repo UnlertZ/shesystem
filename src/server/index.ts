@@ -137,6 +137,9 @@ async function ensureDbInitialized(db: D1Database) {
     try {
       await db.prepare('ALTER TABLE users ADD COLUMN is_safety_committee INTEGER DEFAULT 0').run();
     } catch (_) {}
+    try {
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_users_username_lower ON users (LOWER(TRIM(username)))').run();
+    } catch (_) {}
 
     try {
       await db.prepare('ALTER TABLE tasks ADD COLUMN completed_at TEXT').run();
@@ -347,10 +350,12 @@ app.delete('/api/positions/:id', async (c) => {
 app.post('/api/auth/login', async (c) => {
   const { username, password } = await c.req.json();
   const db = c.env.DB;
+  const cleanUsername = (username || '').trim();
   
+  // Case-insensitive login lookup
   const user = await db.prepare(
-    'SELECT * FROM users WHERE username = ?'
-  ).bind(username).first<any>();
+    'SELECT * FROM users WHERE LOWER(TRIM(username)) = LOWER(?)'
+  ).bind(cleanUsername).first<any>();
 
   if (!user) {
     return c.json({ error: 'ไม่พบชื่อผู้ใช้งานนี้ในระบบ' }, 404);
@@ -374,8 +379,12 @@ app.post('/api/auth/login', async (c) => {
 app.post('/api/auth/register', async (c) => {
   const { username, password, full_name, department, position } = await c.req.json();
   const db = c.env.DB;
+  const cleanUsername = (username || '').trim();
 
-  const existing = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
+  // Case-insensitive duplicate check
+  const existing = await db.prepare(
+    'SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(?)'
+  ).bind(cleanUsername).first();
   if (existing) {
     return c.json({ error: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' }, 400);
   }
@@ -397,17 +406,17 @@ app.post('/api/auth/register', async (c) => {
 
   const id = 'u_' + Date.now();
   const now = new Date().toISOString();
-  const displayName = (full_name && full_name.trim()) ? full_name.trim() : username.trim();
+  const displayName = (full_name && full_name.trim()) ? full_name.trim() : cleanUsername;
 
   await db.prepare(
     'INSERT INTO users (id, username, password, full_name, department, position, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, username.trim(), password, displayName, department || '', position || '', role, 'pending', now, now).run();
+  ).bind(id, cleanUsername, password, displayName, department || '', position || '', role, 'pending', now, now).run();
 
   // Notify admin of new registration
   const notifId = 'notif_' + Date.now();
   await db.prepare(
     'INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${displayName} (${username.trim()} - ${department || ''} - ${position || ''}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
+  ).bind(notifId, null, 'P3', 'ระบบสมัครสมาชิก', 'มีสมาชิกรอการอนุมัติ', `ผู้ใช้ ${displayName} (${cleanUsername} - ${department || ''} - ${position || ''}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`, 'SYSTEM', 0, now).run();
 
   return c.json({ success: true, message: 'สมัครสมาชิกสำเร็จ รอแอดมินอนุมัติ' });
 });
@@ -416,8 +425,12 @@ app.post('/api/auth/forgot-password', async (c) => {
   const { username } = await c.req.json();
   const db = c.env.DB;
   const now = new Date().toISOString();
+  const cleanUsername = (username || '').trim();
 
-  const user = await db.prepare('SELECT id, department FROM users WHERE username = ?').bind(username).first();
+  // Case-insensitive lookup
+  const user = await db.prepare(
+    'SELECT id, username, department FROM users WHERE LOWER(TRIM(username)) = LOWER(?)'
+  ).bind(cleanUsername).first<any>();
   if (!user) {
     return c.json({ error: 'ไม่พบชื่อผู้ใช้งานนี้ในระบบ' }, 404);
   }
@@ -425,13 +438,13 @@ app.post('/api/auth/forgot-password', async (c) => {
   const resetId = 'rst_' + Date.now();
   await db.prepare(
     'INSERT INTO password_resets (id, username, status, requested_at) VALUES (?, ?, ?, ?)'
-  ).bind(resetId, username, 'PENDING', now).run();
+  ).bind(resetId, user.username, 'PENDING', now).run();
 
   // Send alert to admin
   const notifId = 'notif_' + Date.now();
   await db.prepare(
     'INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(notifId, null, 'P3', username, 'คำขอรีเซ็ทรหัสผ่าน', `ผู้ใช้ ${username} ขอรีเซ็ทรหัสผ่าน กรุณาตรวจสอบและดำเนินการ`, 'PASSWORD_RESET', 0, now).run();
+  ).bind(notifId, null, 'P3', user.username, 'คำขอรีเซ็ทรหัสผ่าน', `ผู้ใช้ ${user.username} ขอรีเซ็ทรหัสผ่าน กรุณาตรวจสอบและดำเนินการ`, 'PASSWORD_RESET', 0, now).run();
 
   return c.json({ success: true, message: 'ส่งคำขอรีเซ็ทรหัสผ่านไปยังแอดมินเรียบร้อยแล้ว' });
 });

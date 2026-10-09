@@ -513,8 +513,9 @@ class StorageService {
    * Real Authentication: Verifies strictly against database password
    */
   verifyLogin(username: string, password: string): { user: User | null; error?: string } {
+    const cleanUsername = (username || '').trim().toLowerCase();
     const users = this.getUsers();
-    const user = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+    const user = users.find(u => (u.username || '').trim().toLowerCase() === cleanUsername);
 
     if (!user) {
       return { user: null, error: 'ไม่พบชื่อผู้ใช้งานนี้ในระบบ' };
@@ -540,11 +541,12 @@ class StorageService {
    * Async Login: queries Cloudflare D1 directly
    */
   async verifyLoginAsync(username: string, password: string): Promise<{ user: User | null; error?: string }> {
+    const cleanUsername = (username || '').trim();
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: cleanUsername, password })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -553,7 +555,7 @@ class StorageService {
       return { user: data.user };
     } catch (_) {
       // Fallback to local verified cache
-      return this.verifyLogin(username, password);
+      return this.verifyLogin(cleanUsername, password);
     }
   }
 
@@ -561,9 +563,10 @@ class StorageService {
    * Register new user directly into Cloudflare D1 with local fallback
    */
   async registerUser(data: { username: string; password: string; department: string; position: string; full_name?: string }): Promise<{ success: boolean; message: string }> {
+    const cleanUsername = (data.username || '').trim();
     // 1. Ensure user is recorded immediately so it appears in Pending Approvals for P3/P4
     const users = this.getUsers();
-    if (!users.some(u => u.username.toLowerCase() === data.username.toLowerCase())) {
+    if (!users.some(u => (u.username || '').trim().toLowerCase() === cleanUsername.toLowerCase())) {
       const positions = this.getPositions();
       const matchedPos = positions.find(p => p.name === data.position);
       const role: UserRole = matchedPos ? matchedPos.default_role : 'P1';
@@ -1218,14 +1221,15 @@ class StorageService {
 
   // --- Password Reset Requests ---
   requestPasswordReset(username: string): boolean {
+    const cleanUsername = (username || '').trim();
     const users = this.getUsers();
-    const user = users.find(u => u.username === username);
+    const user = users.find(u => (u.username || '').trim().toLowerCase() === cleanUsername.toLowerCase());
     if (!user) return false;
 
     fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
+      body: JSON.stringify({ username: user.username || cleanUsername })
     }).catch(console.error);
 
     return true;

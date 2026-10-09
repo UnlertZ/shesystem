@@ -121,6 +121,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
                     placeholder="เช่น user01, somchai"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20"
                     required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                   />
                 </div>
               </div>

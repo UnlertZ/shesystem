@@ -27,14 +27,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!username.trim() || !password.trim()) {
+    const cleanUsername = username.trim();
+    if (!cleanUsername || !password.trim()) {
       setErrorMsg('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await storageService.verifyLoginAsync(username, password);
+      const result = await storageService.verifyLoginAsync(cleanUsername, password);
 
       if (result.error || !result.user) {
         setErrorMsg(result.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
@@ -120,9 +121,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="กรอกชื่อผู้ใช้งาน"
+                  placeholder="กรอกชื่อผู้ใช้งาน (ตัวพิมพ์เล็ก/ใหญ่ได้)"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition"
                   required
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
                 />
               </div>
             </div>
@@ -247,6 +251,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                     placeholder="กรอกชื่อผู้ใช้ของคุณ"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                     required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                   />
                 </div>
                 <div className="flex space-x-2">
