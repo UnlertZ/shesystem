@@ -196,11 +196,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const rejectedCount = recommendFindings.filter(f => f.status === 'REJECTED').length;
   const resolutionRate = recommendCount > 0 ? Math.round((approvedCount / recommendCount) * 100) : 0;
 
+  // 1. Latest patrol round for Chart 1 (วงแรกแสดงรอบรายการล่าสุด)
+  const sortedPatrols = [...patrols].sort((a, b) => {
+    const dateA = a.patrol_date || '';
+    const dateB = b.patrol_date || '';
+    if (dateB !== dateA) return dateB.localeCompare(dateA);
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+  const latestPatrol = sortedPatrols[0] || null;
+
+  const latestPatrolFindings = latestPatrol
+    ? findings.filter(f => f.patrol_id === latestPatrol.id)
+    : [];
+  const latestRecommendCount = latestPatrolFindings.filter(f => f.category === 'RECOMMEND').length;
+  const latestCommendCount = latestPatrolFindings.filter(f => f.category === 'COMMEND').length;
+  const latestTotalFindings = latestPatrolFindings.length;
+
   const categoryDoughnutData = {
     labels: ['ข้อแนะนำ / จุดเสี่ยง (Recommend)', 'เรื่องที่ชมเชย (Commend)'],
     datasets: [
       {
-        data: [recommendCount, commendCount],
+        data: [latestRecommendCount, latestCommendCount],
         backgroundColor: ['#f59e0b', '#10b981'],
         borderWidth: 2,
         borderColor: '#ffffff'
@@ -208,11 +224,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
     ]
   };
 
+  // 2. Year-to-Date (ตั้งแต่ มกราคม ถึง เดือนปัจจุบัน) for Chart 2
+  const ytdRecommendFindings = recommendFindings.filter(f => {
+    let dateStr = f.created_at;
+    if (!dateStr && f.patrol_id) {
+      const p = patrols.find(item => item.id === f.patrol_id);
+      if (p) dateStr = p.patrol_date;
+    }
+    if (!dateStr) return true;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+    return d.getFullYear() === now.getFullYear() && d.getMonth() <= now.getMonth();
+  });
+
+  const ytdRecommendCount = ytdRecommendFindings.length;
+  const ytdPendingActionCount = ytdRecommendFindings.filter(f => f.status === 'PENDING_ACTION').length;
+  const ytdPendingReviewCount = ytdRecommendFindings.filter(f => f.status === 'PENDING_REVIEW').length;
+  const ytdApprovedCount = ytdRecommendFindings.filter(f => f.status === 'APPROVED').length;
+  const ytdRejectedCount = ytdRecommendFindings.filter(f => f.status === 'REJECTED').length;
+
   const resolutionDoughnutData = {
     labels: ['แก้ไขสำเร็จ (Approved)', 'รอแอดมินตรวจ (Pending Review)', 'รอดำเนินการ (Pending Action)', 'ส่งกลับไปแก้ใหม่ (Rework)'],
     datasets: [
       {
-        data: [approvedCount, pendingReviewCount, pendingActionCount, rejectedCount],
+        data: [ytdApprovedCount, ytdPendingReviewCount, ytdPendingActionCount, ytdRejectedCount],
         backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
         borderWidth: 2,
         borderColor: '#ffffff'
@@ -377,14 +412,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Chart 1: Category & Problem Status */}
+            {/* Chart 1: Category & Problem Status - Latest Patrol Round (วงแรกแสดงรอบรายการล่าสุด) */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>สัดส่วนประเภทรายการตรวจพบ (Category Breakdown)</span>
-              </h3>
-              {totalFindings === 0 ? (
-                <div className="p-12 text-center text-slate-400 text-xs">ยังไม่มีข้อมูลการเดินตรวจบันทึกไว้</div>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>สัดส่วนประเภทรายการตรวจพบ (รอบรายการล่าสุด)</span>
+                </h3>
+                {latestPatrol && (
+                  <span
+                    className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full truncate max-w-[200px]"
+                    title={`${latestPatrol.title} (${latestPatrol.patrol_date})`}
+                  >
+                    {latestPatrol.title}
+                  </span>
+                )}
+              </div>
+              {latestTotalFindings === 0 ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  {latestPatrol
+                    ? `รอบล่าสุด (${latestPatrol.title}) ยังไม่มีรายการตรวจพบที่บันทึกไว้`
+                    : 'ยังไม่มีข้อมูลรอบการเดินตรวจ คปอ.'}
+                </div>
               ) : (
                 <div className="h-64 flex items-center justify-center">
                   <Doughnut
@@ -399,14 +448,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               )}
             </div>
 
-            {/* Chart 2: Resolution Status */}
+            {/* Chart 2: Resolution Status - YTD Before-After (วง 2 ตั้งแต่ มกราคม ถึง เดือนปัจจุบัน) */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
-              <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span>สถานะการติดตามแก้ไขปัญหา Before-After ({recommendCount} รายการ)</span>
-              </h3>
-              {recommendCount === 0 ? (
-                <div className="p-12 text-center text-slate-400 text-xs">ยังไม่มีรายการข้อแนะนำหรือจุดเสี่ยง</div>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>สถานะการติดตามแก้ไขปัญหา Before-After ตั้งแต่ มกราคม ถึง เดือนปัจจุบัน</span>
+                </h3>
+                <span className="text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-full shrink-0">
+                  {ytdRecommendCount} รายการ
+                </span>
+              </div>
+              {ytdRecommendCount === 0 ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  ยังไม่มีรายการข้อแนะนำหรือจุดเสี่ยงตั้งแต่ ม.ค. ถึงเดือนปัจจุบัน ({THAI_MONTHS[now.getMonth()]})
+                </div>
               ) : (
                 <div className="h-64 flex items-center justify-center">
                   <Doughnut
