@@ -27,25 +27,22 @@ export function exportToPDF(
   doc.text(`รายงานผลการตรวจสอบระบบและอุปกรณ์ดับเพลิง (${reportType === 'MONTHLY' ? 'ประจำเดือน' : 'ประจำปี'}: ${selectedPeriod})`, 14, 26);
   doc.text(`วันที่พิมพ์รายงาน: ${formatThaiDate(now, true)}`, 14, 32);
 
-  // Statistics Summary Box
-  const total = equipmentList.length;
-  const inspected = equipmentList.filter(e => e.inspection_status === 'INSPECTED').length;
-  const ready = equipmentList.filter(e => e.ready_status === 'READY').length;
-  const defects = equipmentList.filter(e => e.defect_status === 'DEFECT').length;
-  const resolved = equipmentList.filter(e => e.defect_status === 'RESOLVED').length;
+  // Equipment Categories Summary (1. ถัง EX, 2. FHC, 3. FH, 4. HD)
+  const exList = equipmentList.filter(e => e.type === 'EX');
+  const fhcList = equipmentList.filter(e => e.type === 'FHC');
+  const fhList = equipmentList.filter(e => e.type === 'FH');
+  const hdList = equipmentList.filter(e => e.type === 'HD');
 
   doc.setDrawColor(203, 213, 225);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 37, 182, 22, 2, 2, 'FD');
+  doc.roundedRect(14, 37, 182, 30, 2, 2, 'FD');
 
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text(`อุปกรณ์ทั้งหมด: ${total} รายการ`, 18, 44);
-  doc.text(`ตรวจแล้ว: ${inspected} (${total > 0 ? Math.round((inspected / total) * 100) : 0}%)`, 65, 44);
-  doc.text(`พร้อมใช้งาน: ${ready} รายการ`, 115, 44);
-  doc.text(`พบข้อบกพร่อง: ${defects} รายการ`, 18, 52);
-  doc.text(`แก้ไขแล้ว: ${resolved} รายการ`, 65, 52);
-  doc.text(`ยังไม่ตรวจ: ${total - inspected} รายการ`, 115, 52);
+  doc.text(`1. ถังดับเพลิง (EX): ทั้งหมด ${exList.length} ถัง | ตรวจแล้ว ${exList.filter(e => e.inspection_status === 'INSPECTED').length} ถัง | ปกติ ${exList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} ถัง | ผิดปกติ ${exList.filter(e => e.defect_status === 'DEFECT').length} ถัง`, 18, 43);
+  doc.text(`2. ตู้ดับเพลิง (FHC): ทั้งหมด ${fhcList.length} ตู้ | ตรวจแล้ว ${fhcList.filter(e => e.inspection_status === 'INSPECTED').length} ตู้ | ปกติ ${fhcList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} ตู้ | ผิดปกติ ${fhcList.filter(e => e.defect_status === 'DEFECT').length} ตู้`, 18, 49);
+  doc.text(`3. ตู้สายฉีดดับเพลิง (FH): ทั้งหมด ${fhList.length} สาย | ตรวจแล้ว ${fhList.filter(e => e.inspection_status === 'INSPECTED').length} สาย | ปกติ ${fhList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} สาย | ผิดปกติ ${fhList.filter(e => e.defect_status === 'DEFECT').length} สาย`, 18, 55);
+  doc.text(`4. หัวรับน้ำดับเพลิง (HD): ทั้งหมด ${hdList.length} จุด | ตรวจแล้ว ${hdList.filter(e => e.inspection_status === 'INSPECTED').length} จุด | ปกติ ${hdList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} จุด | ผิดปกติ ${hdList.filter(e => e.defect_status === 'DEFECT').length} จุด`, 18, 61);
 
   // Table Data
   const tableRows = equipmentList.map((e, idx) => {
@@ -64,7 +61,7 @@ export function exportToPDF(
   });
 
   autoTable(doc, {
-    startY: 64,
+    startY: 71,
     head: [['ลำดับ', 'รหัส', 'ประเภท', 'สถานที่ติดตั้ง', 'สถานะตรวจ', 'ความพร้อม', 'สภาพ', 'อายุถัง/อุปกรณ์', 'ผู้ตรวจล่าสุด']],
     body: tableRows,
     styles: { font: 'helvetica', fontSize: 8, cellPadding: 2 },

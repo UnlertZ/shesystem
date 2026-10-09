@@ -5,6 +5,7 @@ import { exportToPDF, exportToExcel, exportEquipmentPhotos } from '../utils/repo
 import { THAI_MONTHS, getNowThai } from '../utils/thaiDate';
 import { ReportPreviewModal } from './ReportPreviewModal';
 import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
+import { PhotoExportModal } from './PhotoExportModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -69,6 +70,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const [patrols, setPatrols] = useState<SafetyPatrolRound[]>(() => storageService.getSafetyPatrols());
   const [findings, setFindings] = useState<SafetyFinding[]>(() => storageService.getSafetyFindings());
   const [isSafetyExportModalOpen, setIsSafetyExportModalOpen] = useState(false);
+  const [isPhotoExportModalOpen, setIsPhotoExportModalOpen] = useState(false);
 
   const isCommittee = !!currentUser?.is_safety_committee;
 
@@ -234,8 +236,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
     exportToExcel(filteredEquip, inspections, period);
   };
 
-  const handleExportPhotos = (code?: string) => {
-    exportEquipmentPhotos(filteredEquip, code);
+  const handleExportPhotos = () => {
+    setIsPhotoExportModalOpen(true);
   };
 
   return (
@@ -689,10 +691,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           {/* Report Preview & PDF Modal */}
           {reportModalData && (
             <ReportPreviewModal
-              equipmentList={filteredEquip}
+              equipmentList={equipment}
               inspections={inspections}
               reportType={reportModalData.type}
               selectedPeriod={reportModalData.period}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
               barChartData={yearlyBarData}
               doughnutData={monthlyDoughnutData}
               onClose={() => setReportModalData(null)}
@@ -708,6 +712,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           patrols={patrols}
           findings={findings}
           onClose={() => setIsSafetyExportModalOpen(false)}
+        />
+      )}
+
+      {/* Equipment Photos Export Modal (Admin Only) */}
+      {isPhotoExportModalOpen && (
+        <PhotoExportModal
+          equipmentList={equipment}
+          inspections={inspections}
+          initialMonth={selectedMonth}
+          initialYear={selectedYear}
+          initialType={selectedEquipType}
+          onClose={() => setIsPhotoExportModalOpen(false)}
         />
       )}
     </div>
