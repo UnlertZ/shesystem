@@ -86,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
           {/* Logo & Brand - JDE Peet's */}
           <div className="cursor-pointer shrink-0 flex items-center" onClick={() => setActiveTab('dashboard')}>
-            <SheLogo size="md" />
+            <SheLogo size="md" variant="badge" />
           </div>
 
           {/* Desktop Navigation */}
