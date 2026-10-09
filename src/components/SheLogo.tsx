@@ -14,15 +14,21 @@ export const SheLogo: React.FC<SheLogoProps> = ({ size = 'md', showSubtext = tru
   const isLg = size === 'lg';
 
   // Specific height scales maintaining aspect ratio (~2.31:1):
-  // sm: 26px (~60px width)
-  // md: 36px (~83px width)
-  // lg: 50px (~115px width)
-  const imgHeight = isSm ? '26px' : isLg ? '50px' : '36px';
+  // sm: 24px (~55px width)
+  // md: 32px (~74px width)
+  // lg: 48px (~111px width)
+  const imgHeight = isSm ? '24px' : isLg ? '48px' : '32px';
 
   return (
     <div
-      className={`flex items-center space-x-3 select-none ${className}`}
-      style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px' }}
+      className={`flex items-center select-none shrink-0 whitespace-nowrap ${className}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexShrink: 0,
+        whiteSpace: 'nowrap'
+      }}
     >
       {/* Official JDE Peet's Brand Logo */}
       <img
@@ -39,34 +45,27 @@ export const SheLogo: React.FC<SheLogoProps> = ({ size = 'md', showSubtext = tru
 
       {showSubtext && (
         <div
-          className="flex flex-col border-l border-slate-200 pl-3"
+          className="flex flex-col border-l border-slate-200 pl-2.5 sm:pl-3 ml-2.5 sm:ml-3 shrink-0 whitespace-nowrap text-left"
           style={{
             display: 'flex',
             flexDirection: 'column',
             borderLeft: '1px solid #cbd5e1',
-            paddingLeft: '12px',
-            lineHeight: 1.2
+            paddingLeft: '10px',
+            marginLeft: '10px',
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            textAlign: 'left'
           }}
         >
-          <div
-            className="flex items-center space-x-1.5"
-            style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '6px' }}
-          >
-            <span
-              className={`font-black text-slate-800 tracking-tight ${isSm ? 'text-xs' : isLg ? 'text-lg' : 'text-sm'}`}
-              style={{ color: '#0f172a' }}
-            >
-              SHE SYSTEM
-            </span>
-            <span
-              className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded-md"
-              style={{ backgroundColor: '#fee2e2', color: '#b91c1c' }}
-            >
-              SAFETY
-            </span>
-          </div>
           <span
-            className="text-[10px] text-slate-400 font-medium tracking-wide mt-0.5"
+            className={`font-black text-slate-800 tracking-tight whitespace-nowrap shrink-0 ${isSm ? 'text-xs' : isLg ? 'text-lg' : 'text-sm'}`}
+            style={{ color: '#0f172a' }}
+          >
+            SHE SYSTEM
+          </span>
+          <span
+            className="hidden xl:block text-[10px] text-slate-400 font-medium tracking-wide mt-0.5 whitespace-nowrap shrink-0"
             style={{ color: '#94a3b8' }}
           >
             Safety &bull; Health &bull; Environment

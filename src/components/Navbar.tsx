@@ -66,25 +66,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Nav links with Dashboard at leftmost position as requested
   // Safety Committee function is ONLY visible if user is คปอ (Requirement 3 & 4)
   const navLinks = [
-    { id: 'dashboard', label: 'แดชบอร์ด (Dashboard)', icon: LayoutDashboard },
-    { id: 'equipment', label: 'ตรวจระบบอุปกรณ์ดับเพลิง', icon: Flame },
+    { id: 'dashboard', label: 'แดชบอร์ด', fullLabel: 'แดชบอร์ด (Dashboard)', icon: LayoutDashboard },
+    { id: 'equipment', label: 'ตรวจอุปกรณ์ดับเพลิง', fullLabel: 'ตรวจระบบอุปกรณ์ดับเพลิง', icon: Flame },
     ...(currentUser?.is_safety_committee ? [
-      { id: 'safety_committee', label: 'Safety Committee (คปอ.)', icon: Calendar }
+      { id: 'safety_committee', label: 'คปอ.', fullLabel: 'Safety Committee (คปอ.)', icon: Calendar }
     ] : []),
     ...(currentUser?.role === 'P3' || currentUser?.role === 'P4' ? [
-      { id: 'users', label: 'จัดการสมาชิก', icon: Users }
+      { id: 'users', label: 'จัดการสมาชิก', fullLabel: 'จัดการสมาชิก', icon: Users }
     ] : []),
     ...(currentUser?.role !== 'GUEST' ? [
-      { id: 'profile', label: 'โปรไฟล์', icon: UserIcon }
+      { id: 'profile', label: 'โปรไฟล์', fullLabel: 'โปรไฟล์', icon: UserIcon }
     ] : [])
   ];
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Brand - SHE Typographic Logo */}
-          <div className="cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
+          {/* Logo & Brand - JDE Peet's */}
+          <div className="cursor-pointer shrink-0 flex items-center" onClick={() => setActiveTab('dashboard')}>
             <SheLogo size="md" />
           </div>
 
@@ -97,14 +97,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={link.id}
                   onClick={() => setActiveTab(link.id)}
-                  className={`flex items-center space-x-1 lg:space-x-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs lg:text-sm font-medium transition-all whitespace-nowrap ${
+                  className={`flex items-center space-x-1 lg:space-x-1.5 px-2 lg:px-3 py-1.5 rounded-xl text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
                     isActive
                       ? 'bg-red-50 text-red-600 font-bold shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   <Icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0 ${isActive ? 'text-red-600' : 'text-slate-400'}`} />
-                  <span>{link.label}</span>
+                  <span className="hidden xl:inline">{link.fullLabel || link.label}</span>
+                  <span className="inline xl:hidden">{link.label}</span>
                   {link.badge && (
                     <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full font-bold shrink-0">
                       {link.badge}
@@ -116,12 +117,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right Action Icons & User Badge */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
             {/* Notification Bell */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
-                className="relative p-2 text-slate-600 hover:text-red-600 hover:bg-slate-100 rounded-xl transition"
+                className="relative p-2 text-slate-600 hover:text-red-600 hover:bg-slate-100 rounded-xl transition shrink-0"
                 title="การแจ้งเตือน"
               >
                 <Bell className="w-5 h-5" />
@@ -216,7 +217,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     alt={currentUser.username}
                     className="w-8 h-8 rounded-full object-cover border border-slate-300 shrink-0"
                   />
-                  <div className="hidden sm:block text-left min-w-0 max-w-[150px] lg:max-w-[200px]">
+                  <div className="hidden lg:block text-left min-w-0 max-w-[150px] lg:max-w-[200px]">
                     <div className="flex items-center space-x-1.5 flex-nowrap">
                       <span className="text-xs font-bold text-slate-800 truncate max-w-[70px] lg:max-w-[90px] shrink-0" title={currentUser.username}>
                         {currentUser.username}
