@@ -455,8 +455,8 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
               disabled={isSubmitting}
               className={`px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-md transition flex items-center space-x-1.5 ${
                 isAbnormal
-                  ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200'
-                  : 'bg-red-600 hover:bg-red-700 shadow-red-200'
+                  ? 'bg-amber-600 hover:bg-amber-700 shadow-xs'
+                  : 'bg-[#A04830] hover:bg-[#803A26] shadow-xs'
               }`}
             >
               {isSubmitting ? (

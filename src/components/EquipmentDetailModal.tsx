@@ -486,7 +486,7 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                   onClose();
                   onStartInspection(equipment);
                 }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5"
+                className="px-4 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1.5"
               >
                 <CheckSquare className="w-3.5 h-3.5" />
                 <span>เริ่มตรวจเช็ค</span>

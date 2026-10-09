@@ -37,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
     if (r === 'P3' || r.includes('P3') || r === 'ADMIN' || r === 'แอดมิน') {
       return (
-        <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap shrink-0 inline-flex items-center">
+        <span className="bg-[#A04830] text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap shrink-0 inline-flex items-center">
           P3 แอดมิน
         </span>
       );
@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
+    <header className="sticky top-0 z-40 bg-[#FCF9F4]/95 backdrop-blur-md border-b border-[#E8DFC8] shadow-xs">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
           {/* Logo & Brand - JDE Peet's */}
@@ -97,17 +97,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={link.id}
                   onClick={() => setActiveTab(link.id)}
-                  className={`flex items-center space-x-1 lg:space-x-1.5 px-2 lg:px-3 py-1.5 rounded-xl text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                  className={`flex items-center space-x-1 lg:space-x-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
                     isActive
-                      ? 'bg-red-50 text-red-600 font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      ? 'bg-[#A04830] text-[#FCF9F4] font-bold shadow-xs'
+                      : 'text-[#5C5951] hover:text-[#3F3A31] hover:bg-[#F7EEDC]'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0 ${isActive ? 'text-red-600' : 'text-slate-400'}`} />
+                  <Icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0 ${isActive ? 'text-[#FCF9F4]' : 'text-[#8C7454]'}`} />
                   <span className="hidden xl:inline">{link.fullLabel || link.label}</span>
                   <span className="inline xl:hidden">{link.label}</span>
                   {link.badge && (
-                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                    <span className="text-[10px] bg-[#E8D5B0] text-[#3F3A31] px-1.5 py-0.2 rounded-full font-bold shrink-0">
                       {link.badge}
                     </span>
                   )}
@@ -122,12 +122,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
-                className="relative p-2 text-slate-600 hover:text-red-600 hover:bg-slate-100 rounded-xl transition shrink-0"
+                className="relative p-2 text-[#5C5951] hover:text-[#A04830] hover:bg-[#F7EEDC] rounded-xl transition shrink-0"
                 title="การแจ้งเตือน"
               >
                 <Bell className="w-5 h-5" />
                 {unreadNotifs.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-[#A04830] text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
                     {unreadNotifs.length > 9 ? '9+' : unreadNotifs.length}
                   </span>
                 )}
@@ -249,7 +249,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={() => setActiveTab('login')}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-xs"
+                className="bg-[#A04830] hover:bg-[#803A26] text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-xs transition"
               >
                 เข้าสู่ระบบ
               </button>
@@ -258,7 +258,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Mobile Navigation bar */}
-        <div className="md:hidden flex items-center justify-around py-2 border-t border-slate-100 overflow-x-auto text-xs">
+        <div className="md:hidden flex items-center justify-around py-2 border-t border-[#E8DFC8] bg-[#FCF9F4] overflow-x-auto text-xs">
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = activeTab === link.id;
@@ -267,7 +267,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 key={link.id}
                 onClick={() => setActiveTab(link.id)}
                 className={`flex flex-col items-center py-1 px-2 ${
-                  isActive ? 'text-red-600 font-bold' : 'text-slate-500'
+                  isActive ? 'text-[#A04830] font-bold' : 'text-[#8C7454]'
                 }`}
               >
                 <Icon className="w-4 h-4 mb-0.5" />

@@ -203,14 +203,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Profile Overview Card */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
+      <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-xs p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
         <div className="relative group">
           <img
             src={avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
             alt={currentUser.username}
-            className="w-24 h-24 rounded-3xl object-cover border-2 border-slate-200 shadow-md"
+            className="w-24 h-24 rounded-3xl object-cover border-2 border-[#E8DFC8] shadow-md"
           />
-          <label className="absolute -bottom-2 -right-2 p-2 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md cursor-pointer transition">
+          <label className="absolute -bottom-2 -right-2 p-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl shadow-md cursor-pointer transition">
             <Camera className="w-4 h-4" />
             <input type="file" accept="image/*" className="hidden" onChange={handleFileUploadAvatar} />
           </label>
@@ -218,17 +218,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         <div className="flex-1 text-center md:text-left space-y-2">
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-            <h1 className="text-2xl font-bold text-slate-800">
+            <h1 className="text-2xl font-bold text-[#3F3A31]">
               {currentUser.full_name || currentUser.username}
             </h1>
             {currentUser.full_name && (
-              <span className="text-sm text-slate-400 font-medium">({currentUser.username})</span>
+              <span className="text-sm text-[#5C5951] font-medium">({currentUser.username})</span>
             )}
-            <span className="text-xs bg-red-100 text-red-700 font-bold px-3 py-1 rounded-full">
+            <span className="text-xs bg-[#F7EEDC] text-[#A04830] font-bold px-3 py-1 rounded-full border border-[#E8DFC8]">
               สิทธิ์: {currentUser.role}
             </span>
             {currentUser.is_safety_committee && (
-              <span className="text-xs bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs">
+              <span className="text-xs bg-linear-to-r from-[#A04830] to-[#CC902D] text-white font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>กรรมการ คปอ.</span>
               </span>
@@ -239,19 +239,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-[#5C5951]">
             <span className="flex items-center space-x-1">
-              <Building2 className="w-4 h-4 text-slate-400" />
-              <span>แผนก: <strong className="text-slate-700">{currentUser.department}</strong></span>
+              <Building2 className="w-4 h-4 text-[#A04830]" />
+              <span>แผนก: <strong className="text-[#3F3A31]">{currentUser.department}</strong></span>
             </span>
             <span className="flex items-center space-x-1">
-              <ShieldCheck className="w-4 h-4 text-slate-400" />
-              <span>ตำแหน่ง: <strong className="text-slate-700">{currentUser.position || 'ทั่วไป'}</strong></span>
+              <ShieldCheck className="w-4 h-4 text-[#CC902D]" />
+              <span>ตำแหน่ง: <strong className="text-[#3F3A31]">{currentUser.position || 'ทั่วไป'}</strong></span>
             </span>
             <span>ลงทะเบียนเมื่อ: {formatThaiDate(currentUser.created_at)}</span>
           </div>
 
-          <p className="text-xs text-slate-400 max-w-xl">
+          <p className="text-xs text-[#5C5951] max-w-xl">
             {currentUser.role === 'P1' && 'คุณอยู่ในสิทธิ์ P1: เมื่อได้รับมอบหมายงานจากหัวหน้างาน (P2) จะสามารถตรวจเช็คอุปกรณ์แทนได้'}
             {currentUser.role === 'P2' && 'คุณอยู่ในสิทธิ์ P2: สามารถตรวจเช็คอุปกรณ์ได้โดยตรงไม่ต้องขออนุญาต และสามารถมอบหมายงานตรวจสอบให้แก่พนักงาน (P1) ได้'}
             {currentUser.role === 'P3' && 'คุณอยู่ในสิทธิ์ P3 (แอดมิน): จัดการเพิ่มลบพนักงาน, เลื่อนระดับ P1 เป็น P2, รีเซ็ทรหัสผ่าน "0000", และส่งแจ้งเตือน'}
@@ -263,7 +263,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         {isSupervisorOrAbove && (
           <button
             onClick={() => setIsAssignTaskModalOpen(true)}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5 self-center md:self-start"
+            className="px-4 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1.5 self-center md:self-start"
           >
             <Plus className="w-4 h-4" />
             <span>มอบหมายงานใหม่</span>
@@ -274,17 +274,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Assigned Tasks (งานที่ได้รับมอบหมาย อาจมีได้มากกว่า 1) */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+          <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-xs p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                <span className="p-2 bg-[#F7EEDC] text-[#A04830] rounded-xl">
                   <ListTodo className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-800">
+                  <h3 className="font-bold text-sm text-[#3F3A31]">
                     งานที่ได้รับมอบหมาย ({tasks.length})
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#5C5951]">
                     งานตรวจสอบอุปกรณ์ที่หัวหน้างาน (P2) มอบหมาย หรือกิจกรรมความปลอดภัยจากแอดมิน
                   </p>
                 </div>
@@ -293,7 +293,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               {isSupervisorOrAbove && (
                 <button
                   onClick={() => setIsAssignTaskModalOpen(true)}
-                  className="text-xs text-red-600 font-semibold hover:underline flex items-center space-x-1"
+                  className="text-xs text-[#A04830] font-semibold hover:underline flex items-center space-x-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>มอบหมายงาน</span>
@@ -302,7 +302,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
 
             {tasks.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+              <div className="p-8 text-center text-[#5C5951] text-xs border border-dashed border-[#E8DFC8] rounded-2xl">
                 ไม่มีงานที่ได้รับมอบหมายในขณะนี้
               </div>
             ) : (
@@ -398,13 +398,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                       {/* If task has equipment and assigned to current user, provide direct inspect button */}
                       {targetEquipment && isAssignedToMe && task.status !== 'COMPLETED' && onInspectAssignedEquipment && (
-                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                          <span className="text-xs text-slate-500">
-                            อุปกรณ์: <strong className="text-slate-800">{targetEquipment.code}</strong> ({targetEquipment.location})
+                        <div className="pt-2 border-t border-[#E8DFC8] flex items-center justify-between">
+                          <span className="text-xs text-[#5C5951]">
+                            อุปกรณ์: <strong className="text-[#3F3A31]">{targetEquipment.code}</strong> ({targetEquipment.location})
                           </span>
                           <button
                             onClick={() => onInspectAssignedEquipment(targetEquipment, task)}
-                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1 cursor-pointer"
+                            className="px-3 py-1.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1 cursor-pointer"
                           >
                             <CheckSquare className="w-3.5 h-3.5" />
                             <span>เริ่มตรวจเช็คจากงานนี้ทันที</span>
@@ -419,14 +419,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           {/* Change Password Card */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+          <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-xs p-6 space-y-4">
             <div className="flex items-center space-x-2">
-              <span className="p-2 bg-slate-100 text-slate-700 rounded-xl">
+              <span className="p-2 bg-[#F7EEDC] text-[#3F3A31] rounded-xl">
                 <Lock className="w-5 h-5" />
               </span>
               <div>
-                <h3 className="font-bold text-sm text-slate-800">เปลี่ยนรหัสผ่านส่วนตัว</h3>
-                <p className="text-xs text-slate-400">อัปเดตรหัสผ่านใหม่เพื่อความปลอดภัยในการเข้าใช้งาน</p>
+                <h3 className="font-bold text-sm text-[#3F3A31]">เปลี่ยนรหัสผ่านส่วนตัว</h3>
+                <p className="text-xs text-[#5C5951]">อัปเดตรหัสผ่านใหม่เพื่อความปลอดภัยในการเข้าใช้งาน</p>
               </div>
             </div>
 
@@ -441,37 +441,37 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <form onSubmit={handlePasswordChange} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">รหัสผ่านปัจจุบัน</label>
+                <label className="block font-semibold text-[#3F3A31] mb-1">รหัสผ่านปัจจุบัน</label>
                 <input
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="กรอกรหัสปัจจุบัน"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                  className="w-full px-3 py-2 bg-[#FCF9F4] border border-[#E8DFC8] rounded-xl text-[#3F3A31]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">รหัสผ่านใหม่</label>
+                <label className="block font-semibold text-[#3F3A31] mb-1">รหัสผ่านใหม่</label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="อย่างน้อย 4 ตัวอักษร"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                  className="w-full px-3 py-2 bg-[#FCF9F4] border border-[#E8DFC8] rounded-xl text-[#3F3A31]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">ยืนยันรหัสผ่านใหม่</label>
+                <label className="block font-semibold text-[#3F3A31] mb-1">ยืนยันรหัสผ่านใหม่</label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="ยืนยันรหัสใหม่"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                  className="w-full px-3 py-2 bg-[#FCF9F4] border border-[#E8DFC8] rounded-xl text-[#3F3A31]"
                   required
                 />
               </div>
@@ -479,7 +479,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <div className="sm:col-span-3 pt-1 flex justify-end">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs transition"
+                  className="px-5 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-semibold shadow-xs transition"
                 >
                   บันทึกรหัสผ่านใหม่
                 </button>
@@ -490,19 +490,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         {/* Right Column: Personal Notification Box (กล่องแจ้งเตือนเฉพาะของตัวเอง) */}
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+          <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-xs p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="p-2 bg-red-50 text-red-600 rounded-xl">
+                <span className="p-2 bg-[#F7EEDC] text-[#A04830] rounded-xl">
                   <Bell className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-800">กล่องแจ้งเตือนเฉพาะคุณ</h3>
-                  <p className="text-xs text-slate-400">ข้อความและงานที่ส่งถึงคุณ</p>
+                  <h3 className="font-bold text-sm text-[#3F3A31]">กล่องแจ้งเตือนเฉพาะคุณ</h3>
+                  <p className="text-xs text-[#5C5951]">ข้อความและงานที่ส่งถึงคุณ</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-[#F7EEDC] text-[#A04830] font-bold px-2 py-0.5 rounded-full border border-[#E8DFC8]">
                   {notifications.filter(n => !n.is_read).length} ใหม่
                 </span>
                 {notifications.length > 0 && (
@@ -664,7 +664,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs flex items-center justify-center space-x-1"
+                  className="w-1/2 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-semibold shadow-xs flex items-center justify-center space-x-1"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>บันทึกและส่งมอบหมาย</span>

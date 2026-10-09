@@ -150,15 +150,15 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Top Banner / Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="p-2 bg-red-50 text-red-600 rounded-xl">
+            <span className="p-2 bg-[#F7EEDC] text-[#A04830] rounded-xl">
               <Flame className="w-6 h-6" />
             </span>
-            <h1 className="text-xl font-bold text-slate-800">ระบบตรวจสอบอุปกรณ์ดับเพลิง</h1>
+            <h1 className="text-xl font-bold text-[#3F3A31]">ระบบตรวจสอบอุปกรณ์ดับเพลิง</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#8C7454] mt-1 font-medium">
             ตรวจเช็คอุปกรณ์ตามรอบประจำเดือน พร้อมระบบจัดเก็บประวัติและแจ้งเตือนข้อบกพร่อง
           </p>
         </div>
@@ -169,15 +169,15 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
             {currentUser?.role === 'P4' && (
               <button
                 onClick={() => setIsExcelImportModalOpen(true)}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-200 transition flex items-center space-x-1.5 cursor-pointer"
+                className="px-4 py-2.5 bg-[#3F3A31] hover:bg-[#2E2A24] active:bg-[#1F1C18] text-[#FCF9F4] rounded-xl text-xs font-semibold shadow-md shadow-[#3F3A31]/25 transition flex items-center space-x-1.5 cursor-pointer"
               >
-                <FileSpreadsheet className="w-4 h-4" />
+                <FileSpreadsheet className="w-4 h-4 text-[#CC902D]" />
                 <span>นำเข้า Excel (P4)</span>
               </button>
             )}
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5 cursor-pointer"
+              className="px-4 py-2.5 bg-[#A04830] hover:bg-[#803A26] active:bg-[#703222] text-[#FCF9F4] rounded-xl text-xs font-semibold shadow-md shadow-[#A04830]/25 transition flex items-center space-x-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มอุปกรณ์ใหม่</span>
@@ -187,7 +187,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
       </div>
 
       {/* 4 Tabs Selector */}
-      <div className="flex space-x-2 border-b border-slate-200 overflow-x-auto pb-1">
+      <div className="flex space-x-2 border-b border-[#E8DFC8] overflow-x-auto pb-1">
         {(['EX', 'FHC', 'FH', 'HD'] as EquipmentType[]).map((tab) => {
           const isActive = activeType === tab;
           const count = equipmentList.filter(e => e.type === tab).length;
@@ -197,13 +197,13 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
               onClick={() => setActiveType(tab)}
               className={`flex items-center space-x-2 px-4 py-3 text-xs font-bold rounded-t-xl transition-all whitespace-nowrap ${
                 isActive
-                  ? 'border-b-2 border-red-600 text-red-600 bg-red-50/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  ? 'border-b-2 border-[#A04830] text-[#A04830] bg-[#F7EEDC]'
+                  : 'text-[#5C5951] hover:text-[#3F3A31] hover:bg-[#FCF9F4]'
               }`}
             >
               <span>{getTabLabel(tab)}</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                isActive ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+                isActive ? 'bg-[#A04830] text-white' : 'bg-[#E8DFC8] text-[#3F3A31]'
               }`}>
                 {count}
               </span>

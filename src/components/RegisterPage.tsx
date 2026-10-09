@@ -64,16 +64,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-red-600 to-amber-500"></div>
+        <div className="bg-white rounded-3xl shadow-xl shadow-[#3F3A31]/10 border border-[#E8DFC8] p-8 sm:p-10 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-[#3F3A31] via-[#A04830] to-[#CC902D]"></div>
 
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-red-100">
+            <div className="w-14 h-14 bg-[#F7EEDC] text-[#A04830] rounded-2xl flex items-center justify-center mx-auto mb-3 border border-[#E8DFC8]">
               <UserPlus className="w-7 h-7" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800">สมัครสมาชิก SHE System</h2>
-            <p className="text-xs text-slate-500 mt-1">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
+            <h2 className="text-xl font-bold text-[#3F3A31]">สมัครสมาชิก SHE System</h2>
+            <p className="text-xs text-[#8C7454] mt-1 font-medium">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
           </div>
 
           {isSuccess ? (
@@ -234,7 +234,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-red-200 transition"
+                  className="w-full py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white font-semibold rounded-xl text-sm shadow-md shadow-[#A04830]/25 transition"
                 >
                   ลงทะเบียนสมัครสมาชิก
                 </button>
@@ -244,7 +244,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onGoToLogin }) => {
                 <button
                   type="button"
                   onClick={onGoToLogin}
-                  className="inline-flex items-center text-xs text-slate-500 hover:text-slate-800"
+                  className="inline-flex items-center text-xs text-[#5C5951] hover:text-[#A04830] font-medium"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 mr-1" />
                   กลับสู่หน้าเข้าสู่ระบบ

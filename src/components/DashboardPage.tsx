@@ -279,28 +279,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* View Selector Header */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="p-2 bg-red-50 text-red-600 rounded-xl">
+            <span className="p-2 bg-[#F7EEDC] text-[#A04830] rounded-xl">
               <LayoutDashboard className="w-6 h-6" />
             </span>
-            <h1 className="text-xl font-bold text-slate-800">แดชบอร์ดสรุปผลการดำเนินงาน (Dashboard)</h1>
+            <h1 className="text-xl font-bold text-[#3F3A31]">แดชบอร์ดสรุปผลการดำเนินงาน (Dashboard)</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#5C5951] mt-1">
             เลือกหัวข้องานที่ต้องการนำเสนอข้อมูล และส่งออกรายงานประจำเดือน/ประจำปี
           </p>
         </div>
 
         {/* View Switcher: Fire Equipment vs Safety Committee (Requirement 4: ONLY shown if user is คปอ) */}
         {isCommittee && (
-          <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+          <div className="inline-flex p-1.5 bg-[#F7EEDC] rounded-2xl border border-[#E8DFC8]">
             <button
               onClick={() => setActiveView('EQUIPMENT')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
                 activeView === 'EQUIPMENT'
-                  ? 'bg-white text-red-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#A04830] text-white shadow-xs'
+                  : 'text-[#5C5951] hover:text-[#3F3A31]'
               }`}
             >
               <Flame className="w-4 h-4" />
@@ -310,11 +310,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               onClick={() => setActiveView('SAFETY_COMMITTEE')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
                 activeView === 'SAFETY_COMMITTEE'
-                  ? 'bg-white text-emerald-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#3F3A31] text-white shadow-xs'
+                  : 'text-[#5C5951] hover:text-[#3F3A31]'
               }`}
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <ShieldCheck className="w-4 h-4 text-[#CC902D]" />
               <span>Safety Committee (คปอ.)</span>
             </button>
           </div>
@@ -325,15 +325,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
         /* Real Safety Committee Dashboard (Requirement 4) */
         <div className="space-y-6">
           {/* Hero / Header stats banner */}
-          <div className="bg-linear-to-r from-emerald-800 via-teal-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+          <div className="bg-linear-to-r from-[#3F3A31] via-[#2D2924] to-[#1F1C18] text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 mb-2">
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#CC902D]/20 text-[#CC902D] border border-[#CC902D]/30 mb-2">
                   <ShieldCheck className="w-4 h-4" />
                   <span>แดชบอร์ดเฉพาะคณะกรรมการ คปอ.</span>
                 </div>
                 <h2 className="text-2xl font-extrabold">สถิติและความคืบหน้างาน Safety Committee (คปอ.)</h2>
-                <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                <p className="text-xs text-[#E8DFC8] mt-1 max-w-xl">
                   สรุปผลการเดินตรวจความปลอดภัย (Safety Walk & Patrol), ข้อเสนอแนะแก้ไขจุดเสี่ยง (Near Miss / Hazards), และการติดตามผล Before & After
                 </p>
               </div>
@@ -342,19 +342,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 {isAdminOrSuper && (
                   <button
                     onClick={() => setIsSafetyExportModalOpen(true)}
-                    className="px-3.5 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-white rounded-xl text-xs font-bold border border-emerald-400/40 shadow-xs transition flex items-center space-x-1.5"
+                    className="px-3.5 py-2 bg-[#CC902D]/20 hover:bg-[#CC902D]/30 text-white rounded-xl text-xs font-bold border border-[#CC902D]/40 shadow-xs transition flex items-center space-x-1.5"
                     title="Export รายงานการเดินตรวจ คปอ. (PDF, Excel, รูปภาพ)"
                   >
-                    <Download className="w-4 h-4 text-emerald-300" />
+                    <Download className="w-4 h-4 text-[#CC902D]" />
                     <span>Export รายงาน คปอ.</span>
                   </button>
                 )}
                 <div className="text-right">
-                  <div className="text-xs text-slate-300">อัตราการแก้ไขปัญหาสำเร็จ</div>
-                  <div className="text-3xl font-extrabold text-emerald-400">{resolutionRate}%</div>
+                  <div className="text-xs text-[#E8DFC8]">อัตราการแก้ไขปัญหาสำเร็จ</div>
+                  <div className="text-3xl font-extrabold text-[#CC902D]">{resolutionRate}%</div>
                 </div>
                 <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                  <CheckCircle2 className="w-7 h-7 text-[#CC902D]" />
                 </div>
               </div>
             </div>
@@ -362,26 +362,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
 
           {/* Key KPI Metrics Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-slate-400">
+            <div className="bg-white p-5 rounded-2xl border border-[#E8DFC8] shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-[#5C5951]">
                 <span className="text-xs font-medium">รอบเดินตรวจทั้งหมด</span>
-                <Calendar className="w-4 h-4 text-blue-500" />
+                <Calendar className="w-4 h-4 text-[#A04830]" />
               </div>
-              <div className="text-2xl font-extrabold text-slate-800">{totalPatrols}</div>
+              <div className="text-2xl font-extrabold text-[#3F3A31]">{totalPatrols}</div>
               <div className="text-[11px] text-emerald-600 font-semibold">เปิดอยู่ {openPatrols} รอบ</div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-slate-400">
+            <div className="bg-white p-5 rounded-2xl border border-[#E8DFC8] shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-[#5C5951]">
                 <span className="text-xs font-medium">รายการตรวจพบทั้งหมด</span>
-                <Eye className="w-4 h-4 text-purple-500" />
+                <Eye className="w-4 h-4 text-[#3F3A31]" />
               </div>
-              <div className="text-2xl font-extrabold text-slate-800">{totalFindings}</div>
-              <div className="text-[11px] text-slate-500 font-medium">บันทึกสะสมทั้งหมด</div>
+              <div className="text-2xl font-extrabold text-[#3F3A31]">{totalFindings}</div>
+              <div className="text-[11px] text-[#5C5951] font-medium">บันทึกสะสมทั้งหมด</div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-slate-400">
+            <div className="bg-white p-5 rounded-2xl border border-[#E8DFC8] shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-[#5C5951]">
                 <span className="text-xs font-medium">ข้อเสนอแนะ / จุดเสี่ยง</span>
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
               </div>
@@ -389,8 +389,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               <div className="text-[11px] text-amber-700 font-medium">ต้องติดตามและแก้ไข</div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
-              <div className="flex items-center justify-between text-slate-400">
+            <div className="bg-white p-5 rounded-2xl border border-[#E8DFC8] shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-[#5C5951]">
                 <span className="text-xs font-medium">สิ่งที่ชมเชย (Good Practice)</span>
                 <ThumbsUp className="w-4 h-4 text-emerald-500" />
               </div>
@@ -398,13 +398,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               <div className="text-[11px] text-emerald-700 font-medium">การปฏิบัติงานที่ดี</div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1 col-span-2 lg:col-span-1">
-              <div className="flex items-center justify-between text-slate-400">
+            <div className="bg-white p-5 rounded-2xl border border-[#E8DFC8] shadow-xs space-y-1 col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between text-[#5C5951]">
                 <span className="text-xs font-medium">แก้ไขสำเร็จ (Approved)</span>
-                <ShieldCheck className="w-4 h-4 text-blue-500" />
+                <ShieldCheck className="w-4 h-4 text-[#CC902D]" />
               </div>
-              <div className="text-2xl font-extrabold text-blue-600">{approvedCount}</div>
-              <div className="text-[11px] text-slate-500 font-medium">
+              <div className="text-2xl font-extrabold text-emerald-600">{approvedCount}</div>
+              <div className="text-[11px] text-[#5C5951] font-medium">
                 {pendingReviewCount > 0 ? `รอตรวจ ${pendingReviewCount} รายการ` : 'ไม่มีงานรอตรวจ'}
               </div>
             </div>
@@ -413,15 +413,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chart 1: Category & Problem Status - Latest Patrol Round (วงแรกแสดงรอบรายการล่าสุด) */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs space-y-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <h3 className="font-bold text-sm text-[#3F3A31] flex items-center space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-[#A04830] shrink-0" />
                   <span>สัดส่วนประเภทรายการตรวจพบ (รอบรายการล่าสุด)</span>
                 </h3>
                 {latestPatrol && (
                   <span
-                    className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full truncate max-w-[200px]"
+                    className="text-[11px] font-semibold text-[#A04830] bg-[#F7EEDC] border border-[#E8DFC8] px-2.5 py-0.5 rounded-full truncate max-w-[200px]"
                     title={`${latestPatrol.title} (${latestPatrol.patrol_date})`}
                   >
                     {latestPatrol.title}
@@ -429,7 +429,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 )}
               </div>
               {latestTotalFindings === 0 ? (
-                <div className="p-12 text-center text-slate-400 text-xs">
+                <div className="p-12 text-center text-[#5C5951] text-xs">
                   {latestPatrol
                     ? `รอบล่าสุด (${latestPatrol.title}) ยังไม่มีรายการตรวจพบที่บันทึกไว้`
                     : 'ยังไม่มีข้อมูลรอบการเดินตรวจ คปอ.'}
@@ -449,18 +449,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
             </div>
 
             {/* Chart 2: Resolution Status - YTD Before-After (วง 2 ตั้งแต่ มกราคม ถึง เดือนปัจจุบัน) */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs space-y-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                <h3 className="font-bold text-sm text-[#3F3A31] flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-[#CC902D] shrink-0" />
                   <span>สถานะการติดตามแก้ไขปัญหา Before-After ตั้งแต่ มกราคม ถึง เดือนปัจจุบัน</span>
                 </h3>
-                <span className="text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-full shrink-0">
+                <span className="text-[11px] font-bold text-[#3F3A31] bg-[#F7EEDC] border border-[#E8DFC8] px-2.5 py-0.5 rounded-full shrink-0">
                   {ytdRecommendCount} รายการ
                 </span>
               </div>
               {ytdRecommendCount === 0 ? (
-                <div className="p-12 text-center text-slate-400 text-xs">
+                <div className="p-12 text-center text-[#5C5951] text-xs">
                   ยังไม่มีรายการข้อแนะนำหรือจุดเสี่ยงตั้งแต่ ม.ค. ถึงเดือนปัจจุบัน ({THAI_MONTHS[now.getMonth()]})
                 </div>
               ) : (
@@ -479,34 +479,34 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           </div>
 
           {/* Recent Patrols Summary Table */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white rounded-3xl border border-[#E8DFC8] shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-[#E8DFC8] flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-sm text-slate-800">รอบการเดินตรวจ คปอ. ล่าสุด</h4>
-                <p className="text-xs text-slate-400">ข้อมูลรอบเดินตรวจและจำนวนสิ่งที่ตรวจพบ</p>
+                <h4 className="font-bold text-sm text-[#3F3A31]">รอบการเดินตรวจ คปอ. ล่าสุด</h4>
+                <p className="text-xs text-[#5C5951]">ข้อมูลรอบเดินตรวจและจำนวนสิ่งที่ตรวจพบ</p>
               </div>
             </div>
 
             {patrols.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">ยังไม่มีรายการรอบเดินตรวจ คปอ.</div>
+              <div className="p-8 text-center text-[#5C5951] text-xs">ยังไม่มีรายการรอบเดินตรวจ คปอ.</div>
             ) : (
-              <div className="divide-y divide-slate-100 text-xs">
+              <div className="divide-y divide-[#E8DFC8] text-xs">
                 {patrols.slice(0, 5).map(p => {
                   const pFindings = findings.filter(f => f.patrol_id === p.id);
                   const pRecommend = pFindings.filter(f => f.category === 'RECOMMEND').length;
                   const pCommend = pFindings.filter(f => f.category === 'COMMEND').length;
                   return (
-                    <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition">
+                    <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F7EEDC]/40 transition">
                       <div className="space-y-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-slate-800">{p.title}</span>
+                          <span className="font-bold text-[#3F3A31]">{p.title}</span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            p.status === 'OPEN' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            p.status === 'OPEN' ? 'bg-emerald-100 text-emerald-800' : 'bg-[#F7EEDC] text-[#5C5951]'
                           }`}>
                             {p.status === 'OPEN' ? 'เปิดรับข้อมูล' : 'ปิดแล้ว'}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-[11px] text-[#5C5951]">
                           วันที่: {p.patrol_date} | เวลา: {p.time_range} | พื้นที่: {p.location || 'ทั่วทั้งโรงงาน'} | สร้างโดย: {p.created_by_name}
                         </div>
                       </div>
@@ -518,7 +518,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                         <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-lg font-semibold">
                           ชมเชย {pCommend}
                         </span>
-                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-bold">
+                        <span className="bg-[#F7EEDC] text-[#3F3A31] px-2.5 py-1 rounded-lg font-bold">
                           รวม {pFindings.length} รายการ
                         </span>
                       </div>
@@ -533,15 +533,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
         /* Fire Safety Equipment Dashboard */
         <div className="space-y-6">
           {/* Filter Bar & Admin Report Export Actions */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="bg-white p-4 rounded-2xl border border-[#E8DFC8] flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-3">
               {/* Year Filter (3 years back + current year) */}
               <div className="flex items-center space-x-1.5">
-                <span className="text-slate-500 font-medium">ปี พ.ศ.:</span>
+                <span className="text-[#5C5951] font-medium">ปี พ.ศ.:</span>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+                  className="bg-[#FCF9F4] border border-[#E8DFC8] rounded-lg px-2.5 py-1.5 font-bold text-[#3F3A31]"
                 >
                   {availableYears.map(y => (
                     <option key={y} value={y}>{y}</option>
@@ -551,11 +551,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
 
               {/* Month Filter */}
               <div className="flex items-center space-x-1.5">
-                <span className="text-slate-500 font-medium">เดือน:</span>
+                <span className="text-[#5C5951] font-medium">เดือน:</span>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+                  className="bg-[#FCF9F4] border border-[#E8DFC8] rounded-lg px-2.5 py-1.5 font-bold text-[#3F3A31]"
                 >
                   {THAI_MONTHS.map((m, idx) => (
                     <option key={m} value={idx}>{m}</option>
@@ -565,11 +565,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
 
               {/* Equipment Type Filter */}
               <div className="flex items-center space-x-1.5">
-                <span className="text-slate-500 font-medium">ประเภท:</span>
+                <span className="text-[#5C5951] font-medium">ประเภท:</span>
                 <select
                   value={selectedEquipType}
                   onChange={(e) => setSelectedEquipType(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-bold text-slate-700"
+                  className="bg-[#FCF9F4] border border-[#E8DFC8] rounded-lg px-2.5 py-1.5 font-bold text-[#3F3A31]"
                 >
                   <option value="ALL">ทั้งหมด (EX, FHC, FH, HD)</option>
                   <option value="EX">ถังดับเพลิง (EX)</option>
@@ -586,7 +586,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 {/* PDF Monthly */}
                 <button
                   onClick={() => handleExportPDF('MONTHLY')}
-                  className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold rounded-lg flex items-center space-x-1 border border-red-200 transition"
+                  className="px-3 py-1.5 bg-[#F7EEDC] hover:bg-[#F1E1C1] text-[#A04830] font-semibold rounded-lg flex items-center space-x-1 border border-[#E8DFC8] transition"
                   title="พิมพ์รายงาน PDF รายเดือน"
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -596,7 +596,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 {/* PDF Yearly */}
                 <button
                   onClick={() => handleExportPDF('YEARLY')}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
+                  className="px-3 py-1.5 bg-[#A04830] hover:bg-[#803A26] text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
                   title="พิมพ์รายงาน PDF รายปี"
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -606,7 +606,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 {/* Excel */}
                 <button
                   onClick={handleExportExcel}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
+                  className="px-3 py-1.5 bg-[#3F3A31] hover:bg-[#2D2924] text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
                   title="ดาวน์โหลด Excel รายงาน"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -616,7 +616,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 {/* Export Photos */}
                 <button
                   onClick={() => handleExportPhotos()}
-                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
+                  className="px-3 py-1.5 bg-[#CC902D] hover:bg-[#B57D22] text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
                   title="ดาวน์โหลดรูปภาพทั้งหมด (.zip)"
                 >
                   <Images className="w-3.5 h-3.5" />
@@ -628,13 +628,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
 
           {/* Key KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-              <div className="text-slate-400 text-xs font-semibold">อัตราการตรวจเสร็จสิ้น</div>
+            <div className="bg-white p-5 rounded-3xl border border-[#E8DFC8] shadow-xs">
+              <div className="text-[#5C5951] text-xs font-semibold">อัตราการตรวจเสร็จสิ้น</div>
               <div className="flex items-baseline space-x-2 mt-2">
-                <span className="text-3xl font-extrabold text-slate-800">{completionRate}%</span>
-                <span className="text-xs text-slate-500 font-medium">({inspectedCount}/{totalEquip})</span>
+                <span className="text-3xl font-extrabold text-[#3F3A31]">{completionRate}%</span>
+                <span className="text-xs text-[#5C5951] font-medium">({inspectedCount}/{totalEquip})</span>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
+              <div className="w-full bg-[#F7EEDC] h-2 rounded-full mt-3 overflow-hidden">
                 <div
                   className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                   style={{ width: `${completionRate}%` }}
@@ -642,11 +642,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-              <div className="text-slate-400 text-xs font-semibold">ความพร้อมใช้งาน (Ready)</div>
+            <div className="bg-white p-5 rounded-3xl border border-[#E8DFC8] shadow-xs">
+              <div className="text-[#5C5951] text-xs font-semibold">ความพร้อมใช้งาน (Ready)</div>
               <div className="flex items-baseline space-x-2 mt-2">
                 <span className="text-3xl font-extrabold text-emerald-600">{readyCount}</span>
-                <span className="text-xs text-slate-500">/ {totalEquip} รายการ</span>
+                <span className="text-xs text-[#5C5951]">/ {totalEquip} รายการ</span>
               </div>
               <div className="text-[11px] text-emerald-600 font-medium mt-3 flex items-center space-x-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -654,11 +654,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-              <div className="text-slate-400 text-xs font-semibold">พบข้อบกพร่อง (Defects)</div>
+            <div className="bg-white p-5 rounded-3xl border border-[#E8DFC8] shadow-xs">
+              <div className="text-[#5C5951] text-xs font-semibold">พบข้อบกพร่อง (Defects)</div>
               <div className="flex items-baseline space-x-2 mt-2">
                 <span className="text-3xl font-extrabold text-red-600">{defectCount}</span>
-                <span className="text-xs text-slate-500">รายการ</span>
+                <span className="text-xs text-[#5C5951]">รายการ</span>
               </div>
               <div className="text-[11px] text-red-600 font-medium mt-3 flex items-center space-x-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -667,13 +667,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
             </div>
 
             {/* Resolved defects badge as required: "เห็นได้ทันทีว่ามีปัญหาแต่ได้รับการแก้ไขแล้ว" */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
-              <div className="text-slate-400 text-xs font-semibold">ปัญหาแต่ได้รับการแก้ไขแล้ว</div>
+            <div className="bg-white p-5 rounded-3xl border border-[#E8DFC8] shadow-xs">
+              <div className="text-[#5C5951] text-xs font-semibold">ปัญหาแต่ได้รับการแก้ไขแล้ว</div>
               <div className="flex items-baseline space-x-2 mt-2">
-                <span className="text-3xl font-extrabold text-blue-600">{resolvedCount}</span>
-                <span className="text-xs text-slate-500">รายการ</span>
+                <span className="text-3xl font-extrabold text-[#CC902D]">{resolvedCount}</span>
+                <span className="text-xs text-[#5C5951]">รายการ</span>
               </div>
-              <div className="text-[11px] text-blue-600 font-medium mt-3 flex items-center space-x-1">
+              <div className="text-[11px] text-[#CC902D] font-medium mt-3 flex items-center space-x-1">
                 <Wrench className="w-3.5 h-3.5" />
                 <span>แก้ไขและตรวจซ้ำผ่านแล้ว</span>
               </div>
@@ -683,15 +683,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 1. Yearly Bar Chart (2 columns) */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-sm text-slate-800">
+                  <h3 className="font-bold text-sm text-[#3F3A31]">
                     กราฟแท่งเปรียบเทียบสถิติรายปี (ย้อนหลัง 2 ปี รวมปีปัจจุบัน {currentYearBE})
                   </h3>
-                  <p className="text-xs text-slate-400">อิงตามเวลาประเทศไทย (UTC+7)</p>
+                  <p className="text-xs text-[#5C5951]">อิงตามเวลาประเทศไทย (UTC+7)</p>
                 </div>
-                <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg font-medium">
+                <span className="text-xs bg-[#F7EEDC] text-[#3F3A31] border border-[#E8DFC8] px-2.5 py-1 rounded-lg font-medium">
                   พ.ศ. {availableYears[availableYears.length - 1]} - {availableYears[0]}
                 </span>
               </div>
@@ -715,12 +715,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
             </div>
 
             {/* 2. Monthly Doughnut Chart (1 column) */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs space-y-4">
               <div>
-                <h3 className="font-bold text-sm text-slate-800">
+                <h3 className="font-bold text-sm text-[#3F3A31]">
                   สัดส่วนผลตรวจประจำเดือน {THAI_MONTHS[selectedMonth]} {selectedYear}
                 </h3>
-                <p className="text-xs text-slate-400">แบ่งตามสถานะความพร้อมและข้อบกพร่อง</p>
+                <p className="text-xs text-[#5C5951]">แบ่งตามสถานะความพร้อมและข้อบกพร่อง</p>
               </div>
 
               <div className="h-56 flex items-center justify-center">
@@ -737,9 +737,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                 />
               </div>
 
-              <div className="text-center pt-2 border-t border-slate-100">
-                <span className="text-xs text-slate-500">
-                  รวมอุปกรณ์ทั้งหมดในประเภทที่เลือก: <span className="font-bold text-slate-800">{totalEquip} รายการ</span>
+              <div className="text-center pt-2 border-t border-[#E8DFC8]">
+                <span className="text-xs text-[#5C5951]">
+                  รวมอุปกรณ์ทั้งหมดในประเภทที่เลือก: <span className="font-bold text-[#3F3A31]">{totalEquip} รายการ</span>
                 </span>
               </div>
             </div>

@@ -79,17 +79,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Card Container */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10 relative overflow-hidden">
-          {/* Subtle top decoration */}
-          <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-red-600 via-orange-500 to-amber-500"></div>
+        <div className="bg-white rounded-3xl shadow-xl shadow-[#3F3A31]/10 border border-[#E8DFC8] p-8 sm:p-10 relative overflow-hidden">
+          {/* Subtle top decoration - JDE Peet's Charcoal -> Terracotta -> Gold */}
+          <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-[#3F3A31] via-[#A04830] to-[#CC902D]"></div>
 
           {/* Header & Logo */}
           <div className="flex flex-col items-center justify-center text-center mb-8">
             <div className="mb-4">
               <SheLogo size="lg" showSubtext={false} />
             </div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">SHE SAFETY SYSTEM</h1>
-            <p className="text-slate-500 text-xs mt-1">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
+            <h1 className="text-2xl font-black text-[#3F3A31] tracking-tight">SHE SAFETY SYSTEM</h1>
+            <p className="text-[#8C7454] text-xs mt-1 font-medium">ระบบตรวจสอบความปลอดภัยและอุปกรณ์ดับเพลิง</p>
           </div>
 
           {/* Alerts */}
@@ -122,7 +122,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="กรอกชื่อผู้ใช้งาน (ตัวพิมพ์เล็ก/ใหญ่ได้)"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#FCF9F4] border border-[#E8DFC8] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#A04830]/20 focus:border-[#A04830] transition text-[#3F3A31]"
                   required
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -133,7 +133,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-[#3F3A31]">
                   รหัสผ่าน (Password)
                 </label>
                 <button
@@ -143,13 +143,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                     setForgotUsername(username);
                     setShowForgotModal(true);
                   }}
-                  className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline"
+                  className="text-xs text-[#A04830] hover:text-[#803A26] font-semibold hover:underline"
                 >
                   ลืมรหัสผ่าน?
                 </button>
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8C7454]">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -157,7 +157,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="กรอกรหัสผ่าน"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition"
+                  className="w-full pl-10 pr-10 py-2.5 bg-[#FCF9F4] border border-[#E8DFC8] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#A04830]/20 focus:border-[#A04830] transition text-[#3F3A31]"
                   required
                 />
                 <button
@@ -174,7 +174,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold rounded-xl text-sm shadow-md shadow-red-600/25 transition disabled:opacity-50"
+              className="w-full py-2.5 bg-[#A04830] hover:bg-[#803A26] active:bg-[#703222] text-[#FCF9F4] font-semibold rounded-xl text-sm shadow-md shadow-[#A04830]/25 transition disabled:opacity-50"
             >
               {isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
@@ -182,30 +182,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
             {/* Visitor / Guest Button */}
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
+                <div className="w-full border-t border-[#E8DFC8]"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-2 text-slate-400">หรือ</span>
+                <span className="bg-white px-2 text-[#8C7454]">หรือ</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={handleGuestLogin}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-semibold rounded-xl text-sm transition flex items-center justify-center space-x-2 border border-slate-200"
+              className="w-full py-2.5 bg-[#F7EEDC] hover:bg-[#F1E1C1] active:bg-[#E8D5B0] text-[#3F3A31] font-semibold rounded-xl text-sm transition flex items-center justify-center space-x-2 border border-[#E8DFC8]"
             >
-              <UserCheck className="w-4 h-4 text-slate-500" />
+              <UserCheck className="w-4 h-4 text-[#8C7454]" />
               <span>กดเพื่อเข้าเยี่ยมชม (Guest Mode)</span>
             </button>
           </form>
 
           {/* Footer Link to Register */}
-          <div className="mt-8 text-center text-xs text-slate-500">
+          <div className="mt-8 text-center text-xs text-[#5C5951]">
             ยังไม่มีบัญชีผู้ใช้งาน?{' '}
             <button
               type="button"
               onClick={onGoToRegister}
-              className="text-red-600 font-semibold hover:underline"
+              className="text-[#A04830] font-bold hover:underline"
             >
               สมัครสมาชิกใหม่
             </button>
@@ -216,12 +216,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
       {/* Forgot Password Modal */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
-            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#E8DFC8]">
+            <div className="w-12 h-12 bg-[#F7EEDC] text-[#A04830] rounded-xl flex items-center justify-center mx-auto mb-3">
               <KeyRound className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 text-center">ขอรีเซ็ทรหัสผ่าน</h3>
-            <p className="text-xs text-slate-500 text-center mt-1 mb-4">
+            <h3 className="text-lg font-bold text-[#3F3A31] text-center">ขอรีเซ็ทรหัสผ่าน</h3>
+            <p className="text-xs text-[#5C5951] text-center mt-1 mb-4">
               ระบบจะส่งการแจ้งเตือนไปยังแอดมิน เพื่อให้แอดมินทำการรีเซ็ทรหัสผ่านเป็น "0000" ให้แก่คุณ
             </p>
 
@@ -233,7 +233,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                 <button
                   type="button"
                   onClick={() => setShowForgotModal(false)}
-                  className="w-full py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold"
+                  className="w-full py-2 bg-[#3F3A31] hover:bg-[#2E2A24] text-white rounded-xl text-xs font-semibold"
                 >
                   ปิดหน้าต่าง
                 </button>
@@ -241,7 +241,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
             ) : (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-[#3F3A31] mb-1">
                     ชื่อผู้ใช้งานที่ต้องการรีเซ็ท
                   </label>
                   <input
@@ -249,7 +249,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                     value={forgotUsername}
                     onChange={(e) => setForgotUsername(e.target.value)}
                     placeholder="กรอกชื่อผู้ใช้ของคุณ"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    className="w-full px-3 py-2 bg-[#FCF9F4] border border-[#E8DFC8] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#A04830]/20"
                     required
                     autoCapitalize="none"
                     autoCorrect="off"
@@ -260,13 +260,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onGoToRegi
                   <button
                     type="button"
                     onClick={() => setShowForgotModal(false)}
-                    className="w-1/2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                    className="w-1/2 py-2 bg-[#F7EEDC] hover:bg-[#F1E1C1] text-[#3F3A31] rounded-xl text-xs font-semibold"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
-                    className="w-1/2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-sm"
+                    className="w-1/2 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-sm"
                   >
                     ส่งแจ้งเตือนแอดมิน
                   </button>

@@ -78,30 +78,30 @@ export const App: React.FC = () => {
   if (!currentUser) {
     if (authView === 'REGISTER') {
       return (
-        <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <div className="min-h-screen bg-[#FCF9F4] flex flex-col justify-between">
           <RegisterPage onGoToLogin={() => setAuthView('LOGIN')} />
-          <footer className="py-4 text-center text-xs text-slate-400">
-            SHE System &bull; ระบบบริหารความปลอดภัยและตรวจเช็คอุปกรณ์
+          <footer className="py-4 text-center text-xs text-[#8C7454]">
+            JDE Peet's &bull; SHE System &bull; ระบบบริหารความปลอดภัยและตรวจเช็คอุปกรณ์
           </footer>
         </div>
       );
     }
 
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+      <div className="min-h-screen bg-[#FCF9F4] flex flex-col justify-between">
         <LoginPage
           onLoginSuccess={handleLoginSuccess}
           onGoToRegister={() => setAuthView('REGISTER')}
         />
-        <footer className="py-4 text-center text-xs text-slate-400">
-          SHE System &bull; ระบบบริหารความปลอดภัยและตรวจเช็คอุปกรณ์
+        <footer className="py-4 text-center text-xs text-[#8C7454]">
+          JDE Peet's &bull; SHE System &bull; ระบบบริหารความปลอดภัยและตรวจเช็คอุปกรณ์
         </footer>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+    <div className="min-h-screen bg-[#FCF9F4] flex flex-col justify-between">
       <div>
         {/* Navigation Bar */}
         <Navbar
@@ -172,13 +172,13 @@ export const App: React.FC = () => {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/80 bg-white py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-[#E8DFC8] bg-[#F7EEDC] py-6 text-center text-xs text-[#5C5951]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-slate-700">SHE SYSTEM</span>
+            <span className="font-bold text-[#3F3A31]">JDE Peet's &bull; SHE SYSTEM</span>
             <span>&bull; Safety & Fire Inspection</span>
           </div>
-          <div className="text-slate-400">
+          <div className="text-[#8C7454] font-medium">
             ระบบบริหารจัดการความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม
           </div>
         </div>

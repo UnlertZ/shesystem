@@ -514,7 +514,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             <button
               onClick={handleDownloadPDF}
               disabled={isExporting}
-              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition disabled:opacity-50"
+              className="px-4 py-1.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               <span>{isExporting ? 'กำลังสร้าง PDF...' : 'ดาวน์โหลด PDF'}</span>

@@ -360,7 +360,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       case 'P4':
         return <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P4 ผู้จัดการระบบ</span>;
       case 'P3':
-        return <span className="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P3 แอดมิน</span>;
+        return <span className="bg-[#F7EEDC] text-[#A04830] border border-[#E8DFC8] text-[10px] font-bold px-2 py-0.5 rounded-full">P3 แอดมิน</span>;
       case 'P2':
         return <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P2 หัวหน้า/ผจก</span>;
       case 'P1':
@@ -373,15 +373,15 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Top Banner */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-3xl border border-[#E8DFC8] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="p-2 bg-red-50 text-red-600 rounded-xl">
+            <span className="p-2 bg-[#F7EEDC] text-[#A04830] rounded-xl">
               <Users className="w-6 h-6" />
             </span>
-            <h1 className="text-xl font-bold text-slate-800">จัดการสมาชิกและกำหนดสิทธิ์ (Admin & Manager)</h1>
+            <h1 className="text-xl font-bold text-[#3F3A31]">จัดการสมาชิกและกำหนดสิทธิ์ (Admin & Manager)</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#8C7454] mt-1 font-medium">
             แบ่งสิทธิ์การใช้งาน P1 (พนักงาน), P2 (หัวหน้างาน/ผู้จัดการ), P3 (แอดมิน), P4 (ผู้จัดการระบบ)
           </p>
         </div>
@@ -389,7 +389,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
         <div className="flex items-center space-x-2 self-start md:self-auto">
           <button
             onClick={openAddUserModal}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-200 transition flex items-center space-x-1.5"
+            className="px-4 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-md shadow-[#A04830]/25 transition flex items-center space-x-1.5"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มพนักงานใหม่</span>
@@ -413,18 +413,18 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       )}
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200">
+      <div className="flex flex-wrap gap-2 border-b border-[#E8DFC8]">
         <button
           onClick={() => setActiveTab('MEMBERS')}
           className={`px-4 py-3 text-xs font-bold rounded-t-xl transition flex items-center space-x-2 ${
             activeTab === 'MEMBERS'
-              ? 'border-b-2 border-red-600 text-red-600 bg-red-50/50'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              ? 'border-b-2 border-[#A04830] text-[#A04830] bg-[#F7EEDC]'
+              : 'text-[#5C5951] hover:text-[#3F3A31] hover:bg-[#FCF9F4]'
           }`}
         >
           <Users className="w-4 h-4" />
           <span>สมาชิกทั้งหมด</span>
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
+          <span className="bg-[#E8DFC8] text-[#3F3A31] text-[10px] px-2 py-0.5 rounded-full font-bold">
             {approvedUsers.length}
           </span>
         </button>
@@ -433,14 +433,14 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
           onClick={() => setActiveTab('PENDING_APPROVALS')}
           className={`px-4 py-3 text-xs font-bold rounded-t-xl transition flex items-center space-x-2 ${
             activeTab === 'PENDING_APPROVALS'
-              ? 'border-b-2 border-red-600 text-red-600 bg-red-50/50'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              ? 'border-b-2 border-[#A04830] text-[#A04830] bg-[#F7EEDC]'
+              : 'text-[#5C5951] hover:text-[#3F3A31] hover:bg-[#FCF9F4]'
           }`}
         >
           <UserCheck className="w-4 h-4" />
           <span>รอแอดมินอนุมัติ</span>
           {pendingUsers.length > 0 && (
-            <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+            <span className="bg-[#A04830] text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
               {pendingUsers.length}
             </span>
           )}
@@ -683,7 +683,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
               <button
                 onClick={handleOpenAddDept}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1"
+                className="px-3 py-1.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>เพิ่มแผนก</span>
@@ -888,7 +888,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs"
+                  className="w-1/2 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-semibold shadow-xs"
                 >
                   บันทึก
                 </button>
@@ -1077,7 +1077,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs"
+                  className="w-1/2 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-semibold shadow-xs"
                 >
                   เพิ่มพนักงาน
                 </button>
@@ -1104,7 +1104,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                   value={deptFormName}
                   onChange={(e) => setDeptFormName(e.target.value)}
                   placeholder="เช่น แผนกซ่อมบำรุง, แผนกจัดซื้อ..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#A04830]/20"
                   required
                   autoFocus
                 />
@@ -1120,7 +1120,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs"
+                  className="w-1/2 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-semibold shadow-xs"
                 >
                   บันทึก
                 </button>
@@ -1179,7 +1179,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-xs"
+                  className="w-1/2 py-2 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl font-semibold shadow-xs"
                 >
                   บันทึก
                 </button>

@@ -430,20 +430,20 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Hero Header Card */}
-      <div className="bg-linear-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-slate-700/50">
+      {/* Hero Header Card - JDE Peet's Coffee Roast & Terracotta Accent */}
+      <div className="bg-linear-to-r from-[#3F3A31] via-[#2D2924] to-[#1F1C18] text-[#FCF9F4] rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xl border border-[#8C7454]/40">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center space-x-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div className="inline-flex items-center space-x-2 bg-[#CC902D]/20 text-[#E8D5B0] border border-[#CC902D]/40 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-[#CC902D]" />
               <span>Safety Committee Portal (คปอ.)</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               ระบบบริหารจัดการงานคณะกรรมการ คปอ.
             </h1>
 
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            <p className="text-[#E8D5B0] text-xs sm:text-sm leading-relaxed">
               แบบฟอร์มบันทึกการเดินตรวจความปลอดภัย (Safety Walk & Patrol), แนบรูปภาพข้อแนะนำ (Near Miss) และเรื่องที่ชมเชย พร้อมระบบติดตามผลการแก้ไขแบบ Before & After
             </p>
           </div>
@@ -457,16 +457,16 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                     setExportInitialPatrolId('ALL');
                     setIsExportModalOpen(true);
                   }}
-                  className="px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-2 shrink-0 border border-slate-700 hover:border-slate-600"
+                  className="px-3.5 py-2.5 bg-[#2D2924] hover:bg-[#1F1C18] text-[#FCF9F4] rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-2 shrink-0 border border-[#8C7454]/50"
                   title="Export รายงานการเดินตรวจ คปอ. (PDF, Excel, รูปภาพ)"
                 >
-                  <Download className="w-4 h-4 text-emerald-400" />
+                  <Download className="w-4 h-4 text-[#CC902D]" />
                   <span>Export รายงาน คปอ.</span>
                 </button>
 
                 <button
                   onClick={handleOpenCreatePatrol}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-900/40 transition flex items-center space-x-2 shrink-0"
+                  className="px-4 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#A04830]/30 transition flex items-center space-x-2 shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   <span>+ สร้างรายการเดินตรวจ คปอ.</span>

@@ -396,7 +396,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             <button
               onClick={handleExportPDF}
               disabled={isExportingPDF}
-              className="px-3.5 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold rounded-xl shadow-xs transition flex items-center space-x-1.5"
+              className="px-3.5 py-2 bg-[#A04830] hover:bg-[#803A26] disabled:bg-[#A04830]/50 text-white font-bold rounded-xl shadow-xs transition flex items-center space-x-1.5"
               title="บันทึกรายงานเป็นไฟล์ PDF"
             >
               <Download className="w-3.5 h-3.5" />
