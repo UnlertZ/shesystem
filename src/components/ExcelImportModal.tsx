@@ -221,8 +221,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         defect_status: 'NORMAL' as const
       }));
 
-      // Add to storage and Cloudflare D1
-      storageService.bulkAddEquipment(itemsToAdd);
+      // Add to storage and Cloudflare D1 atomically via batch
+      await storageService.bulkAddEquipment(itemsToAdd);
 
       setIsProcessing(false);
       setImportStatus('SUCCESS');

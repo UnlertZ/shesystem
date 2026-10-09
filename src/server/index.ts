@@ -582,6 +582,93 @@ app.get('/api/equipment', async (c) => {
   return c.json({ equipment: results });
 });
 
+app.post('/api/equipment/bulk', async (c) => {
+  const { items } = await c.req.json();
+  if (!Array.isArray(items) || items.length === 0) {
+    return c.json({ success: false, message: 'ไม่มีข้อมูลรายการอุปกรณ์' }, 400);
+  }
+
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  // Get all existing sequence numbers grouped by type
+  const { results: existing } = await db.prepare(
+    'SELECT type, sequence_number FROM equipment'
+  ).all();
+
+  const seqsByType: Record<string, Set<number>> = {};
+  for (const row of existing as any[]) {
+    const t = String(row.type || 'EX').toUpperCase();
+    if (!seqsByType[t]) seqsByType[t] = new Set();
+    seqsByType[t].add(Number(row.sequence_number));
+  }
+
+  const createdEquipment: any[] = [];
+  const statements: any[] = [];
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
+    const type = String(item.type || 'EX').toUpperCase().trim();
+    if (!seqsByType[type]) seqsByType[type] = new Set();
+
+    let vacantSeq = 1;
+    while (seqsByType[type].has(vacantSeq)) {
+      vacantSeq++;
+    }
+    seqsByType[type].add(vacantSeq);
+
+    const code = `${type}-${String(vacantSeq).padStart(3, '0')}`;
+    const id = `eq_${type.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`;
+
+    const newEquip = {
+      id,
+      type,
+      code,
+      sequence_number: vacantSeq,
+      category: item.category || '',
+      weight: item.weight || '',
+      location: item.location || '',
+      in_service_date: item.in_service_date || '',
+      inspection_sheet_photo: item.inspection_sheet_photo || '',
+      location_photo: item.location_photo || '',
+      ready_status: item.ready_status || 'READY',
+      inspection_status: item.inspection_status || 'PENDING',
+      responsible_person: item.responsible_person || '',
+      defect_status: item.defect_status || 'NORMAL',
+      defect_notes: '',
+      created_at: now,
+      updated_at: now
+    };
+
+    createdEquipment.push(newEquip);
+
+    statements.push(
+      db.prepare(`
+        INSERT INTO equipment (
+          id, type, code, sequence_number, category, weight, location, in_service_date,
+          inspection_sheet_photo, location_photo, ready_status, inspection_status,
+          responsible_person, defect_status, defect_notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        newEquip.id, newEquip.type, newEquip.code, newEquip.sequence_number,
+        newEquip.category, newEquip.weight, newEquip.location, newEquip.in_service_date,
+        newEquip.inspection_sheet_photo, newEquip.location_photo, newEquip.ready_status,
+        newEquip.inspection_status, newEquip.responsible_person, newEquip.defect_status,
+        newEquip.defect_notes, now, now
+      )
+    );
+  }
+
+  // Execute in batches of up to 100 statements (Cloudflare D1 batch limit)
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < statements.length; i += CHUNK_SIZE) {
+    const chunk = statements.slice(i, i + CHUNK_SIZE);
+    await db.batch(chunk);
+  }
+
+  return c.json({ success: true, count: createdEquipment.length, equipment: createdEquipment });
+});
+
 app.post('/api/equipment', async (c) => {
   const data = await c.req.json();
   const db = c.env.DB;
@@ -599,7 +686,7 @@ app.post('/api/equipment', async (c) => {
   }
 
   const code = `${type}-${String(vacantSeq).padStart(3, '0')}`;
-  const id = `eq_${type.toLowerCase()}_${Date.now()}`;
+  const id = `eq_${type.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const now = new Date().toISOString();
 
   await db.prepare(`

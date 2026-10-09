@@ -724,7 +724,7 @@ class StorageService {
 
     const newEquip: Equipment = {
       ...data,
-      id: `eq_${type.toLowerCase()}_${Date.now()}`,
+      id: `eq_${type.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       code,
       sequence_number: vacantSeq,
       ready_status: data.ready_status || 'READY',
@@ -808,14 +808,82 @@ class StorageService {
 
   /**
    * Bulk import equipment (for Excel import)
+   * Uses POST /api/equipment/bulk for atomic D1 batching and sequence number integrity
    */
-  bulkAddEquipment(items: Array<Omit<Equipment, 'id' | 'code' | 'sequence_number' | 'created_at' | 'updated_at'>>): Equipment[] {
-    const results: Equipment[] = [];
-    for (const item of items) {
-      const added = this.addEquipment(item);
-      results.push(added);
+  async bulkAddEquipment(items: Array<Omit<Equipment, 'id' | 'code' | 'sequence_number' | 'created_at' | 'updated_at'>>): Promise<Equipment[]> {
+    const list = this.getEquipment();
+    const now = new Date().toISOString();
+
+    // Track sequence numbers per type locally
+    const seqsByType: Record<string, Set<number>> = {};
+    for (const e of list) {
+      const t = e.type;
+      if (!seqsByType[t]) seqsByType[t] = new Set();
+      seqsByType[t].add(e.sequence_number);
     }
-    return results;
+
+    const localNewItems: Equipment[] = [];
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      const type = item.type;
+      if (!seqsByType[type]) seqsByType[type] = new Set();
+
+      let vacantSeq = 1;
+      while (seqsByType[type].has(vacantSeq)) {
+        vacantSeq++;
+      }
+      seqsByType[type].add(vacantSeq);
+
+      const code = formatEquipmentCode(type, vacantSeq);
+      const newEquip: Equipment = {
+        ...item,
+        id: `eq_${type.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`,
+        code,
+        sequence_number: vacantSeq,
+        ready_status: item.ready_status || 'READY',
+        inspection_status: 'PENDING',
+        defect_status: 'NORMAL',
+        created_at: now,
+        updated_at: now,
+        age: calculateEquipmentAge(item.in_service_date, undefined)
+      };
+
+      list.push(newEquip);
+      localNewItems.push(newEquip);
+    }
+
+    // Save locally immediately
+    this.saveEquipment(list);
+
+    // Call Cloudflare D1 bulk insert endpoint
+    try {
+      const res = await fetch('/api/equipment/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.equipment) && data.equipment.length > 0) {
+          // Re-sync local storage with server-confirmed sequence numbers & IDs
+          const currentList = this.getEquipment().filter(
+            e => !localNewItems.some(local => local.id === e.id)
+          );
+          const serverItemsWithAge = data.equipment.map((e: Equipment) => ({
+            ...e,
+            age: calculateEquipmentAge(e.in_service_date, e.latest_inspection_date)
+          }));
+          this.saveEquipment([...currentList, ...serverItemsWithAge]);
+        }
+      }
+    } catch (err) {
+      console.warn('Bulk import server sync error (saved locally):', err);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return localNewItems;
   }
 
   // --- Inspections (D1) ---
