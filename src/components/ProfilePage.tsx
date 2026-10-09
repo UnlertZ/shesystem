@@ -291,12 +291,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <span className="text-xs bg-[#F7EEDC] text-[#A04830] font-bold px-3 py-1 rounded-full border border-[#E8DFC8]">
               สิทธิ์: {currentUser.role}
             </span>
-            {currentUser.is_safety_committee && (
+            {Boolean(currentUser.is_safety_committee) ? (
               <span className="text-xs bg-linear-to-r from-[#A04830] to-[#CC902D] text-white font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>กรรมการ คปอ.</span>
               </span>
-            )}
+            ) : null}
             <span className="text-xs bg-emerald-100 text-emerald-700 font-medium px-2.5 py-1 rounded-full flex items-center space-x-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>อนุมัติแล้ว</span>

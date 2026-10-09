@@ -644,12 +644,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                           {user.id === currentUser?.id && (
                             <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-bold">คุณ</span>
                           )}
-                          {user.is_safety_committee && (
+                          {Boolean(user.is_safety_committee) ? (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
                               <ShieldCheck className="w-3 h-3 text-emerald-600" />
                               <span>คปอ.</span>
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         {user.pending_full_name && (
                           <div className="mt-1 flex items-center space-x-1.5">

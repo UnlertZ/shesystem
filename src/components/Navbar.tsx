@@ -241,12 +241,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                         {currentUser.full_name || currentUser.username}
                       </span>
                       {getRoleBadge(currentUser.role)}
-                      {currentUser.is_safety_committee && (
+                      {Boolean(currentUser.is_safety_committee) ? (
                         <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold inline-flex items-center space-x-0.5 shadow-2xs whitespace-nowrap shrink-0">
                           <ShieldCheck className="w-3 h-3 shrink-0" />
                           <span>คปอ.</span>
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <span
                       className="text-[10px] text-black font-semibold truncate block leading-tight mt-0.5"

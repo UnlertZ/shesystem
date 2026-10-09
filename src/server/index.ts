@@ -384,7 +384,12 @@ app.post('/api/auth/login', async (c) => {
     return c.json({ error: 'บัญชีของคุณไม่ได้รับการอนุมัติการใช้งาน' }, 403);
   }
 
-  return c.json({ user });
+  const sanitizedUser = {
+    ...user,
+    is_safety_committee: Boolean(user.is_safety_committee)
+  };
+
+  return c.json({ user: sanitizedUser });
 });
 
 app.post('/api/auth/register', async (c) => {
@@ -454,8 +459,12 @@ app.post('/api/auth/forgot-password', async (c) => {
 // ==========================================
 app.get('/api/users', async (c) => {
   const db = c.env.DB;
-  const { results } = await db.prepare('SELECT id, username, password, full_name, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
-  return c.json({ users: results });
+  const { results } = await db.prepare('SELECT id, username, password, full_name, pending_full_name, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
+  const users = (results || []).map((u: any) => ({
+    ...u,
+    is_safety_committee: Boolean(u.is_safety_committee)
+  }));
+  return c.json({ users });
 });
 
 app.post('/api/users', async (c) => {

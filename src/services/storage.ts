@@ -293,7 +293,11 @@ class StorageService {
       if (usersRes.ok) {
         const data = await usersRes.json();
         if (Array.isArray(data.users) && data.users.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(data.users));
+          const sanitizedUsers = data.users.map((u: any) => ({
+            ...u,
+            is_safety_committee: Boolean(u.is_safety_committee)
+          }));
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitizedUsers));
         }
       }
 
@@ -510,13 +514,26 @@ class StorageService {
   getCurrentUser(): User | null {
     if (!this.isBrowser) return null;
     const u = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    return u ? JSON.parse(u) : null;
+    if (!u) return null;
+    try {
+      const user = JSON.parse(u);
+      return {
+        ...user,
+        is_safety_committee: Boolean(user.is_safety_committee)
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   setCurrentUser(user: User | null) {
     if (!this.isBrowser) return;
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      const sanitized = {
+        ...user,
+        is_safety_committee: Boolean(user.is_safety_committee)
+      };
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(sanitized));
     } else {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     }
@@ -525,7 +542,16 @@ class StorageService {
   getUsers(): User[] {
     if (!this.isBrowser) return DEFAULT_USERS;
     const data = localStorage.getItem(STORAGE_KEYS.USERS);
-    return data ? JSON.parse(data) : DEFAULT_USERS;
+    if (!data) return DEFAULT_USERS;
+    try {
+      const list = JSON.parse(data);
+      return list.map((u: any) => ({
+        ...u,
+        is_safety_committee: Boolean(u.is_safety_committee)
+      }));
+    } catch (_) {
+      return DEFAULT_USERS;
+    }
   }
 
   saveUsers(users: User[]) {
