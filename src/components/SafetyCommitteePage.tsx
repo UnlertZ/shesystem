@@ -451,27 +451,13 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
           {/* Quick Header Actions */}
           <div className="flex flex-wrap items-center gap-3">
             {isAdmin && (
-              <>
-                <button
-                  onClick={() => {
-                    setExportInitialPatrolId('ALL');
-                    setIsExportModalOpen(true);
-                  }}
-                  className="px-3.5 py-2.5 bg-[#2D2924] hover:bg-[#1F1C18] text-[#FCF9F4] rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-2 shrink-0 border border-[#8C7454]/50"
-                  title="Export รายงานการเดินตรวจ คปอ. (PDF, Excel, รูปภาพ)"
-                >
-                  <Download className="w-4 h-4 text-[#CC902D]" />
-                  <span>Export รายงาน คปอ.</span>
-                </button>
-
-                <button
-                  onClick={handleOpenCreatePatrol}
-                  className="px-4 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#A04830]/30 transition flex items-center space-x-2 shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ สร้างรายการเดินตรวจ คปอ.</span>
-                </button>
-              </>
+              <button
+                onClick={handleOpenCreatePatrol}
+                className="px-4 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#A04830]/30 transition flex items-center space-x-2 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ สร้างรายการเดินตรวจ คปอ.</span>
+              </button>
             )}
 
             <button
