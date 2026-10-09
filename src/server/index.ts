@@ -134,6 +134,57 @@ async function ensureDbInitialized(db: D1Database) {
       await db.prepare('ALTER TABLE users ADD COLUMN full_name TEXT').run();
     } catch (_) {}
 
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN is_safety_committee INTEGER DEFAULT 0').run();
+    } catch (_) {}
+
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS safety_patrols (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          patrol_date TEXT NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL,
+          time_range TEXT NOT NULL,
+          location TEXT,
+          description TEXT,
+          status TEXT NOT NULL DEFAULT 'OPEN',
+          created_by_id TEXT NOT NULL,
+          created_by_name TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS safety_findings (
+          id TEXT PRIMARY KEY,
+          patrol_id TEXT NOT NULL,
+          category TEXT NOT NULL,
+          sub_type TEXT,
+          location TEXT NOT NULL,
+          description TEXT NOT NULL,
+          recommendation TEXT,
+          photo_url TEXT NOT NULL,
+          reporter_id TEXT NOT NULL,
+          reporter_name TEXT NOT NULL,
+          reporter_department TEXT,
+          status TEXT NOT NULL DEFAULT 'PENDING_ACTION',
+          after_photo_url TEXT,
+          action_taken TEXT,
+          resolved_by_id TEXT,
+          resolved_by_name TEXT,
+          resolved_at TEXT,
+          reviewed_by_id TEXT,
+          reviewed_by_name TEXT,
+          reviewed_at TEXT,
+          reject_reason TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `)
+    ]);
+
     // Seed default departments if table is empty
     const deptCheck = await db.prepare('SELECT COUNT(*) as count FROM departments').first<{ count: number }>();
     if (!deptCheck || deptCheck.count === 0) {
@@ -383,7 +434,7 @@ app.post('/api/auth/forgot-password', async (c) => {
 // ==========================================
 app.get('/api/users', async (c) => {
   const db = c.env.DB;
-  const { results } = await db.prepare('SELECT id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
+  const { results } = await db.prepare('SELECT id, username, password, full_name, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at FROM users ORDER BY created_at DESC').all();
   return c.json({ users: results });
 });
 
@@ -394,11 +445,11 @@ app.post('/api/users', async (c) => {
   const now = new Date().toISOString();
 
   await db.prepare(`
-    INSERT INTO users (id, username, password, full_name, department, position, role, status, avatar_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+    INSERT INTO users (id, username, password, full_name, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?)
   `).bind(
     id, data.username, data.password || '123456', data.full_name || data.username, data.department || '',
-    data.position || '', data.role || 'P1', data.avatar_url || '', now, now
+    data.position || '', data.role || 'P1', data.is_safety_committee ? 1 : 0, data.avatar_url || '', now, now
   ).run();
 
   return c.json({ success: true, id });
@@ -417,16 +468,43 @@ app.put('/api/users/:id', async (c) => {
       position = COALESCE(?, position),
       role = COALESCE(?, role),
       status = COALESCE(?, status),
+      is_safety_committee = COALESCE(?, is_safety_committee),
       password = COALESCE(?, password),
       avatar_url = COALESCE(?, avatar_url),
       updated_at = ?
     WHERE id = ?
   `).bind(
     data.full_name || null, data.department || null, data.position || null, data.role || null,
-    data.status || null, data.password || null, data.avatar_url || null, now, id
+    data.status || null, data.is_safety_committee !== undefined ? (data.is_safety_committee ? 1 : 0) : null,
+    data.password || null, data.avatar_url || null, now, id
   ).run();
 
   return c.json({ success: true });
+});
+
+// Appoint or Revoke คปอ Status
+app.put('/api/users/:id/safety-committee', async (c) => {
+  const id = c.req.param('id');
+  const { is_safety_committee, admin_name } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+  const isCommittee = is_safety_committee ? 1 : 0;
+
+  await db.prepare('UPDATE users SET is_safety_committee = ?, updated_at = ? WHERE id = ?').bind(isCommittee, now, id).run();
+
+  // Send notification to user
+  const notifId = 'notif_' + Date.now();
+  const title = is_safety_committee ? 'คุณได้รับการแต่งตั้งเป็นคณะกรรมการ คปอ.' : 'แจ้งปรับสถานะคณะกรรมการ คปอ.';
+  const message = is_safety_committee
+    ? `คุณได้รับการแต่งตั้งให้เป็น คณะกรรมการความปลอดภัย อาชีวอนามัย และสภาพแวดล้อมในการทำงาน (คปอ.) โดย ${admin_name || 'แอดมิน'}`
+    : `คุณพ้นจากสถานะ คณะกรรมการความปลอดภัย (คปอ.) เรียบร้อยแล้ว`;
+
+  await db.prepare(`
+    INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(notifId, id, null, admin_name || 'แอดมิน', title, message, 'SYSTEM', 0, now).run();
+
+  return c.json({ success: true, is_safety_committee: !!is_safety_committee });
 });
 
 app.post('/api/users/:id/approve', async (c) => {
@@ -818,7 +896,231 @@ app.post('/api/notifications/mark-all-read', async (c) => {
 });
 
 // ==========================================
-// 10. Scheduled Worker Handler (Monthly reset & 3-year cleanup)
+// 10. Safety Committee (คปอ.) Endpoints (D1)
+// ==========================================
+
+// 10.1 Safety Patrols (รอบการเดินตรวจ คปอ.)
+app.get('/api/safety-patrols', async (c) => {
+  const db = c.env.DB;
+  const { results } = await db.prepare(`
+    SELECT p.*,
+      (SELECT COUNT(*) FROM safety_findings f WHERE f.patrol_id = p.id) as findings_count
+    FROM safety_patrols p
+    ORDER BY p.patrol_date DESC, p.created_at DESC
+  `).all();
+  return c.json({ patrols: results });
+});
+
+app.post('/api/safety-patrols', async (c) => {
+  const data = await c.req.json();
+  const db = c.env.DB;
+  const id = `patrol_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const title = data.title || `เดินตรวจ คปอ ประจำวันที่ ${data.patrol_date}`;
+  const timeRange = data.time_range || `${data.start_time || '10:00'}น.-${data.end_time || '11:00'}น.`;
+
+  await db.prepare(`
+    INSERT INTO safety_patrols (
+      id, title, patrol_date, start_time, end_time, time_range,
+      location, description, status, created_by_id, created_by_name,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id, title, data.patrol_date, data.start_time || '10:00', data.end_time || '11:00',
+    timeRange, data.location || 'ทั่วทั้งโรงงาน', data.description || '',
+    'OPEN', data.created_by_id, data.created_by_name, now, now
+  ).run();
+
+  // Send announcement notification to all users
+  const notifId = 'notif_patrol_' + Date.now();
+  await db.prepare(`
+    INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    notifId, null, 'ALL', data.created_by_name || 'แอดมิน คปอ.',
+    'เปิดรอบเดินตรวจ คปอ. ใหม่',
+    `มีรายการเดินตรวจ คปอ. วันที่ ${data.patrol_date} (${timeRange}) สมาชิก คปอ. สามารถกดเข้าร่วมเพื่อบันทึกข้อมูลได้แล้ว`,
+    'SYSTEM', 0, now
+  ).run();
+
+  return c.json({
+    success: true,
+    patrol: {
+      id,
+      title,
+      patrol_date: data.patrol_date,
+      start_time: data.start_time || '10:00',
+      end_time: data.end_time || '11:00',
+      time_range: timeRange,
+      location: data.location || 'ทั่วทั้งโรงงาน',
+      description: data.description || '',
+      status: 'OPEN',
+      created_by_id: data.created_by_id,
+      created_by_name: data.created_by_name,
+      created_at: now,
+      findings_count: 0
+    }
+  });
+});
+
+app.put('/api/safety-patrols/:id/status', async (c) => {
+  const id = c.req.param('id');
+  const { status } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  await db.prepare('UPDATE safety_patrols SET status = ?, updated_at = ? WHERE id = ?').bind(status, now, id).run();
+  return c.json({ success: true, status });
+});
+
+app.delete('/api/safety-patrols/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM safety_findings WHERE patrol_id = ?').bind(id).run();
+  await db.prepare('DELETE FROM safety_patrols WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
+// 10.2 Safety Findings (บันทึก แนะนำ / ชมเชย / Before-After)
+app.get('/api/safety-findings', async (c) => {
+  const db = c.env.DB;
+  const patrolId = c.req.query('patrolId');
+  const category = c.req.query('category');
+
+  let query = 'SELECT * FROM safety_findings WHERE 1=1';
+  const params: any[] = [];
+
+  if (patrolId) {
+    query += ' AND patrol_id = ?';
+    params.push(patrolId);
+  }
+  if (category) {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+  query += ' ORDER BY created_at DESC';
+
+  const { results } = await db.prepare(query).bind(...params).all();
+  return c.json({ findings: results });
+});
+
+app.post('/api/safety-findings', async (c) => {
+  const data = await c.req.json();
+  const db = c.env.DB;
+  const id = `find_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const isRecommend = data.category === 'RECOMMEND';
+  const defaultStatus = isRecommend ? 'PENDING_ACTION' : 'COMMENDED';
+
+  await db.prepare(`
+    INSERT INTO safety_findings (
+      id, patrol_id, category, sub_type, location, description,
+      recommendation, photo_url, reporter_id, reporter_name,
+      reporter_department, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id, data.patrol_id, data.category, data.sub_type || (isRecommend ? 'NEAR_MISS' : 'GOOD_PRACTICE'),
+    data.location, data.description, data.recommendation || '',
+    data.photo_url, data.reporter_id, data.reporter_name,
+    data.reporter_department || '', defaultStatus, now, now
+  ).run();
+
+  return c.json({ success: true, id });
+});
+
+// Submit Action Resolution (Before & After)
+app.put('/api/safety-findings/:id/resolve', async (c) => {
+  const id = c.req.param('id');
+  const data = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  await db.prepare(`
+    UPDATE safety_findings SET
+      after_photo_url = ?,
+      action_taken = ?,
+      resolved_by_id = ?,
+      resolved_by_name = ?,
+      resolved_at = ?,
+      status = 'PENDING_REVIEW',
+      reject_reason = NULL,
+      updated_at = ?
+    WHERE id = ?
+  `).bind(
+    data.after_photo_url, data.action_taken, data.resolved_by_id,
+    data.resolved_by_name, now, now, id
+  ).run();
+
+  // Notify Admins (P3, P4) that resolution is submitted
+  const notifId = 'notif_rev_' + Date.now();
+  await db.prepare(`
+    INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    notifId, null, 'P3', data.resolved_by_name || 'สมาชิก คปอ.',
+    'มีการส่งผลแก้ไขปัญหา (Before/After) รอตรวจสอบ',
+    `รายการที่ "${data.location || 'คปอ.'}" ได้รับการแก้ไขและแนบรูปผลการแก้ไขแล้ว กรุณาเข้าตรวจสอบผล`,
+    'TASK', 0, now
+  ).run();
+
+  return c.json({ success: true });
+});
+
+// Review Finding by Admin (Approve or Reject / Send back to fix again)
+app.put('/api/safety-findings/:id/review', async (c) => {
+  const id = c.req.param('id');
+  const { approved, reviewer_id, reviewer_name, reject_reason } = await c.req.json();
+  const db = c.env.DB;
+  const now = new Date().toISOString();
+
+  // Fetch current finding to get resolver info and location
+  const finding = await db.prepare('SELECT * FROM safety_findings WHERE id = ?').bind(id).first<any>();
+  if (!finding) {
+    return c.json({ error: 'ไม่พบรายการที่ต้องการตรวจสอบ' }, 404);
+  }
+
+  const newStatus = approved ? 'APPROVED' : 'REJECTED';
+
+  await db.prepare(`
+    UPDATE safety_findings SET
+      status = ?,
+      reviewed_by_id = ?,
+      reviewed_by_name = ?,
+      reviewed_at = ?,
+      reject_reason = ?,
+      updated_at = ?
+    WHERE id = ?
+  `).bind(
+    newStatus, reviewer_id, reviewer_name, now,
+    approved ? null : (reject_reason || 'ต้องดำเนินการแก้ไขเพิ่มเติม'),
+    now, id
+  ).run();
+
+  // Requirement 8: If rejected (แก้ใหม่), send notification to the user who performed the resolution!
+  const targetUserId = finding.resolved_by_id || finding.reporter_id;
+  if (targetUserId) {
+    const notifId = 'notif_review_' + Date.now();
+    const title = approved ? 'การแก้ไขปัญหาผ่านการตรวจสอบแล้ว' : 'ผลการแก้ไขไม่ผ่าน (ส่งกลับไปแก้ใหม่)';
+    const message = approved
+      ? `รายการที่ "${finding.location}" ผ่านการตรวจสอบจากแอดมิน (${reviewer_name || 'แอดมิน'}) บันทึกผลสำเร็จเรียบร้อยแล้ว`
+      : `รายการที่ "${finding.location}" ไม่ผ่านการตรวจสอบ: "${reject_reason || 'กรุณาแก้ไขเพิ่มเติม'}" กรุณาดำเนินการแก้ไขและส่งรูปภาพผลการแก้ไขใหม่อีกครั้ง`;
+
+    await db.prepare(`
+      INSERT INTO notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      notifId, targetUserId, null, reviewer_name || 'แอดมิน คปอ.',
+      title, message, approved ? 'SYSTEM' : 'ALERT', 0, now
+    ).run();
+  }
+
+  return c.json({ success: true, status: newStatus });
+});
+
+// ==========================================
+// 11. Scheduled Worker Handler (Monthly reset & 3-year cleanup)
 // ==========================================
 export default {
   fetch: app.fetch,

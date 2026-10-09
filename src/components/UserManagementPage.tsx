@@ -7,6 +7,8 @@ import {
   UserX,
   KeyRound,
   Shield,
+  ShieldCheck,
+  ShieldAlert,
   ArrowUpRight,
   Send,
   Trash2,
@@ -45,6 +47,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   const [editDepartment, setEditDepartment] = useState<string>('');
   const [editPosition, setEditPosition] = useState<string>('');
   const [editRole, setEditRole] = useState<UserRole>('P1');
+  const [editIsCommittee, setEditIsCommittee] = useState<boolean>(false);
 
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -53,6 +56,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   const [newDepartment, setNewDepartment] = useState<string>('');
   const [newPosition, setNewPosition] = useState<string>('');
   const [newRole, setNewRole] = useState<UserRole>('P1');
+  const [newIsCommittee, setNewIsCommittee] = useState<boolean>(false);
 
   // Modals state for Departments
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -131,13 +135,14 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setAlertBanner({ type: 'success', message: `รีเซ็ทรหัสผ่านของ ${user.username} เป็น "0000" เรียบร้อยแล้ว` });
   };
 
-  // 4. Edit Department, Position, Role and Full Name
+  // 4. Edit Department, Position, Role, Full Name and Committee status
   const openEditUserModal = (user: User) => {
     setEditingUser(user);
     setEditFullName(user.full_name || '');
     setEditDepartment(user.department || departments[0]?.name || '');
     setEditPosition(user.position || positions[0]?.name || '');
     setEditRole(user.role);
+    setEditIsCommittee(!!user.is_safety_committee);
   };
 
   const handleSaveEditUser = (e: React.FormEvent) => {
@@ -148,12 +153,35 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       full_name: editFullName.trim() || undefined,
       department: editDepartment,
       position: editPosition,
-      role: editRole
+      role: editRole,
+      is_safety_committee: editIsCommittee
     });
+
+    if (editingUser.is_safety_committee !== editIsCommittee) {
+      storageService.toggleSafetyCommittee(editingUser.id, editIsCommittee, currentUser);
+    }
 
     setEditingUser(null);
     refreshList();
     setAlertBanner({ type: 'success', message: `แก้ไขข้อมูลของ ${editingUser.username} เรียบร้อยแล้ว` });
+  };
+
+  // Requirement 3: Appoint / Remove Safety Committee (คปอ.) member
+  const handleToggleSafetyCommittee = (user: User) => {
+    const nextState = !user.is_safety_committee;
+    const displayName = user.full_name ? `${user.full_name} (@${user.username})` : `@${user.username}`;
+    const confirmMsg = nextState
+      ? `ยืนยันการแต่งตั้ง "${displayName}" เป็นคณะกรรมการ คปอ.?\n\nเมื่อแต่งตั้งแล้ว สมาชิกจะได้รับแท็กพิเศษ "คปอ." และสามารถเข้าใช้งานฟังก์ชัน คปอ. รวมถึงดูแดชบอร์ด คปอ. ได้`
+      : `ยืนยันการถอดถอน "${displayName}" ออกจากตำแหน่ง คปอ.?\n\nสมาชิกจะไม่สามารถเข้าถึงฟังก์ชัน คปอ. ได้อีก`;
+
+    if (!confirm(confirmMsg)) return;
+
+    storageService.toggleSafetyCommittee(user.id, nextState, currentUser);
+    refreshList();
+    setAlertBanner({
+      type: 'success',
+      message: `${nextState ? 'แต่งตั้ง' : 'ถอดถอน'} ${user.username} ${nextState ? 'เป็น' : 'ออกจาก'}คณะกรรมการ คปอ. เรียบร้อยแล้ว`
+    });
   };
 
   // 5. Send Notification Message to Selected User
@@ -201,6 +229,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setNewDepartment(departments[0]?.name || 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)');
     setNewPosition(positions[0]?.name || 'พนักงาน');
     setNewRole(positions[0]?.default_role || 'P1');
+    setNewIsCommittee(false);
     setIsAddUserModalOpen(true);
   };
 
@@ -222,6 +251,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
       position: newPosition || (positions[0]?.name || 'พนักงาน'),
       role: newRole,
       status: 'approved',
+      is_safety_committee: newIsCommittee,
       avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(newFullName || newUsername)}`,
       created_at: new Date().toISOString()
     };
@@ -516,6 +546,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                           {user.id === currentUser?.id && (
                             <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-bold">คุณ</span>
                           )}
+                          {user.is_safety_committee && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                              <span>คปอ.</span>
+                            </span>
+                          )}
                         </div>
                         {user.full_name && (
                           <div className="text-[10px] text-slate-400 font-normal">@{user.username}</div>
@@ -541,6 +577,31 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end space-x-1.5">
+                        {/* Requirement 3: Appoint / Remove Safety Committee (คปอ.) */}
+                        {(currentUser?.role === 'P3' || currentUser?.role === 'P4') && (
+                          <button
+                            onClick={() => handleToggleSafetyCommittee(user)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition flex items-center space-x-1 ${
+                              user.is_safety_committee
+                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                            }`}
+                            title={user.is_safety_committee ? 'ถอดถอนออกจาก คปอ.' : 'แต่งตั้งเป็น คปอ.'}
+                          >
+                            {user.is_safety_committee ? (
+                              <>
+                                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                                <span>ถอดถอน คปอ.</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>แต่งตั้ง คปอ.</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
                         {/* Promote P1 to P2 button */}
                         {user.role === 'P1' && (
                           <button
@@ -801,6 +862,22 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </select>
               </div>
 
+              {/* Requirement 3: Committee Appointment Checkbox */}
+              <div className="pt-1">
+                <label className="flex items-center space-x-2.5 p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-100/50 transition">
+                  <input
+                    type="checkbox"
+                    checked={editIsCommittee}
+                    onChange={(e) => setEditIsCommittee(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-900">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>แต่งตั้งเป็น คณะกรรมการ คปอ. (Safety Committee)</span>
+                  </div>
+                </label>
+              </div>
+
               <div className="flex space-x-2 pt-2">
                 <button
                   type="button"
@@ -972,6 +1049,22 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                     <option value="P4">P4 - ผู้จัดการระบบ</option>
                   )}
                 </select>
+              </div>
+
+              {/* Committee status checkbox */}
+              <div className="pt-1">
+                <label className="flex items-center space-x-2.5 p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl cursor-pointer hover:bg-emerald-100/50 transition">
+                  <input
+                    type="checkbox"
+                    checked={newIsCommittee}
+                    onChange={(e) => setNewIsCommittee(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-900">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>แต่งตั้งเป็น คณะกรรมการ คปอ.</span>
+                  </div>
+                </label>
               </div>
 
               <div className="flex space-x-2 pt-2">

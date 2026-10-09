@@ -8,7 +8,10 @@ import {
   EquipmentType,
   UserRole,
   DepartmentItem,
-  PositionItem
+  PositionItem,
+  SafetyPatrolRound,
+  SafetyFinding,
+  PatrolStatus
 } from '../types';
 import {
   findLowestVacantNumber,
@@ -25,7 +28,9 @@ const STORAGE_KEYS = {
   TASKS: 'she_tasks_prod_v1',
   NOTIFICATIONS: 'she_notifications_prod_v1',
   PASSWORD_RESETS: 'she_password_resets_prod_v1',
-  CURRENT_USER: 'she_current_user_prod_v1'
+  CURRENT_USER: 'she_current_user_prod_v1',
+  SAFETY_PATROLS: 'she_safety_patrols_prod_v1',
+  SAFETY_FINDINGS: 'she_safety_findings_prod_v1'
 };
 
 // Initial Default Departments (แผนก)
@@ -59,6 +64,7 @@ export const DEFAULT_USERS: User[] = [
     position: 'ผู้จัดการระบบ (IT / Super Admin)',
     role: 'P4',
     status: 'approved',
+    is_safety_committee: true,
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     created_at: '2025-01-01T00:00:00+07:00'
   },
@@ -71,6 +77,7 @@ export const DEFAULT_USERS: User[] = [
     position: 'เจ้าหน้าที่ความปลอดภัย (จป.)',
     role: 'P3',
     status: 'approved',
+    is_safety_committee: true,
     avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
     created_at: '2025-01-01T00:00:00+07:00'
   },
@@ -83,6 +90,7 @@ export const DEFAULT_USERS: User[] = [
     position: 'หัวหน้างาน',
     role: 'P2',
     status: 'approved',
+    is_safety_committee: false,
     avatar_url: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150',
     created_at: '2025-01-01T00:00:00+07:00'
   },
@@ -95,6 +103,7 @@ export const DEFAULT_USERS: User[] = [
     position: 'พนักงาน',
     role: 'P1',
     status: 'approved',
+    is_safety_committee: false,
     avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
     created_at: '2025-01-01T00:00:00+07:00'
   }
@@ -188,6 +197,12 @@ class StorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.PASSWORD_RESETS)) {
       localStorage.setItem(STORAGE_KEYS.PASSWORD_RESETS, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.SAFETY_PATROLS)) {
+      localStorage.setItem(STORAGE_KEYS.SAFETY_PATROLS, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.SAFETY_FINDINGS)) {
+      localStorage.setItem(STORAGE_KEYS.SAFETY_FINDINGS, JSON.stringify([]));
     }
 
     // Safety cleanup: If current storage has any legacy mock equipment IDs, remove them
@@ -303,6 +318,24 @@ class StorageService {
         const data = await notifRes.json();
         if (Array.isArray(data.notifications)) {
           localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
+        }
+      }
+
+      // 8. Fetch safety committee patrols
+      const patrolRes = await fetch('/api/safety-patrols');
+      if (patrolRes.ok) {
+        const data = await patrolRes.json();
+        if (Array.isArray(data.patrols)) {
+          localStorage.setItem(STORAGE_KEYS.SAFETY_PATROLS, JSON.stringify(data.patrols));
+        }
+      }
+
+      // 9. Fetch safety committee findings
+      const findRes = await fetch('/api/safety-findings');
+      if (findRes.ok) {
+        const data = await findRes.json();
+        if (Array.isArray(data.findings)) {
+          localStorage.setItem(STORAGE_KEYS.SAFETY_FINDINGS, JSON.stringify(data.findings));
         }
       }
 
@@ -1041,6 +1074,297 @@ class StorageService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  // ==========================================
+  // Safety Committee (คปอ.) Methods
+  // ==========================================
+
+  // Toggle user Safety Committee status (Requirement 3: P3/P4 can appoint / remove)
+  toggleSafetyCommittee(userId: string, isCommittee: boolean, adminUser?: User | null): boolean {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx === -1) return false;
+
+    users[idx].is_safety_committee = isCommittee;
+    this.saveUsers(users);
+
+    // If current logged-in user is updated, sync session
+    const current = this.getCurrentUser();
+    if (current && current.id === userId) {
+      current.is_safety_committee = isCommittee;
+      this.setCurrentUser(current);
+    }
+
+    const adminName = adminUser ? getUserDisplayName(adminUser) : 'แอดมิน';
+    const notifTitle = isCommittee ? 'คุณได้รับการแต่งตั้งเป็นคณะกรรมการ คปอ.' : 'แจ้งปรับสถานะคณะกรรมการ คปอ.';
+    const notifMessage = isCommittee
+      ? `คุณได้รับการแต่งตั้งเป็น คณะกรรมการความปลอดภัย อาชีวอนามัย และสภาพแวดล้อมในการทำงาน (คปอ.) โดย ${adminName}`
+      : `คุณพ้นจากสถานะ คณะกรรมการความปลอดภัย (คปอ.) เรียบร้อยแล้ว`;
+
+    this.sendNotification({
+      recipient_user_id: userId,
+      sender_name: adminName,
+      title: notifTitle,
+      message: notifMessage,
+      type: 'SYSTEM'
+    });
+
+    // Sync to Cloudflare D1
+    fetch(`/api/users/${userId}/safety-committee`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        is_safety_committee: isCommittee,
+        admin_name: adminName
+      })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  // --- Safety Patrol Rounds (Requirement 5 & 7) ---
+  getSafetyPatrols(): SafetyPatrolRound[] {
+    if (!this.isBrowser) return [];
+    const data = localStorage.getItem(STORAGE_KEYS.SAFETY_PATROLS);
+    const patrols: SafetyPatrolRound[] = data ? JSON.parse(data) : [];
+    const findings = this.getSafetyFindings();
+
+    // Map findings_count
+    return patrols.map(p => ({
+      ...p,
+      findings_count: findings.filter(f => f.patrol_id === p.id).length
+    })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  saveSafetyPatrols(patrols: SafetyPatrolRound[]) {
+    if (!this.isBrowser) return;
+    localStorage.setItem(STORAGE_KEYS.SAFETY_PATROLS, JSON.stringify(patrols));
+  }
+
+  createSafetyPatrol(patrolData: Omit<SafetyPatrolRound, 'id' | 'created_at' | 'findings_count'>): SafetyPatrolRound {
+    const list = this.getSafetyPatrols();
+    const now = new Date().toISOString();
+    const newPatrol: SafetyPatrolRound = {
+      ...patrolData,
+      id: `patrol_${Date.now()}`,
+      created_at: now,
+      findings_count: 0
+    };
+
+    list.unshift(newPatrol);
+    this.saveSafetyPatrols(list);
+
+    // Broadcast notification to all users about new patrol round
+    this.sendNotification({
+      target_role: 'ALL',
+      sender_name: patrolData.created_by_name || 'แอดมิน คปอ.',
+      title: 'เปิดรอบเดินตรวจ คปอ. ใหม่',
+      message: `มีรายการเดินตรวจ คปอ. ประจำวันที่ ${patrolData.patrol_date} (${patrolData.time_range}) สมาชิก คปอ. สามารถกดเข้าร่วมบันทึกข้อมูลได้แล้ว`,
+      type: 'SYSTEM'
+    });
+
+    // Sync to Cloudflare D1
+    fetch('/api/safety-patrols', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPatrol)
+    }).catch(console.error);
+
+    return newPatrol;
+  }
+
+  // Toggle Open/Close patrol round (Requirement 7)
+  togglePatrolStatus(id: string, status: PatrolStatus): boolean {
+    const list = this.getSafetyPatrols();
+    const idx = list.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+
+    list[idx].status = status;
+    list[idx].updated_at = new Date().toISOString();
+    this.saveSafetyPatrols(list);
+
+    // Sync to Cloudflare D1
+    fetch(`/api/safety-patrols/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  deleteSafetyPatrol(id: string): boolean {
+    const list = this.getSafetyPatrols();
+    const filtered = list.filter(p => p.id !== id);
+    if (filtered.length !== list.length) {
+      this.saveSafetyPatrols(filtered);
+
+      // Also clean up findings associated with this patrol
+      const findings = this.getSafetyFindings();
+      const remFindings = findings.filter(f => f.patrol_id !== id);
+      this.saveSafetyFindings(remFindings);
+
+      fetch(`/api/safety-patrols/${id}`, { method: 'DELETE' }).catch(console.error);
+      return true;
+    }
+    return false;
+  }
+
+  // --- Safety Findings (Requirement 6 & 8) ---
+  getSafetyFindings(patrolId?: string): SafetyFinding[] {
+    if (!this.isBrowser) return [];
+    const data = localStorage.getItem(STORAGE_KEYS.SAFETY_FINDINGS);
+    const findings: SafetyFinding[] = data ? JSON.parse(data) : [];
+    if (patrolId) {
+      return findings.filter(f => f.patrol_id === patrolId);
+    }
+    return findings.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  saveSafetyFindings(findings: SafetyFinding[]) {
+    if (!this.isBrowser) return;
+    localStorage.setItem(STORAGE_KEYS.SAFETY_FINDINGS, JSON.stringify(findings));
+  }
+
+  createSafetyFinding(findingData: Omit<SafetyFinding, 'id' | 'created_at' | 'status'>): SafetyFinding {
+    const list = this.getSafetyFindings();
+    const now = new Date().toISOString();
+    const isRecommend = findingData.category === 'RECOMMEND';
+    const initialStatus = isRecommend ? 'PENDING_ACTION' : 'COMMENDED';
+
+    const newFinding: SafetyFinding = {
+      ...findingData,
+      id: `find_${Date.now()}`,
+      status: initialStatus,
+      created_at: now
+    };
+
+    list.unshift(newFinding);
+    this.saveSafetyFindings(list);
+
+    // If recommendation/hazard, alert SHE Admins
+    if (isRecommend) {
+      this.sendNotification({
+        target_role: 'P3',
+        sender_name: findingData.reporter_name,
+        title: 'มีการบันทึกจุดเสี่ยง/ข้อแนะนำใหม่จาก คปอ.',
+        message: `สมาชิก คปอ. (${findingData.reporter_name}) ได้บันทึกข้อแนะนำ/จุดเสี่ยง บริเวณ: ${findingData.location}`,
+        type: 'ALERT'
+      });
+    }
+
+    // Sync to Cloudflare D1
+    fetch('/api/safety-findings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newFinding)
+    }).catch(console.error);
+
+    return newFinding;
+  }
+
+  // Submit Before & After resolution (Requirement 8)
+  resolveSafetyFinding(id: string, afterPhoto: string, actionTaken: string, resolver: User): boolean {
+    const list = this.getSafetyFindings();
+    const idx = list.findIndex(f => f.id === id);
+    if (idx === -1) return false;
+
+    const now = new Date().toISOString();
+    const resolverName = getUserDisplayName(resolver);
+
+    list[idx] = {
+      ...list[idx],
+      after_photo_url: afterPhoto,
+      action_taken: actionTaken,
+      resolved_by_id: resolver.id,
+      resolved_by_name: resolverName,
+      resolved_at: now,
+      status: 'PENDING_REVIEW',
+      reject_reason: undefined,
+      updated_at: now
+    };
+
+    this.saveSafetyFindings(list);
+
+    // Notify Admins for inspection
+    this.sendNotification({
+      target_role: 'P3',
+      sender_name: resolverName,
+      title: 'มีการส่งผลแก้ไขปัญหา (Before/After) รอตรวจสอบ',
+      message: `รายการที่ "${list[idx].location}" ได้รับการแก้ไขแล้วโดย ${resolverName} กรุณาเข้าตรวจสอบผลงาน`,
+      type: 'TASK'
+    });
+
+    // Sync to Cloudflare D1
+    fetch(`/api/safety-findings/${id}/resolve`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        after_photo_url: afterPhoto,
+        action_taken: actionTaken,
+        resolved_by_id: resolver.id,
+        resolved_by_name: resolverName,
+        location: list[idx].location
+      })
+    }).catch(console.error);
+
+    return true;
+  }
+
+  // Admin Review: Approve or Reject / Send back to fix again (Requirement 8)
+  reviewSafetyFinding(id: string, approved: boolean, reviewer: User, rejectReason?: string): boolean {
+    const list = this.getSafetyFindings();
+    const idx = list.findIndex(f => f.id === id);
+    if (idx === -1) return false;
+
+    const finding = list[idx];
+    const now = new Date().toISOString();
+    const reviewerName = getUserDisplayName(reviewer);
+    const newStatus = approved ? 'APPROVED' : 'REJECTED';
+
+    list[idx] = {
+      ...finding,
+      status: newStatus,
+      reviewed_by_id: reviewer.id,
+      reviewed_by_name: reviewerName,
+      reviewed_at: now,
+      reject_reason: approved ? undefined : (rejectReason || 'ต้องดำเนินการแก้ไขเพิ่มเติม'),
+      updated_at: now
+    };
+
+    this.saveSafetyFindings(list);
+
+    // Requirement 8: If rejected (แก้ใหม่), send notification to user who resolved it!
+    const targetUserId = finding.resolved_by_id || finding.reporter_id;
+    if (targetUserId) {
+      const notifTitle = approved ? 'การแก้ไขปัญหาผ่านการตรวจสอบแล้ว' : 'ผลการแก้ไขไม่ผ่าน (ส่งกลับไปแก้ใหม่)';
+      const notifMsg = approved
+        ? `รายการที่ "${finding.location}" ผ่านการตรวจสอบจากแอดมิน (${reviewerName}) บันทึกผลสำเร็จเรียบร้อยแล้ว`
+        : `รายการที่ "${finding.location}" ไม่ผ่านการตรวจสอบ: "${rejectReason || 'กรุณาแก้ไขเพิ่มเติม'}" กรุณาดำเนินการแก้ไขและส่งรูปภาพผลการแก้ไขใหม่อีกครั้ง`;
+
+      this.sendNotification({
+        recipient_user_id: targetUserId,
+        sender_name: reviewerName,
+        title: notifTitle,
+        message: notifMsg,
+        type: approved ? 'SYSTEM' : 'ALERT'
+      });
+    }
+
+    // Sync to Cloudflare D1
+    fetch(`/api/safety-findings/${id}/review`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approved,
+        reviewer_id: reviewer.id,
+        reviewer_name: reviewerName,
+        reject_reason: rejectReason
+      })
     }).catch(console.error);
 
     return true;

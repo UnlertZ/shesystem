@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Equipment, InspectionRecord, User } from '../types';
+import { Equipment, InspectionRecord, User, SafetyPatrolRound, SafetyFinding } from '../types';
 import { storageService } from '../services/storage';
 import { exportToPDF, exportToExcel, exportEquipmentPhotos } from '../utils/reportExport';
 import { THAI_MONTHS, getNowThai } from '../utils/thaiDate';
@@ -28,7 +28,13 @@ import {
   Flame,
   Users,
   ChevronDown,
-  Wrench
+  Wrench,
+  ShieldCheck,
+  ThumbsUp,
+  AlertCircle,
+  Eye,
+  ArrowRight,
+  ShieldAlert
 } from 'lucide-react';
 
 ChartJS.register(
@@ -59,11 +65,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
 
   const [equipment, setEquipment] = useState<Equipment[]>(() => storageService.getEquipment());
   const [inspections, setInspections] = useState<InspectionRecord[]>(() => storageService.getInspections());
+  const [patrols, setPatrols] = useState<SafetyPatrolRound[]>(() => storageService.getSafetyPatrols());
+  const [findings, setFindings] = useState<SafetyFinding[]>(() => storageService.getSafetyFindings());
+
+  const isCommittee = !!currentUser?.is_safety_committee;
+
+  useEffect(() => {
+    if (!isCommittee && activeView === 'SAFETY_COMMITTEE') {
+      setActiveView('EQUIPMENT');
+    }
+  }, [isCommittee, activeView]);
 
   useEffect(() => {
     const handleSync = () => {
       setEquipment(storageService.getEquipment());
       setInspections(storageService.getInspections());
+      setPatrols(storageService.getSafetyPatrols());
+      setFindings(storageService.getSafetyFindings());
     };
     window.addEventListener('she_data_synced', handleSync);
     return () => window.removeEventListener('she_data_synced', handleSync);
@@ -158,6 +176,45 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
     ]
   };
 
+  // 3. Safety Committee Metrics & Charts (Requirement 4)
+  const totalPatrols = patrols.length;
+  const openPatrols = patrols.filter(p => p.status === 'OPEN').length;
+  const totalFindings = findings.length;
+  const recommendFindings = findings.filter(f => f.category === 'RECOMMEND');
+  const commendFindings = findings.filter(f => f.category === 'COMMEND');
+  const recommendCount = recommendFindings.length;
+  const commendCount = commendFindings.length;
+
+  const pendingActionCount = recommendFindings.filter(f => f.status === 'PENDING_ACTION').length;
+  const pendingReviewCount = recommendFindings.filter(f => f.status === 'PENDING_REVIEW').length;
+  const approvedCount = recommendFindings.filter(f => f.status === 'APPROVED').length;
+  const rejectedCount = recommendFindings.filter(f => f.status === 'REJECTED').length;
+  const resolutionRate = recommendCount > 0 ? Math.round((approvedCount / recommendCount) * 100) : 0;
+
+  const categoryDoughnutData = {
+    labels: ['ข้อแนะนำ / จุดเสี่ยง (Recommend)', 'เรื่องที่ชมเชย (Commend)'],
+    datasets: [
+      {
+        data: [recommendCount, commendCount],
+        backgroundColor: ['#f59e0b', '#10b981'],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }
+    ]
+  };
+
+  const resolutionDoughnutData = {
+    labels: ['แก้ไขสำเร็จ (Approved)', 'รอแอดมินตรวจ (Pending Review)', 'รอดำเนินการ (Pending Action)', 'ส่งกลับไปแก้ใหม่ (Rework)'],
+    datasets: [
+      {
+        data: [approvedCount, pendingReviewCount, pendingActionCount, rejectedCount],
+        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }
+    ]
+  };
+
   const [reportModalData, setReportModalData] = useState<{
     type: 'MONTHLY' | 'YEARLY';
     period: string;
@@ -196,54 +253,210 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           </p>
         </div>
 
-        {/* View Switcher: Fire Equipment vs Safety Committee */}
-        <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
-          <button
-            onClick={() => setActiveView('EQUIPMENT')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
-              activeView === 'EQUIPMENT'
-                ? 'bg-white text-red-600 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Flame className="w-4 h-4" />
-            <span>อุปกรณ์ดับเพลิง</span>
-          </button>
-          <button
-            onClick={() => setActiveView('SAFETY_COMMITTEE')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
-              activeView === 'SAFETY_COMMITTEE'
-                ? 'bg-white text-red-600 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Safety Committee (ยังไม่มีตอนนี้)</span>
-          </button>
-        </div>
-      </div>
-
-      {activeView === 'SAFETY_COMMITTEE' ? (
-        /* Safety Committee Dashboard Placeholder */
-        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4">
-          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto">
-            <Users className="w-8 h-8" />
-          </div>
-          <div className="max-w-md mx-auto">
-            <h3 className="text-lg font-bold text-slate-800">
-              ข้อมูลสรุปกิจกรรม Safety Committee (ยังไม่มีตอนนี้)
-            </h3>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              หน้านี้อยู่ในระหว่างการเตรียมข้อมูลสำหรับรายงานกิจกรรม คปอ. (คณะกรรมการความปลอดภัยฯ), การประชุมประจำเดือน, และสถิติ Safety Patrol ในอนาคต
-            </p>
-          </div>
-          <div className="pt-2">
+        {/* View Switcher: Fire Equipment vs Safety Committee (Requirement 4: ONLY shown if user is คปอ) */}
+        {isCommittee && (
+          <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
             <button
               onClick={() => setActiveView('EQUIPMENT')}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+                activeView === 'EQUIPMENT'
+                  ? 'bg-white text-red-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              สลับกลับไปดูข้อมูลอุปกรณ์ดับเพลิง
+              <Flame className="w-4 h-4" />
+              <span>อุปกรณ์ดับเพลิง</span>
             </button>
+            <button
+              onClick={() => setActiveView('SAFETY_COMMITTEE')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+                activeView === 'SAFETY_COMMITTEE'
+                  ? 'bg-white text-emerald-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Safety Committee (คปอ.)</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {activeView === 'SAFETY_COMMITTEE' && isCommittee ? (
+        /* Real Safety Committee Dashboard (Requirement 4) */
+        <div className="space-y-6">
+          {/* Hero / Header stats banner */}
+          <div className="bg-linear-to-r from-emerald-800 via-teal-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 mb-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>แดชบอร์ดเฉพาะคณะกรรมการ คปอ.</span>
+                </div>
+                <h2 className="text-2xl font-extrabold">สถิติและความคืบหน้างาน Safety Committee (คปอ.)</h2>
+                <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                  สรุปผลการเดินตรวจความปลอดภัย (Safety Walk & Patrol), ข้อเสนอแนะแก้ไขจุดเสี่ยง (Near Miss / Hazards), และการติดตามผล Before & After
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-3 shrink-0">
+                <div className="text-right">
+                  <div className="text-xs text-slate-300">อัตราการแก้ไขปัญหาสำเร็จ</div>
+                  <div className="text-3xl font-extrabold text-emerald-400">{resolutionRate}%</div>
+                </div>
+                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Key KPI Metrics Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-medium">รอบเดินตรวจทั้งหมด</span>
+                <Calendar className="w-4 h-4 text-blue-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-slate-800">{totalPatrols}</div>
+              <div className="text-[11px] text-emerald-600 font-semibold">เปิดอยู่ {openPatrols} รอบ</div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-medium">รายการตรวจพบทั้งหมด</span>
+                <Eye className="w-4 h-4 text-purple-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-slate-800">{totalFindings}</div>
+              <div className="text-[11px] text-slate-500 font-medium">บันทึกสะสมทั้งหมด</div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-medium">ข้อเสนอแนะ / จุดเสี่ยง</span>
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-amber-600">{recommendCount}</div>
+              <div className="text-[11px] text-amber-700 font-medium">ต้องติดตามและแก้ไข</div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-medium">สิ่งที่ชมเชย (Good Practice)</span>
+                <ThumbsUp className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-emerald-600">{commendCount}</div>
+              <div className="text-[11px] text-emerald-700 font-medium">การปฏิบัติงานที่ดี</div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-1 col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-medium">แก้ไขสำเร็จ (Approved)</span>
+                <ShieldCheck className="w-4 h-4 text-blue-500" />
+              </div>
+              <div className="text-2xl font-extrabold text-blue-600">{approvedCount}</div>
+              <div className="text-[11px] text-slate-500 font-medium">
+                {pendingReviewCount > 0 ? `รอตรวจ ${pendingReviewCount} รายการ` : 'ไม่มีงานรอตรวจ'}
+              </div>
+            </div>
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Chart 1: Category & Problem Status */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+              <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>สัดส่วนประเภทรายการตรวจพบ (Category Breakdown)</span>
+              </h3>
+              {totalFindings === 0 ? (
+                <div className="p-12 text-center text-slate-400 text-xs">ยังไม่มีข้อมูลการเดินตรวจบันทึกไว้</div>
+              ) : (
+                <div className="h-64 flex items-center justify-center">
+                  <Doughnut
+                    data={categoryDoughnutData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Chart 2: Resolution Status */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+              <h3 className="font-bold text-sm text-slate-800 flex items-center space-x-2">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span>สถานะการติดตามแก้ไขปัญหา Before-After ({recommendCount} รายการ)</span>
+              </h3>
+              {recommendCount === 0 ? (
+                <div className="p-12 text-center text-slate-400 text-xs">ยังไม่มีรายการข้อแนะนำหรือจุดเสี่ยง</div>
+              ) : (
+                <div className="h-64 flex items-center justify-center">
+                  <Doughnut
+                    data={resolutionDoughnutData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Patrols Summary Table */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-sm text-slate-800">รอบการเดินตรวจ คปอ. ล่าสุด</h4>
+                <p className="text-xs text-slate-400">ข้อมูลรอบเดินตรวจและจำนวนสิ่งที่ตรวจพบ</p>
+              </div>
+            </div>
+
+            {patrols.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">ยังไม่มีรายการรอบเดินตรวจ คปอ.</div>
+            ) : (
+              <div className="divide-y divide-slate-100 text-xs">
+                {patrols.slice(0, 5).map(p => {
+                  const pFindings = findings.filter(f => f.patrol_id === p.id);
+                  const pRecommend = pFindings.filter(f => f.category === 'RECOMMEND').length;
+                  const pCommend = pFindings.filter(f => f.category === 'COMMEND').length;
+                  return (
+                    <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-slate-800">{p.title}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            p.status === 'OPEN' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {p.status === 'OPEN' ? 'เปิดรับข้อมูล' : 'ปิดแล้ว'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          วันที่: {p.patrol_date} | เวลา: {p.time_range} | พื้นที่: {p.location || 'ทั่วทั้งโรงงาน'} | สร้างโดย: {p.created_by_name}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 text-[11px]">
+                        <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-1 rounded-lg font-semibold">
+                          แนะนำ {pRecommend}
+                        </span>
+                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-lg font-semibold">
+                          ชมเชย {pCommend}
+                        </span>
+                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-bold">
+                          รวม {pFindings.length} รายการ
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       ) : (

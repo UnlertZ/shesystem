@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
     position TEXT NOT NULL,   -- เช่น 'พนักงาน', 'หัวหน้างาน', 'รองผู้จัดการ', 'ผู้จัดการ'
     role TEXT NOT NULL,       -- 'P1' (พนักงาน), 'P2' (หัวหน้า/รองผจก/ผจก), 'P3' (แอดมิน), 'P4' (ผู้จัดการระบบ), 'GUEST'
     status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    is_safety_committee INTEGER NOT NULL DEFAULT 0, -- 1 = เป็น คปอ, 0 = ไม่ได้เป็น
     avatar_url TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -122,7 +123,56 @@ CREATE TABLE IF NOT EXISTS password_resets (
     requested_at TEXT NOT NULL
 );
 
--- 7. Initial Seed Data
+-- 7. Safety Patrols (รายการเดินตรวจ คปอ.)
+CREATE TABLE IF NOT EXISTS safety_patrols (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    patrol_date TEXT NOT NULL,          -- วันที่เดินตรวจ (YYYY-MM-DD)
+    start_time TEXT NOT NULL,           -- เวลาเริ่ม (เช่น 10:00)
+    end_time TEXT NOT NULL,             -- เวลาสิ้นสุด (เช่น 11:00)
+    time_range TEXT NOT NULL,           -- เช่น '10:00น.-11:00น.'
+    location TEXT,                      -- พื้นที่ตรวจ
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'OPEN', -- 'OPEN' (เปิดรับข้อมูล), 'CLOSED' (ปิดรับข้อมูล)
+    created_by_id TEXT NOT NULL,
+    created_by_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_patrols_date ON safety_patrols(patrol_date);
+
+-- 8. Safety Findings (รายการบันทึกผลการเดิน คปอ: แนะนำ & ชมเชย พร้อมระบบ Before-After)
+CREATE TABLE IF NOT EXISTS safety_findings (
+    id TEXT PRIMARY KEY,
+    patrol_id TEXT NOT NULL REFERENCES safety_patrols(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,             -- 'RECOMMEND' (แนะนำ/Near miss/อุบัติเหตุ), 'COMMEND' (ชมเชย)
+    sub_type TEXT,                      -- 'NEAR_MISS', 'ACCIDENT', 'UNSAFE_CONDITION', 'UNSAFE_ACT', 'GOOD_PRACTICE'
+    location TEXT NOT NULL,             -- จุดที่พบ
+    description TEXT NOT NULL,          -- รายละเอียดความเสี่ยง หรือ รายละเอียดการชมเชย
+    recommendation TEXT,                -- มาตรการป้องกัน/แก้ไข หรือ ข้อแนะนำ
+    photo_url TEXT NOT NULL,            -- รูปจุดที่พบ (Before photo / Commend photo)
+    reporter_id TEXT NOT NULL,
+    reporter_name TEXT NOT NULL,
+    reporter_department TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDING_ACTION', -- 'PENDING_ACTION', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'COMMENDED'
+    after_photo_url TEXT,               -- รูปหลังแก้ไข (After photo)
+    action_taken TEXT,                  -- รายละเอียดว่าแก้ไขอย่างไร
+    resolved_by_id TEXT,
+    resolved_by_name TEXT,
+    resolved_at TEXT,
+    reviewed_by_id TEXT,
+    reviewed_by_name TEXT,
+    reviewed_at TEXT,
+    reject_reason TEXT,                 -- เหตุผลส่งกลับไปแก้ใหม่
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_findings_patrol ON safety_findings(patrol_id);
+CREATE INDEX IF NOT EXISTS idx_findings_status ON safety_findings(status);
+
+-- 9. Initial Seed Data
 -- Seed Departments
 INSERT OR IGNORE INTO departments (id, name, created_at) VALUES
 ('dept_01', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', '2025-01-01T00:00:00+07:00'),
@@ -146,11 +196,11 @@ INSERT OR IGNORE INTO positions (id, name, default_role, created_at) VALUES
 -- Admin (P3): admin / admin123
 -- Supervisor (P2): supervisor1 / 123456
 -- Staff (P1): staff1 / 123456
-INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, avatar_url, created_at, updated_at) VALUES
-('u_p4_opadmin', 'opadmin', 'halls1999', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
-('u_p3_01', 'admin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', 'approved', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
-('u_p2_01', 'supervisor1', '123456', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
-('u_p1_01', 'staff1', '123456', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00');
+INSERT OR IGNORE INTO users (id, username, password, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at) VALUES
+('u_p4_opadmin', 'opadmin', 'halls1999', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'ผู้จัดการระบบ (IT / Super Admin)', 'P4', 'approved', 1, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
+('u_p3_01', 'admin', 'admin123', 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)', 'เจ้าหน้าที่ความปลอดภัย (จป.)', 'P3', 'approved', 1, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
+('u_p2_01', 'supervisor1', '123456', 'แผนกผลิต (Production)', 'หัวหน้างาน', 'P2', 'approved', 0, 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00'),
+('u_p1_01', 'staff1', '123456', 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)', 'พนักงาน', 'P1', 'approved', 0, 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', '2025-01-01T00:00:00+07:00', '2025-01-01T00:00:00+07:00');
 
 -- Initial Mock Equipment, Tasks, Notifications have been removed for clean production use.
 

@@ -131,8 +131,11 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeTab === 'safety_committee' && (
-            <SafetyCommitteePage />
+          {activeTab === 'safety_committee' && currentUser.is_safety_committee && (
+            <SafetyCommitteePage
+              currentUser={currentUser}
+              onRefreshData={refreshUserData}
+            />
           )}
 
           {activeTab === 'users' && (currentUser.role === 'P3' || currentUser.role === 'P4') && (

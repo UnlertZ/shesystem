@@ -24,6 +24,7 @@ export interface User {
   position: string;   // ระดับ/ตำแหน่ง เช่น พนักงาน, หัวหน้างาน, รองผู้จัดการ, ผู้จัดการ
   role: UserRole;     // P1, P2, P3, P4
   status: UserStatus;
+  is_safety_committee?: boolean; // สิทธิ์ คปอ. (คณะกรรมการความปลอดภัยฯ)
   avatar_url?: string;
   created_at: string;
   updated_at?: string;
@@ -126,4 +127,61 @@ export interface ChecklistItem {
   id: string;
   label: string;
   description?: string;
+}
+
+// ==========================================
+// Safety Committee (คปอ.) Data Models
+// ==========================================
+export type PatrolStatus = 'OPEN' | 'CLOSED';
+
+export interface SafetyPatrolRound {
+  id: string;
+  title: string;
+  patrol_date: string; // YYYY-MM-DD
+  start_time: string;  // HH:MM e.g. "10:00"
+  end_time: string;    // HH:MM e.g. "11:00"
+  time_range: string;  // e.g. "10:00น.-11:00น."
+  location?: string;
+  description?: string;
+  status: PatrolStatus;
+  created_by_id: string;
+  created_by_name: string;
+  created_at: string;
+  updated_at?: string;
+  findings_count?: number;
+}
+
+export type SafetyFindingCategory = 'RECOMMEND' | 'COMMEND'; // 'RECOMMEND' = แนะนำ, 'COMMEND' = ชมเชย
+export type SafetyFindingSubType = 'NEAR_MISS' | 'ACCIDENT' | 'UNSAFE_CONDITION' | 'UNSAFE_ACT' | 'GOOD_PRACTICE';
+export type SafetyFindingStatus = 'PENDING_ACTION' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'COMMENDED';
+
+export interface SafetyFinding {
+  id: string;
+  patrol_id: string;
+  category: SafetyFindingCategory;
+  sub_type?: SafetyFindingSubType | string;
+  location: string;
+  description: string;       // รายละเอียดสิ่งที่พบ หรือ รายละเอียดการชมเชย
+  recommendation?: string;  // มาตรการป้องกัน/แก้ไข หรือ ข้อแนะนำ
+  photo_url: string;        // รูปก่อนแก้ไข หรือ รูปชมเชย (Cloudflare R2)
+  reporter_id: string;
+  reporter_name: string;
+  reporter_department?: string;
+  status: SafetyFindingStatus;
+  
+  // Before-After Resolution fields
+  after_photo_url?: string; // รูปหลังแก้ไข (Cloudflare R2)
+  action_taken?: string;    // ระบุว่าแก้ไขอย่างไร
+  resolved_by_id?: string;
+  resolved_by_name?: string;
+  resolved_at?: string;
+  
+  // Admin Inspection/Review fields
+  reviewed_by_id?: string;
+  reviewed_by_name?: string;
+  reviewed_at?: string;
+  reject_reason?: string;   // เหตุผลหากส่งกลับไปแก้ใหม่
+  
+  created_at: string;
+  updated_at?: string;
 }

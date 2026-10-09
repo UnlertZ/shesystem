@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, AppNotification } from '../types';
-import { Bell, User as UserIcon, LogOut, CheckCircle2, AlertTriangle, Flame, Users, LayoutDashboard, Calendar } from 'lucide-react';
+import { Bell, User as UserIcon, LogOut, CheckCircle2, AlertTriangle, Flame, Users, LayoutDashboard, Calendar, ShieldCheck } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 import { SheLogo } from './SheLogo';
 
@@ -42,10 +42,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   // Nav links with Dashboard at leftmost position as requested
+  // Safety Committee function is ONLY visible if user is คปอ (Requirement 3 & 4)
   const navLinks = [
     { id: 'dashboard', label: 'แดชบอร์ด (Dashboard)', icon: LayoutDashboard },
     { id: 'equipment', label: 'ตรวจระบบอุปกรณ์ดับเพลิง', icon: Flame },
-    { id: 'safety_committee', label: 'Safety Committee', icon: Calendar, badge: 'Soon' },
+    ...(currentUser?.is_safety_committee ? [
+      { id: 'safety_committee', label: 'Safety Committee (คปอ.)', icon: Calendar }
+    ] : []),
     ...(currentUser?.role === 'P3' || currentUser?.role === 'P4' ? [
       { id: 'users', label: 'จัดการสมาชิก', icon: Users }
     ] : []),
@@ -195,6 +198,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center space-x-1.5">
                       <span className="text-xs font-bold text-slate-800">{currentUser.username}</span>
                       {getRoleBadge(currentUser.role)}
+                      {currentUser.is_safety_committee && (
+                        <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center space-x-0.5 shadow-2xs">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>คปอ.</span>
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] text-slate-500">{currentUser.department}</span>
                   </div>

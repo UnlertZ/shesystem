@@ -193,6 +193,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <span className="text-xs bg-red-100 text-red-700 font-bold px-3 py-1 rounded-full">
               สิทธิ์: {currentUser.role}
             </span>
+            {currentUser.is_safety_committee && (
+              <span className="text-xs bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>กรรมการ คปอ.</span>
+              </span>
+            )}
             <span className="text-xs bg-emerald-100 text-emerald-700 font-medium px-2.5 py-1 rounded-full flex items-center space-x-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>อนุมัติแล้ว</span>

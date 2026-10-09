@@ -22,23 +22,16 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 }) => {
   const checklistDef = EQUIPMENT_CHECKLISTS[equipment.type] || EQUIPMENT_CHECKLISTS.EX;
   
-  // Initialize checklist items state (all default true/pass)
-  const [checklistResults, setChecklistResults] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    checklistDef.items.forEach(item => {
-      init[item.id] = true;
-    });
-    return init;
-  });
+  // Initialize checklist items state (Empty - Inspector must manually select each item)
+  const [checklistResults, setChecklistResults] = useState<Record<string, boolean>>({});
 
   const [isAbnormal, setIsAbnormal] = useState(equipment.defect_status === 'DEFECT');
   const [abnormalDescription, setAbnormalDescription] = useState(equipment.defect_notes || '');
   const [isResolved, setIsResolved] = useState(false);
   const [resolveNotes, setResolveNotes] = useState('');
 
-  // Photos
+  // Photos: Inspection photo only (Location photo removed as per requirement 1)
   const [inspectionPhoto, setInspectionPhoto] = useState<string>(equipment.inspection_sheet_photo || '');
-  const [locationPhoto, setLocationPhoto] = useState<string>(equipment.location_photo || '');
   const [defectPhoto, setDefectPhoto] = useState<string>(equipment.defect_photo || '');
 
   const [errorMessage, setErrorMessage] = useState('');
@@ -46,13 +39,12 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 
   const age = calculateEquipmentAge(equipment.in_service_date, equipment.latest_inspection_date);
 
-  // Toggle single checklist item
-  const handleToggleChecklist = (itemId: string) => {
+  // Set explicit status for a single checklist item (Requirement 2)
+  const handleSetChecklistStatus = (itemId: string, passed: boolean) => {
     setChecklistResults(prev => {
-      const next = { ...prev, [itemId]: !prev[itemId] };
-      // If any item fails, suggest marking abnormal
-      const anyFailed = Object.values(next).some(v => v === false);
-      if (anyFailed && !isAbnormal) {
+      const next = { ...prev, [itemId]: passed };
+      // If user marks any item as failed, automatically flag abnormal
+      if (!passed && !isAbnormal) {
         setIsAbnormal(true);
       }
       return next;
@@ -80,14 +72,16 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     e.preventDefault();
     setErrorMessage('');
 
-    // Verification: Photos required
-    if (!inspectionPhoto) {
-      setErrorMessage('กรุณาแนบรูปภาพใบตรวจเช็คคู่กับอุปกรณ์ทุกครั้ง');
+    // Requirement 2 Verification: User must manually choose pass/fail for EVERY item
+    const unselectedItems = checklistDef.items.filter(item => checklistResults[item.id] === undefined);
+    if (unselectedItems.length > 0) {
+      setErrorMessage(`กรุณากดเลือกผลการตรวจ (ผ่าน หรือ ไม่ผ่าน) ให้ครบทุกข้อด้วยตนเอง (เหลืออีก ${unselectedItems.length} ข้อที่ยังไม่ได้เลือก)`);
       return;
     }
 
-    if (!locationPhoto) {
-      setErrorMessage('กรุณาแนบรูปสถานที่ติดตั้งอุปกรณ์ทุกครั้ง');
+    // Requirement 1 Verification: Only inspection photo required, no location photo
+    if (!inspectionPhoto) {
+      setErrorMessage('กรุณาแนบรูปตรวจ (รูปภาพการตรวจเช็คคู่กับอุปกรณ์) ทุกครั้ง');
       return;
     }
 
@@ -109,7 +103,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
         ready_status: isAbnormal ? 'NOT_READY' : 'READY',
         checklist_results: checklistResults,
         inspection_photo: inspectionPhoto,
-        location_photo: locationPhoto,
+        location_photo: undefined,
         is_abnormal: isAbnormal,
         abnormal_description: abnormalDescription,
         defect_resolved: isResolved,
@@ -216,131 +210,124 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
           {/* 1. Checklist Items */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>รายการตรวจสอบ ({checklistDef.name})</span>
-              </h4>
-              <button
-                type="button"
-                onClick={() => {
-                  const allPass: Record<string, boolean> = {};
-                  checklistDef.items.forEach(i => (allPass[i.id] = true));
-                  setChecklistResults(allPass);
-                }}
-                className="text-[11px] text-emerald-600 hover:underline font-semibold"
-              >
-                ผ่านทั้งหมด
-              </button>
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>รายการตรวจสอบ ({checklistDef.name})</span>
+                </h4>
+                <p className="text-[11px] text-amber-600 mt-0.5 font-medium">
+                  * ผู้ตรวจต้องกดเลือก ผ่าน หรือ ไม่ผ่าน ให้ครบทุกข้อด้วยตนเอง
+                </p>
+              </div>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                เลือกแล้ว {Object.keys(checklistResults).length} / {checklistDef.items.length}
+              </span>
             </div>
 
             <div className="space-y-2">
               {checklistDef.items.map((item, idx) => {
-                const passed = checklistResults[item.id] !== false;
+                const itemStatus = checklistResults[item.id];
+                const isSelected = itemStatus !== undefined;
                 return (
                   <div
                     key={item.id}
-                    onClick={() => handleToggleChecklist(item.id)}
-                    className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                      passed
-                        ? 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
-                        : 'bg-red-50 border-red-300 text-red-900'
+                    className={`p-3 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      !isSelected
+                        ? 'bg-slate-50/70 border-amber-200/80'
+                        : itemStatus
+                        ? 'bg-emerald-50/30 border-emerald-200'
+                        : 'bg-red-50/40 border-red-300'
                     }`}
                   >
-                    <div className="flex items-start space-x-2.5">
+                    <div className="flex items-start space-x-2.5 flex-1">
                       <span className="text-xs font-bold text-slate-400 mt-0.5">{idx + 1}.</span>
                       <div>
-                        <p className={`text-xs font-semibold ${passed ? 'text-slate-800' : 'text-red-700'}`}>
+                        <p className={`text-xs font-bold ${
+                          !isSelected ? 'text-slate-800' : itemStatus ? 'text-slate-800' : 'text-red-700'
+                        }`}>
                           {item.label}
                         </p>
                         {item.description && (
                           <p className="text-[11px] text-slate-500 mt-0.5">{item.description}</p>
                         )}
+                        {!isSelected && (
+                          <span className="inline-block mt-1 text-[10px] text-amber-700 font-semibold bg-amber-100/70 px-2 py-0.5 rounded-md">
+                            ยังไม่ได้เลือกผลตรวจ
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <span
-                      className={`text-xs px-2.5 py-1 rounded-lg font-bold shrink-0 ml-3 ${
-                        passed
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-red-600 text-white'
-                      }`}
-                    >
-                      {passed ? 'ปกติ / ผ่าน' : 'ไม่ผ่าน'}
-                    </span>
+
+                    {/* Manual Choice Buttons (Requirement 2) */}
+                    <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleSetChecklistStatus(item.id, true)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs ${
+                          itemStatus === true
+                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/40'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:border-emerald-500 hover:text-emerald-700'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>ผ่าน</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSetChecklistStatus(item.id, false)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs ${
+                          itemStatus === false
+                            ? 'bg-red-600 text-white ring-2 ring-red-500/40'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:border-red-500 hover:text-red-700'
+                        }`}
+                      >
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>ไม่ผ่าน</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* 2. Mandatory Photo Uploads */}
-          <div className="space-y-4 pt-2">
-            <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-              <Camera className="w-4 h-4 text-red-600" />
-              <span>แนบรูปภาพการตรวจเช็ค (จำเป็นต้องแนบทุกครั้ง)</span>
-            </h4>
+          {/* 2. Mandatory Photo Upload (Requirement 1: Inspection photo only, no location photo) */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
+                <Camera className="w-4 h-4 text-red-600" />
+                <span>แนบรูปตรวจ (รูปภาพตรวจเช็คคู่กับอุปกรณ์) *</span>
+              </h4>
+              <span className="text-[11px] text-slate-400">แนบเฉพาะรูปตรวจ ไม่ต้องแนบรูปสถานที่</span>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Photo 1: Inspection Sheet + Tank */}
-              <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50/50">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-700">1. รูปใบตรวจเช็คคู่กับอุปกรณ์ *</label>
+            <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50/50">
+              {inspectionPhoto ? (
+                <div className="relative group rounded-xl overflow-hidden aspect-video max-h-60 bg-black/5 border border-slate-200 mx-auto">
+                  <img src={inspectionPhoto} alt="รูปตรวจคู่กับอุปกรณ์" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setInspectionPhoto('')}
+                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full text-xs shadow-md opacity-90 group-hover:opacity-100 transition"
+                    title="ลบรูป"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                {inspectionPhoto ? (
-                  <div className="relative group rounded-xl overflow-hidden aspect-video bg-black/5 border border-slate-200">
-                    <img src={inspectionPhoto} alt="ใบตรวจเช็ค" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setInspectionPhoto('')}
-                      className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full text-xs shadow-md opacity-90 group-hover:opacity-100"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="border-2 border-dashed border-slate-300 hover:border-red-500 rounded-xl aspect-video flex flex-col items-center justify-center cursor-pointer transition bg-white">
-                    <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                    <span className="text-xs text-slate-500 font-medium">กดเพื่อถ่ายรูป / อัปโหลด</span>
-                    <span className="text-[10px] text-slate-400">รองรับไฟล์ JPG, PNG</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Photo 2: Location Photo */}
-              <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50/50">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-700">2. รูปสถานที่ติดตั้งอุปกรณ์ *</label>
-                </div>
-                {locationPhoto ? (
-                  <div className="relative group rounded-xl overflow-hidden aspect-video bg-black/5 border border-slate-200">
-                    <img src={locationPhoto} alt="สถานที่ติดตั้ง" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setLocationPhoto('')}
-                      className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full text-xs shadow-md opacity-90 group-hover:opacity-100"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="border-2 border-dashed border-slate-300 hover:border-red-500 rounded-xl aspect-video flex flex-col items-center justify-center cursor-pointer transition bg-white">
-                    <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                    <span className="text-xs text-slate-500 font-medium">กดเพื่อถ่ายรูป / อัปโหลด</span>
-                    <span className="text-[10px] text-slate-400">รองรับไฟล์ JPG, PNG</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, setLocationPhoto)}
-                    />
-                  </label>
-                )}
-              </div>
+              ) : (
+                <label className="border-2 border-dashed border-slate-300 hover:border-red-500 rounded-xl aspect-video max-h-56 flex flex-col items-center justify-center cursor-pointer transition bg-white">
+                  <Upload className="w-7 h-7 text-slate-400 mb-1" />
+                  <span className="text-xs text-slate-600 font-semibold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปตรวจ</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">ภาพใบตรวจเช็คคู่กับถัง/ตู้ดับเพลิง (JPG, PNG)</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
+                  />
+                </label>
+              )}
             </div>
           </div>
 
