@@ -1271,6 +1271,13 @@ app.put('/api/safety-findings/:id/review', async (c) => {
   return c.json({ success: true, status: newStatus });
 });
 
+app.delete('/api/safety-findings/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM safety_findings WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
 // ==========================================
 // 11. Scheduled Worker Handler (Monthly reset & 3-year cleanup)
 // ==========================================

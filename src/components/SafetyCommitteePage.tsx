@@ -26,7 +26,8 @@ import {
   RefreshCw,
   MessageSquare,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
@@ -186,6 +187,15 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
     storageService.deleteSafetyPatrol(patrol.id);
     refreshAll();
     setBannerMessage({ type: 'info', text: `ลบรายการเดินตรวจ "${patrol.title}" เรียบร้อยแล้ว` });
+  };
+
+  // Delete finding item (Admin or reporter)
+  const handleDeleteFinding = (finding: SafetyFinding) => {
+    const locText = finding.location ? `จุดที่พบ: ${finding.location}` : 'รายการนี้';
+    if (!confirm(`คุณต้องการลบข้อมูลสิ่งที่ตรวจพบ "${locText}" ใช่หรือไม่?\n(ข้อมูลรูปภาพและผลการแก้ไขของรายการนี้จะถูกลบออกจากระบบอย่างถาวร)`)) return;
+    storageService.deleteSafetyFinding(finding.id);
+    refreshAll();
+    setBannerMessage({ type: 'info', text: `ลบ ${locText} เรียบร้อยแล้ว` });
   };
 
   // 3. Requirement 6: Submit Finding (Recommend vs Commend)
@@ -707,7 +717,22 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                                     )}
                                     {getSubTypeLabel(finding.sub_type)}
                                   </div>
-                                  {getStatusBadge(finding.status)}
+
+                                  <div className="flex items-center space-x-1.5">
+                                    {getStatusBadge(finding.status)}
+                                    {(isAdmin || currentUser?.id === finding.reporter_id) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteFinding(finding);
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                        title="ลบรายการนี้"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* Finding Photo */}
@@ -892,6 +917,17 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                               <span>ไม่ผ่าน (ส่งกลับไปแก้ใหม่)</span>
                             </button>
                           </div>
+                        )}
+
+                        {/* Delete Finding (Admin or Creator) */}
+                        {(isAdmin || currentUser?.id === item.reporter_id) && (
+                          <button
+                            onClick={() => handleDeleteFinding(item)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition ml-1"
+                            title="ลบรายการนี้"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
                     </div>

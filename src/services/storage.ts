@@ -1525,6 +1525,19 @@ class StorageService {
 
     return true;
   }
+
+  deleteSafetyFinding(id: string): boolean {
+    if (!this.isBrowser) return false;
+    const list = this.getSafetyFindings();
+    const nextList = list.filter(f => f.id !== id);
+    this.saveSafetyFindings(nextList);
+
+    // Sync to backend Cloudflare D1
+    fetch(`/api/safety-findings/${id}`, { method: 'DELETE' }).catch(console.error);
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
 }
 
 export const storageService = new StorageService();
