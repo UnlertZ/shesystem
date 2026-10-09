@@ -537,7 +537,10 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             id="printable-report"
           >
             {/* 1. Executive Report Header */}
-            <div className="flex items-start justify-between border-b-2 border-red-600 pb-5 break-inside-avoid">
+            <div
+              className="flex items-start justify-between border-b-2 border-red-600 pb-5 break-inside-avoid"
+              style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', borderBottom: '2px solid #dc2626', paddingBottom: '20px' }}
+            >
               <div>
                 <SheLogo size="lg" />
                 <h2 className="text-xl font-black text-slate-900 mt-2">
@@ -548,7 +551,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                 </p>
               </div>
 
-              <div className="text-right text-xs text-slate-500 space-y-1">
+              <div className="text-right text-xs text-slate-500 space-y-1" style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div>วันที่ออกรายงาน: <strong>{formatThaiDate(now, true)}</strong></div>
                 <div>ระบบ: <strong>SHE Safety Management</strong></div>
                 <div className="text-[11px] text-emerald-600 font-semibold">สถานะข้อมูล: อัปเดตล่าสุด</div>
@@ -556,26 +559,41 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </div>
 
             {/* 2. Executive Statistics KPI Bar */}
-            <div className="grid grid-cols-4 gap-3 break-inside-avoid">
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-center">
+            <div
+              className="flex flex-row gap-3 break-inside-avoid"
+              style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+            >
+              <div
+                className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-center"
+                style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px', textAlign: 'center', boxSizing: 'border-box' }}
+              >
                 <div className="text-[10px] text-slate-500 font-bold uppercase">อุปกรณ์ทั้งหมด</div>
                 <div className="text-2xl font-black text-slate-800 mt-0.5">{total}</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">รายการในระบบ</div>
               </div>
 
-              <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center">
+              <div
+                className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center"
+                style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', display: 'flex', flexDirection: 'column', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '12px', textAlign: 'center', boxSizing: 'border-box' }}
+              >
                 <div className="text-[10px] text-emerald-700 font-bold uppercase">อัตราการตรวจเสร็จสิ้น</div>
                 <div className="text-2xl font-black text-emerald-700 mt-0.5">{rate}%</div>
                 <div className="text-[10px] text-emerald-600 mt-0.5">({inspected}/{total})</div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
+              <div
+                className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-center"
+                style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', display: 'flex', flexDirection: 'column', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px', textAlign: 'center', boxSizing: 'border-box' }}
+              >
                 <div className="text-[10px] text-blue-700 font-bold uppercase">พร้อมใช้งาน</div>
                 <div className="text-2xl font-black text-blue-700 mt-0.5">{ready}</div>
                 <div className="text-[10px] text-blue-600 mt-0.5">พร้อมใช้ทันที</div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
+              <div
+                className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-center"
+                style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', display: 'flex', flexDirection: 'column', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px', textAlign: 'center', boxSizing: 'border-box' }}
+              >
                 <div className="text-[10px] text-amber-700 font-bold uppercase">ปัญหา/แก้ไขแล้ว</div>
                 <div className="text-2xl font-black text-amber-700 mt-0.5">{resolved} / {defects}</div>
                 <div className="text-[10px] text-amber-600 mt-0.5">แก้ไขแล้ว / รอแก้ไข</div>
@@ -597,8 +615,11 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
               {reportType === 'MONTHLY' ? (
                 /* Monthly View: NO Bar Chart (ลบกราฟแท่งออกแล้ว) */
-                <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                  <div className="flex flex-col items-center justify-center">
+                <div
+                  className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 flex flex-row items-center gap-4"
+                  style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '16px', width: '100%', boxSizing: 'border-box' }}
+                >
+                  <div className="flex flex-col items-center justify-center" style={{ flex: '1 1 0%', width: '45%' }}>
                     <div className="text-xs font-bold text-slate-700 mb-2 text-center">
                       สัดส่วนสถานะการตรวจรอบเดือน {selectedPeriod}
                     </div>
@@ -616,7 +637,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-2 text-xs" style={{ flex: '1 1 0%', width: '55%' }}>
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                       <span className="flex items-center space-x-2 font-bold text-emerald-800">
                         <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
@@ -652,12 +673,18 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                 </div>
               ) : (
                 /* Yearly View: Keep Bar Chart + Doughnut Chart */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+                <div
+                  className="flex flex-row gap-4"
+                  style={{ display: 'flex', flexDirection: 'row', gap: '16px', width: '100%', boxSizing: 'border-box' }}
+                >
+                  <div
+                    className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
+                    style={{ flex: '1 1 0%', minWidth: 0, width: '48%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', boxSizing: 'border-box' }}
+                  >
                     <div className="text-xs font-bold text-slate-700 mb-2 text-center">
                       กราฟเปรียบเทียบสถิติรายปี (2 ปีย้อนหลัง)
                     </div>
-                    <div className="h-48">
+                    <div className="h-48" style={{ height: '192px', width: '100%' }}>
                       <Bar
                         data={barChartData}
                         options={{
@@ -671,11 +698,14 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+                  <div
+                    className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
+                    style={{ flex: '1 1 0%', minWidth: 0, width: '48%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', boxSizing: 'border-box' }}
+                  >
                     <div className="text-xs font-bold text-slate-700 mb-2 text-center">
                       สัดส่วนผลการตรวจสอบสะสม {selectedPeriod}
                     </div>
-                    <div className="h-48 flex items-center justify-center">
+                    <div className="h-48 flex items-center justify-center" style={{ height: '192px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Doughnut
                         data={liveDoughnutData}
                         options={{
@@ -699,12 +729,16 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                 <span>สรุปผลการตรวจสอบแยกตามประเภทอุปกรณ์ ({reportType === 'MONTHLY' ? 'ประจำเดือน' : 'ประจำปี'} {selectedPeriod})</span>
               </h3>
 
-              {/* 4 Cards Grid - ตรงตามที่ผู้ใช้สั่งทั้ง 4 รายการ พร้อมหน่วย ถัง, ตู้, สาย, จุด */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 break-inside-avoid">
+              {/* 4 Cards Row - ตรงตามที่ผู้ใช้สั่งทั้ง 4 รายการ พร้อมหน่วย ถัง, ตู้, สาย, จุด */}
+              <div
+                className="flex flex-row gap-3 break-inside-avoid"
+                style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+              >
                 {typeSummaries.map((cat, idx) => (
                   <div
                     key={cat.type}
                     className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 space-y-2 hover:bg-slate-50 transition"
+                    style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', boxSizing: 'border-box', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px' }}
                   >
                     <div className="flex items-center justify-between border-b border-slate-200/80 pb-1.5">
                       <span className="text-xs font-bold text-slate-800 flex items-center space-x-1">
@@ -975,9 +1009,15 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                               {item.defect_notes || 'พบความผิดปกติระหว่างการตรวจเช็คตามเกณฑ์มาตรฐาน'}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div
+                              className="flex flex-row gap-3 pt-1"
+                              style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+                            >
                               {/* Before Photo Card */}
-                              <div className="bg-white border border-red-200 rounded-xl p-2 space-y-1.5">
+                              <div
+                                className="bg-white border border-red-200 rounded-xl p-2 space-y-1.5"
+                                style={{ flex: '1 1 0%', width: '48%', boxSizing: 'border-box' }}
+                              >
                                 <div className="flex items-center justify-between text-[11px] font-bold text-red-700">
                                   <span>ภาพจุดที่พบปัญหา (Before)</span>
                                   <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
@@ -991,7 +1031,10 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                               </div>
 
                               {/* After Photo Card */}
-                              <div className="bg-white border border-emerald-200 rounded-xl p-2 space-y-1.5">
+                              <div
+                                className="bg-white border border-emerald-200 rounded-xl p-2 space-y-1.5"
+                                style={{ flex: '1 1 0%', width: '48%', boxSizing: 'border-box' }}
+                              >
                                 <div className="flex items-center justify-between text-[11px] font-bold text-emerald-700">
                                   <span>ภาพหลังแก้ไขเรียบร้อย (After)</span>
                                   <Wrench className="w-3.5 h-3.5 text-emerald-500" />
@@ -1014,14 +1057,17 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </div>
 
             {/* 7. Signature Section */}
-            <div className="pt-8 border-t border-slate-200 grid grid-cols-2 gap-8 text-center text-xs text-slate-600 break-inside-avoid">
-              <div className="space-y-8">
+            <div
+              className="pt-8 border-t border-slate-200 flex flex-row justify-between gap-8 text-center text-xs text-slate-600 break-inside-avoid"
+              style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', gap: '32px', width: '100%', boxSizing: 'border-box' }}
+            >
+              <div className="space-y-8" style={{ flex: '1 1 0%', width: '48%' }}>
                 <div>ลงชื่อ..........................................................</div>
                 <div>( เจ้าหน้าที่ความปลอดภัย / ผู้ตรวจสอบ )</div>
                 <div className="text-[11px] text-slate-400">วันที่: ......./......./............</div>
               </div>
 
-              <div className="space-y-8">
+              <div className="space-y-8" style={{ flex: '1 1 0%', width: '48%' }}>
                 <div>ลงชื่อ..........................................................</div>
                 <div>( ผู้จัดการแผนก / ประธาน คปอ. )</div>
                 <div className="text-[11px] text-slate-400">วันที่: ......./......./............</div>

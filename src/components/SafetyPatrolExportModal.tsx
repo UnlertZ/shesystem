@@ -467,8 +467,11 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             </div>
 
             {/* Selected Patrol Round Information Box */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs break-inside-avoid">
-              <div className="space-y-1.5">
+            <div
+              className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-wrap gap-3 text-xs break-inside-avoid"
+              style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '12px', width: '100%', boxSizing: 'border-box', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px' }}
+            >
+              <div className="space-y-1.5" style={{ flex: '1 1 45%', minWidth: '240px' }}>
                 <div className="flex items-center space-x-1.5">
                   <span className="font-bold text-slate-700">หัวข้อรอบตรวจ:</span>
                   <span className="text-slate-900 font-semibold">{currentPatrol?.title || 'ทุกรอบการเดินตรวจรวม'}</span>
@@ -485,7 +488,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" style={{ flex: '1 1 45%', minWidth: '240px' }}>
                 <div className="flex items-center space-x-1.5">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   <span className="text-slate-600">พื้นที่/โซนที่เดินตรวจ:</span>
@@ -507,21 +510,30 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
               </div>
 
               {currentPatrol?.description && (
-                <div className="md:col-span-2 pt-1 border-t border-slate-200 text-[11px] text-slate-600">
+                <div className="pt-1 border-t border-slate-200 text-[11px] text-slate-600" style={{ width: '100%', borderTop: '1px solid #e2e8f0', paddingTop: '6px' }}>
                   <span className="font-semibold text-slate-700">วัตถุประสงค์/บันทึกเพิ่มเติม:</span> {currentPatrol.description}
                 </div>
               )}
             </div>
 
             {/* Statistics Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs break-inside-avoid">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+            <div
+              className="flex flex-row gap-3 text-xs break-inside-avoid"
+              style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+            >
+              <div
+                className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center"
+                style={{ flex: '1 1 0%', width: '23.5%', boxSizing: 'border-box', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px', textAlign: 'center' }}
+              >
                 <div className="text-slate-400 font-medium text-[11px]">รายการตรวจพบทั้งหมด</div>
                 <div className="text-2xl font-extrabold text-slate-800 mt-1">{patrolFindings.length}</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">ในรอบที่เลือก</div>
               </div>
 
-              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-center">
+              <div
+                className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-center"
+                style={{ flex: '1 1 0%', width: '23.5%', boxSizing: 'border-box', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px', textAlign: 'center' }}
+              >
                 <div className="text-amber-800 font-medium text-[11px] flex items-center justify-center space-x-1">
                   <AlertTriangle className="w-3 h-3 text-amber-600" />
                   <span>ข้อเสนอแนะ/จุดเสี่ยง</span>
@@ -530,7 +542,10 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                 <div className="text-[10px] text-amber-600 mt-0.5">จุดที่ต้องติดตาม</div>
               </div>
 
-              <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl text-center">
+              <div
+                className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl text-center"
+                style={{ flex: '1 1 0%', width: '23.5%', boxSizing: 'border-box', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '12px', textAlign: 'center' }}
+              >
                 <div className="text-emerald-800 font-medium text-[11px] flex items-center justify-center space-x-1">
                   <ThumbsUp className="w-3 h-3 text-emerald-600" />
                   <span>เรื่องที่ชมเชย</span>
@@ -539,7 +554,10 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                 <div className="text-[10px] text-emerald-600 mt-0.5">แบบอย่างที่ดี</div>
               </div>
 
-              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl text-center">
+              <div
+                className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl text-center"
+                style={{ flex: '1 1 0%', width: '23.5%', boxSizing: 'border-box', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '12px', textAlign: 'center' }}
+              >
                 <div className="text-blue-800 font-medium text-[11px] flex items-center justify-center space-x-1">
                   <CheckCircle2 className="w-3 h-3 text-blue-600" />
                   <span>แก้ไขสำเร็จ (ผ่าน)</span>
@@ -598,9 +616,12 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                           </div>
 
                           {/* Photos: Side-by-side Before & After if available */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div
+                            className="flex flex-row gap-3"
+                            style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+                          >
                             {/* Before Photo */}
-                            <div className="space-y-1">
+                            <div className="space-y-1" style={{ flex: '1 1 0%', width: '48%', boxSizing: 'border-box' }}>
                               <div className="text-[11px] font-bold text-slate-600 flex items-center justify-between">
                                 <span className="text-red-700">📷 รูปถ่ายก่อนแก้ไข (Before)</span>
                                 <span className="text-[10px] text-slate-400">บันทึกโดย: {finding.reporter_name}</span>
@@ -616,7 +637,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                             </div>
 
                             {/* After Photo or Pending */}
-                            <div className="space-y-1">
+                            <div className="space-y-1" style={{ flex: '1 1 0%', width: '48%', boxSizing: 'border-box' }}>
                               <div className="text-[11px] font-bold text-slate-600 flex items-center justify-between">
                                 <span className="text-emerald-700">📸 รูปถ่ายหลังแก้ไข (After)</span>
                                 {finding.resolved_by_name && (
@@ -643,8 +664,14 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                           </div>
 
                           {/* Details & Actions */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-1">
-                            <div className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100 space-y-1">
+                          <div
+                            className="flex flex-row gap-3 text-xs pt-1"
+                            style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+                          >
+                            <div
+                              className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100 space-y-1"
+                              style={{ flex: '1 1 0%', width: '48%', boxSizing: 'border-box' }}
+                            >
                               <div className="font-bold text-amber-900">รายละเอียดอันตราย / ความเสี่ยง:</div>
                               <p className="text-slate-700 text-[11px] leading-relaxed">{finding.description}</p>
 
@@ -656,7 +683,10 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                               )}
                             </div>
 
-                            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+                            <div
+                              className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1"
+                              style={{ flex: '1 1 0%', width: '48%', boxSizing: 'border-box' }}
+                            >
                               <div className="font-bold text-slate-800">การดำเนินการแก้ไขจริง (Action Taken):</div>
                               <p className="text-slate-700 text-[11px] leading-relaxed">
                                 {finding.action_taken || 'ยังไม่มีการบันทึกการแก้ไข'}
@@ -691,11 +721,15 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div
+                      className="flex flex-row flex-wrap gap-4"
+                      style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '16px', width: '100%', boxSizing: 'border-box' }}
+                    >
                       {commendFindings.map((finding, idx) => (
                         <div
                           key={finding.id}
                           className="border border-emerald-200 bg-emerald-50/20 rounded-2xl p-4 space-y-3 break-inside-avoid"
+                          style={{ flex: '1 1 45%', width: '48%', boxSizing: 'border-box' }}
                         >
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-bold text-slate-800">จุดที่พบ: {finding.location}</span>
@@ -730,8 +764,11 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             )}
 
             {/* Official Signature Section */}
-            <div className="pt-8 border-t-2 border-slate-200 grid grid-cols-3 gap-6 text-center text-xs break-inside-avoid">
-              <div className="space-y-8">
+            <div
+              className="pt-8 border-t-2 border-slate-200 flex flex-row justify-between gap-6 text-center text-xs break-inside-avoid"
+              style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', gap: '24px', width: '100%', boxSizing: 'border-box' }}
+            >
+              <div className="space-y-8" style={{ flex: '1 1 0%', width: '31%', boxSizing: 'border-box' }}>
                 <div className="text-slate-600 font-medium">ลงชื่อผู้จัดทำรายงาน</div>
                 <div className="border-b border-dashed border-slate-400 mx-6" />
                 <div className="text-slate-500 text-[11px]">
@@ -740,7 +777,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                 </div>
               </div>
 
-              <div className="space-y-8">
+              <div className="space-y-8" style={{ flex: '1 1 0%', width: '31%', boxSizing: 'border-box' }}>
                 <div className="text-slate-600 font-medium">ลงชื่อเจ้าหน้าที่ความปลอดภัย (จป.)</div>
                 <div className="border-b border-dashed border-slate-400 mx-6" />
                 <div className="text-slate-500 text-[11px]">
@@ -749,7 +786,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                 </div>
               </div>
 
-              <div className="space-y-8">
+              <div className="space-y-8" style={{ flex: '1 1 0%', width: '31%', boxSizing: 'border-box' }}>
                 <div className="text-slate-600 font-medium">ลงชื่อประธานคณะกรรมการ คปอ.</div>
                 <div className="border-b border-dashed border-slate-400 mx-6" />
                 <div className="text-slate-500 text-[11px]">
