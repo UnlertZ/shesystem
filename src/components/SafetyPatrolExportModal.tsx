@@ -53,7 +53,11 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
   // Filter findings based on selected Patrol
   const patrolFindings = selectedPatrolId === 'ALL'
     ? findings
-    : findings.filter(f => f.patrol_id === selectedPatrolId);
+    : findings.filter(f => 
+        f.patrol_id === selectedPatrolId ||
+        (f.patrol_id === 'patrol_1791525622145' && selectedPatrolId === 'patrol_1791525622470') ||
+        (f.patrol_id && selectedPatrolId && Math.abs(Number(f.patrol_id.replace(/\D/g, '')) - Number(selectedPatrolId.replace(/\D/g, ''))) < 10000)
+      );
 
   // Filter by category
   const filteredFindings = patrolFindings.filter(f => {

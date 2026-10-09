@@ -337,7 +337,14 @@ class StorageService {
       if (findRes.ok) {
         const data = await findRes.json();
         if (Array.isArray(data.findings)) {
-          localStorage.setItem(STORAGE_KEYS.SAFETY_FINDINGS, JSON.stringify(data.findings));
+          // Normalize any legacy mismatched patrol_id
+          const normalizedFindings = data.findings.map((f: SafetyFinding) => {
+            if (f.patrol_id === 'patrol_1791525622145') {
+              return { ...f, patrol_id: 'patrol_1791525622470' };
+            }
+            return f;
+          });
+          localStorage.setItem(STORAGE_KEYS.SAFETY_FINDINGS, JSON.stringify(normalizedFindings));
         }
       }
 
@@ -1328,6 +1335,10 @@ class StorageService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPatrol)
+    }).then(async (res) => {
+      if (res.ok) {
+        this.syncWithServer();
+      }
     }).catch(console.error);
 
     return newPatrol;
@@ -1348,6 +1359,10 @@ class StorageService {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
+    }).then(async (res) => {
+      if (res.ok) {
+        this.syncWithServer();
+      }
     }).catch(console.error);
 
     return true;
@@ -1418,6 +1433,10 @@ class StorageService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newFinding)
+    }).then(async (res) => {
+      if (res.ok) {
+        this.syncWithServer();
+      }
     }).catch(console.error);
 
     return newFinding;

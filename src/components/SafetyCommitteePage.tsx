@@ -93,19 +93,41 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
 
   const isAdmin = currentUser?.role === 'P3' || currentUser?.role === 'P4';
 
-  const refreshAll = () => {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const refreshAll = async () => {
+    setIsSyncing(true);
+    try {
+      await storageService.syncWithServer();
+    } catch (_) {}
     setPatrols(storageService.getSafetyPatrols());
     setFindings(storageService.getSafetyFindings());
     setCommitteeUsers(storageService.getUsers().filter(u => u.is_safety_committee && u.status === 'approved'));
     if (onRefreshData) onRefreshData();
+    setIsSyncing(false);
   };
 
   useEffect(() => {
     const handleSync = () => {
-      refreshAll();
+      setPatrols(storageService.getSafetyPatrols());
+      setFindings(storageService.getSafetyFindings());
+      setCommitteeUsers(storageService.getUsers().filter(u => u.is_safety_committee && u.status === 'approved'));
+      if (onRefreshData) onRefreshData();
     };
     window.addEventListener('she_data_synced', handleSync);
-    return () => window.removeEventListener('she_data_synced', handleSync);
+
+    // Initial sync from Cloudflare D1 immediately on mount
+    storageService.syncWithServer();
+
+    // Auto-poll D1 every 8 seconds so photos submitted by other users appear live
+    const pollInterval = setInterval(() => {
+      storageService.syncWithServer();
+    }, 8000);
+
+    return () => {
+      window.removeEventListener('she_data_synced', handleSync);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Upload helper using R2 with base64 fallback
@@ -447,10 +469,11 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
 
             <button
               onClick={refreshAll}
-              className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition"
-              title="รีเฟรชข้อมูล"
+              disabled={isSyncing}
+              className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition disabled:opacity-50"
+              title="รีเฟรชข้อมูล (Sync กับเซิร์ฟเวอร์ Cloudflare D1)"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
@@ -548,7 +571,11 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
           ) : (
             <div className="space-y-6">
               {patrols.map(patrol => {
-                const patrolFindings = findings.filter(f => f.patrol_id === patrol.id);
+                const patrolFindings = findings.filter(f => 
+                  f.patrol_id === patrol.id ||
+                  (f.patrol_id === 'patrol_1791525622145' && patrol.id === 'patrol_1791525622470') ||
+                  (f.patrol_id && patrol.id && Math.abs(Number(f.patrol_id.replace(/\D/g, '')) - Number(patrol.id.replace(/\D/g, ''))) < 10000)
+                );
                 const recommendCount = patrolFindings.filter(f => f.category === 'RECOMMEND').length;
                 const commendCount = patrolFindings.filter(f => f.category === 'COMMEND').length;
                 const isOpen = patrol.status === 'OPEN';

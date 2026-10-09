@@ -1066,8 +1066,8 @@ app.get('/api/safety-patrols', async (c) => {
 app.post('/api/safety-patrols', async (c) => {
   const data = await c.req.json();
   const db = c.env.DB;
-  const id = `patrol_${Date.now()}`;
-  const now = new Date().toISOString();
+  const id = data.id || `patrol_${Date.now()}`;
+  const now = data.created_at || new Date().toISOString();
 
   const title = data.title || `เดินตรวจ คปอ ประจำวันที่ ${data.patrol_date}`;
   const timeRange = data.time_range || `${data.start_time || '10:00'}น.-${data.end_time || '11:00'}น.`;
@@ -1081,7 +1081,7 @@ app.post('/api/safety-patrols', async (c) => {
   `).bind(
     id, title, data.patrol_date, data.start_time || '10:00', data.end_time || '11:00',
     timeRange, data.location || 'ทั่วทั้งโรงงาน', data.description || '',
-    'OPEN', data.created_by_id, data.created_by_name, now, now
+    data.status || 'OPEN', data.created_by_id, data.created_by_name, now, now
   ).run();
 
   // Send announcement notification to all users
@@ -1107,7 +1107,7 @@ app.post('/api/safety-patrols', async (c) => {
       time_range: timeRange,
       location: data.location || 'ทั่วทั้งโรงงาน',
       description: data.description || '',
-      status: 'OPEN',
+      status: data.status || 'OPEN',
       created_by_id: data.created_by_id,
       created_by_name: data.created_by_name,
       created_at: now,
@@ -1160,8 +1160,8 @@ app.get('/api/safety-findings', async (c) => {
 app.post('/api/safety-findings', async (c) => {
   const data = await c.req.json();
   const db = c.env.DB;
-  const id = `find_${Date.now()}`;
-  const now = new Date().toISOString();
+  const id = data.id || `find_${Date.now()}`;
+  const now = data.created_at || new Date().toISOString();
 
   const isRecommend = data.category === 'RECOMMEND';
   const defaultStatus = isRecommend ? 'PENDING_ACTION' : 'COMMENDED';
@@ -1176,7 +1176,7 @@ app.post('/api/safety-findings', async (c) => {
     id, data.patrol_id, data.category, data.sub_type || (isRecommend ? 'NEAR_MISS' : 'GOOD_PRACTICE'),
     data.location, data.description, data.recommendation || '',
     data.photo_url, data.reporter_id, data.reporter_name,
-    data.reporter_department || '', defaultStatus, now, now
+    data.reporter_department || '', data.status || defaultStatus, now, now
   ).run();
 
   return c.json({ success: true, id });
