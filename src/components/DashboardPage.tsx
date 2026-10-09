@@ -58,8 +58,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const now = getNowThai();
   const currentYearBE = now.getFullYear() + 543;
 
-  // Selected period filters: current year and up to 3 years back (total 4 years available)
-  const availableYears = [currentYearBE, currentYearBE - 1, currentYearBE - 2, currentYearBE - 3];
+  // Selected period filters: current year and up to 2 years back (total 3 years available: ปีปัจจุบัน + ย้อนหลัง 2 ปี)
+  const availableYears = [currentYearBE, currentYearBE - 1, currentYearBE - 2];
   const [selectedYear, setSelectedYear] = useState<number>(currentYearBE);
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth()); // 0-11
   const [selectedEquipType, setSelectedEquipType] = useState<string>('ALL');
@@ -105,8 +105,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const resolvedCount = filteredEquip.filter(e => e.defect_status === 'RESOLVED').length;
   const completionRate = totalEquip > 0 ? Math.round((inspectedCount / totalEquip) * 100) : 0;
 
-  // 1. Yearly Bar Chart Data (3 years history + current year)
-  // 1. Yearly Bar Chart Data (3 years history + current year)
+  // 1. Yearly Bar Chart Data (2 years history + current year)
   // Calculate real yearly trend data based on inspections history and current equipment
   const sortedYears = availableYears.slice().reverse();
   const yearlyBarData = {
@@ -629,7 +628,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-sm text-slate-800">
-                    กราฟแท่งเปรียบเทียบสถิติรายปี (ย้อนหลัง 3 ปี รวมปีปัจจุบัน {currentYearBE})
+                    กราฟแท่งเปรียบเทียบสถิติรายปี (ย้อนหลัง 2 ปี รวมปีปัจจุบัน {currentYearBE})
                   </h3>
                   <p className="text-xs text-slate-400">อิงตามเวลาประเทศไทย (UTC+7)</p>
                 </div>

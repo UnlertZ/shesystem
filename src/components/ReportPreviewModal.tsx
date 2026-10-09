@@ -202,7 +202,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                 {/* Yearly Bar Chart */}
                 <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
                   <div className="text-xs font-bold text-slate-700 mb-2 text-center">
-                    กราฟเปรียบเทียบสถิติรายปี (3 ปีย้อนหลัง)
+                    กราฟเปรียบเทียบสถิติรายปี (2 ปีย้อนหลัง)
                   </div>
                   <div className="h-48">
                     <Bar

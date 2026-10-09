@@ -1281,9 +1281,9 @@ export default {
       }
     }
 
-    // 2. Yearly Cleanup on Jan 1st: Delete inspections older than 3 years
+    // 2. Yearly Cleanup on Jan 1st: Delete inspections older than 2 years (2-year retention)
     if (day === 1 && month === 0) {
-      const cutoffYear = year - 3;
+      const cutoffYear = year - 2;
       const cutoffDate = `${cutoffYear}-01-01T00:00:00`;
       await db.prepare("DELETE FROM inspections WHERE inspection_date < ?").bind(cutoffDate).run();
     }

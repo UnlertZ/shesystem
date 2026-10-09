@@ -122,12 +122,14 @@ export function formatEquipmentCode(type: string, seq: number): string {
 }
 
 /**
- * Check if a date record is older than 3 years from Jan 1 of current year
+ * Check if a date record is older than 2 years from Jan 1 of current year (2-year retention)
  */
-export function isOlderThan3Years(dateStr: string): boolean {
+export function isOlderThan2Years(dateStr: string): boolean {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return false;
   const currentYear = new Date().getFullYear();
-  const cutoffDate = new Date(currentYear - 3, 0, 1); // Jan 1st, 3 years ago
+  const cutoffDate = new Date(currentYear - 2, 0, 1); // Jan 1st, 2 years ago
   return d < cutoffDate;
 }
+
+export const isOlderThan3Years = isOlderThan2Years;

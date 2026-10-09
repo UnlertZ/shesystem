@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS inspections (
     created_at TEXT NOT NULL
 );
 
--- Index on inspections date for 3-year data retention queries & cleanup
+-- Index on inspections date for 2-year data retention queries & cleanup
 CREATE INDEX IF NOT EXISTS idx_inspections_date ON inspections(inspection_date);
 CREATE INDEX IF NOT EXISTS idx_inspections_equipment ON inspections(equipment_id);
 
