@@ -169,6 +169,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             clonedReport.style.minWidth = `${captureWidth}px`;
             clonedReport.style.boxSizing = 'border-box';
             clonedReport.style.margin = '0 auto';
+            clonedReport.style.padding = '0px';
             clonedReport.style.borderRadius = '0px';
             clonedReport.style.boxShadow = 'none';
             clonedReport.style.border = 'none';
@@ -177,7 +178,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
             const reportRect = clonedReport.getBoundingClientRect();
             const blocks = Array.from(
               clonedReport.querySelectorAll(
-                '.break-inside-avoid, [data-break-avoid], table'
+                '.break-inside-avoid, [data-break-avoid], table, tr, h1, h2, h3'
               )
             );
             detectedBlocks = blocks
@@ -185,18 +186,29 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
                 const r = b.getBoundingClientRect();
                 return {
                   top: r.top - reportRect.top,
-                  bottom: r.bottom - reportRect.top
+                  bottom: r.bottom - reportRect.top,
+                  tagName: b.tagName
                 };
               })
-              .filter((b) => b.bottom - b.top > 20);
+              .filter((b) => b.bottom - b.top > 10);
           }
         }
       });
 
-      // 3. Smart Slice Algorithm: Slices canvas ONLY between blocks (never cutting cards or photos)
+      // 3. A4 Page Geometry & Calculation (Portrait: 210mm x 297mm)
+      // Add padding: left, right, top, bottom
+      const pdfPageWidth = 210;
+      const pdfPageHeight = 297;
+      const marginLeft = 10;   // 10mm left padding
+      const marginRight = 10;  // 10mm right padding
+      const marginTop = 12;    // 12mm top padding
+      const marginBottom = 12; // 12mm bottom padding
+      const contentWidth = pdfPageWidth - marginLeft - marginRight;   // 190 mm
+      const contentHeight = pdfPageHeight - marginTop - marginBottom; // 273 mm
+
       const scaleFactor = canvas.width / captureWidth;
-      // Standard A4 aspect ratio height in canvas pixels:
-      const maxPageCanvasHeight = Math.floor(canvas.width * (297 / 210));
+      // Maximum canvas height that fits in contentHeight (in canvas pixels):
+      const maxPageCanvasHeight = Math.floor(canvas.width * (contentHeight / contentWidth));
 
       const pageBreakPoints: number[] = [0];
       let currentY = 0;
@@ -209,23 +221,41 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         }
 
         let bestCutY = targetY;
-        // Check if any block crosses targetY
-        const crossingBlock = detectedBlocks.find(
-          (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
-        );
 
-        if (crossingBlock) {
-          const blockTopCanvas = crossingBlock.top * scaleFactor;
-          // If the block starts reasonably down the page, cut just above it
-          if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.25)) {
-            bestCutY = blockTopCanvas - (8 * scaleFactor);
-          } else {
-            bestCutY = targetY;
+        // Check for orphan headings near targetY (within 50px unscaled)
+        const orphanHeading = detectedBlocks.find((b) => {
+          if (b.tagName !== 'H1' && b.tagName !== 'H2' && b.tagName !== 'H3') return false;
+          const top = b.top * scaleFactor;
+          return top > (targetY - 50 * scaleFactor) && top < targetY;
+        });
+
+        if (orphanHeading) {
+          const headingTop = orphanHeading.top * scaleFactor;
+          if (headingTop > currentY + (maxPageCanvasHeight * 0.2)) {
+            bestCutY = headingTop - (6 * scaleFactor);
+          }
+        } else {
+          // Find blocks that cross targetY
+          const crossingBlocks = detectedBlocks.filter(
+            (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
+          );
+
+          if (crossingBlocks.length > 0) {
+            // Sort by top descending (inspect deepest/innermost blocks first)
+            crossingBlocks.sort((a, b) => b.top - a.top);
+
+            for (const block of crossingBlocks) {
+              const blockTopCanvas = block.top * scaleFactor;
+              if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.2)) {
+                bestCutY = blockTopCanvas - (6 * scaleFactor);
+                break;
+              }
+            }
           }
         }
 
-        // Safety guarantee: Ensure forward progress
-        if (bestCutY <= currentY + (maxPageCanvasHeight * 0.1)) {
+        // Safety guarantee: Ensure forward progress of at least 15% of page
+        if (bestCutY <= currentY + (maxPageCanvasHeight * 0.15)) {
           bestCutY = targetY;
         }
 
@@ -233,11 +263,11 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         currentY = bestCutY;
       }
 
-      // 4. Build jsPDF document with sliced pages
+      // 4. Build jsPDF document with sliced pages and proper A4 margins & page numbers
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfPageWidth = 210;
+      const totalPages = pageBreakPoints.length - 1;
 
-      for (let i = 0; i < pageBreakPoints.length - 1; i++) {
+      for (let i = 0; i < totalPages; i++) {
         const startY = pageBreakPoints[i];
         const endY = pageBreakPoints[i + 1];
         const sliceHeight = endY - startY;
@@ -264,13 +294,25 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         }
 
         const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
-        const renderedHeightMm = (sliceHeight * pdfPageWidth) / canvas.width;
+        const renderedHeightMm = (sliceHeight * contentWidth) / canvas.width;
 
         if (i > 0) {
           pdf.addPage();
         }
 
-        pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfPageWidth, renderedHeightMm);
+        // Render with top, bottom, left, right padding
+        pdf.addImage(pageImgData, 'JPEG', marginLeft, marginTop, contentWidth, renderedHeightMm);
+
+        // Add page number footer in the bottom padding area
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(148, 163, 184); // slate-400
+        pdf.text(
+          `หน้า ${i + 1} / ${totalPages}`,
+          pdfPageWidth / 2,
+          pdfPageHeight - 5,
+          { align: 'center' }
+        );
       }
 
       const dateSuffix = currentPatrol?.patrol_date ? currentPatrol.patrol_date.replace(/[\/\\:]/g, '_') : 'All';

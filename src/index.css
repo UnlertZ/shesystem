@@ -73,6 +73,16 @@
   header {
     display: none !important;
   }
+  #printable-report,
+  #printable-patrol-report {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
   .break-inside-avoid {
     break-inside: avoid !important;
     page-break-inside: avoid !important;

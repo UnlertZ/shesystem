@@ -17,15 +17,15 @@ export function exportToPDF(
   const doc = new jsPDF('p', 'mm', 'a4');
   const now = getNowThai();
 
-  // Document Title Header
+  // Document Title Header (10mm left margin)
   doc.setFontSize(18);
   doc.setTextColor(220, 38, 38); // Fire red
-  doc.text('SHE SYSTEM - FIRE SAFETY INSPECTION REPORT', 14, 18);
+  doc.text('SHE SYSTEM - FIRE SAFETY INSPECTION REPORT', 10, 16);
 
-  doc.setFontSize(11);
+  doc.setFontSize(10.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(`รายงานผลการตรวจสอบระบบและอุปกรณ์ดับเพลิง (${reportType === 'MONTHLY' ? 'ประจำเดือน' : 'ประจำปี'}: ${selectedPeriod})`, 14, 26);
-  doc.text(`วันที่พิมพ์รายงาน: ${formatThaiDate(now, true)}`, 14, 32);
+  doc.text(`รายงานผลการตรวจสอบระบบและอุปกรณ์ดับเพลิง (${reportType === 'MONTHLY' ? 'ประจำเดือน' : 'ประจำปี'}: ${selectedPeriod})`, 10, 24);
+  doc.text(`วันที่พิมพ์รายงาน: ${formatThaiDate(now, true)}`, 10, 30);
 
   // Equipment Categories Summary (1. ถัง EX, 2. FHC, 3. FH, 4. HD)
   const exList = equipmentList.filter(e => e.type === 'EX');
@@ -35,14 +35,14 @@ export function exportToPDF(
 
   doc.setDrawColor(203, 213, 225);
   doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 37, 182, 30, 2, 2, 'FD');
+  doc.roundedRect(10, 35, 190, 30, 2, 2, 'FD');
 
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text(`1. ถังดับเพลิง (EX): ทั้งหมด ${exList.length} ถัง | ตรวจแล้ว ${exList.filter(e => e.inspection_status === 'INSPECTED').length} ถัง | ปกติ ${exList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} ถัง | ผิดปกติ ${exList.filter(e => e.defect_status === 'DEFECT').length} ถัง`, 18, 43);
-  doc.text(`2. ตู้ดับเพลิง (FHC): ทั้งหมด ${fhcList.length} ตู้ | ตรวจแล้ว ${fhcList.filter(e => e.inspection_status === 'INSPECTED').length} ตู้ | ปกติ ${fhcList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} ตู้ | ผิดปกติ ${fhcList.filter(e => e.defect_status === 'DEFECT').length} ตู้`, 18, 49);
-  doc.text(`3. ตู้สายฉีดดับเพลิง (FH): ทั้งหมด ${fhList.length} สาย | ตรวจแล้ว ${fhList.filter(e => e.inspection_status === 'INSPECTED').length} สาย | ปกติ ${fhList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} สาย | ผิดปกติ ${fhList.filter(e => e.defect_status === 'DEFECT').length} สาย`, 18, 55);
-  doc.text(`4. หัวรับน้ำดับเพลิง (HD): ทั้งหมด ${hdList.length} จุด | ตรวจแล้ว ${hdList.filter(e => e.inspection_status === 'INSPECTED').length} จุด | ปกติ ${hdList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} จุด | ผิดปกติ ${hdList.filter(e => e.defect_status === 'DEFECT').length} จุด`, 18, 61);
+  doc.text(`1. ถังดับเพลิง (EX): ทั้งหมด ${exList.length} ถัง | ตรวจแล้ว ${exList.filter(e => e.inspection_status === 'INSPECTED').length} ถัง | ปกติ ${exList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} ถัง | ผิดปกติ ${exList.filter(e => e.defect_status === 'DEFECT').length} ถัง`, 14, 41);
+  doc.text(`2. ตู้ดับเพลิง (FHC): ทั้งหมด ${fhcList.length} ตู้ | ตรวจแล้ว ${fhcList.filter(e => e.inspection_status === 'INSPECTED').length} ตู้ | ปกติ ${fhcList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} ตู้ | ผิดปกติ ${fhcList.filter(e => e.defect_status === 'DEFECT').length} ตู้`, 14, 47);
+  doc.text(`3. ตู้สายฉีดดับเพลิง (FH): ทั้งหมด ${fhList.length} สาย | ตรวจแล้ว ${fhList.filter(e => e.inspection_status === 'INSPECTED').length} สาย | ปกติ ${fhList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} สาย | ผิดปกติ ${fhList.filter(e => e.defect_status === 'DEFECT').length} สาย`, 14, 53);
+  doc.text(`4. หัวรับน้ำดับเพลิง (HD): ทั้งหมด ${hdList.length} จุด | ตรวจแล้ว ${hdList.filter(e => e.inspection_status === 'INSPECTED').length} จุด | ปกติ ${hdList.filter(e => e.inspection_status === 'INSPECTED' && e.defect_status !== 'DEFECT').length} จุด | ผิดปกติ ${hdList.filter(e => e.defect_status === 'DEFECT').length} จุด`, 14, 59);
 
   // Table Data
   const tableRows = equipmentList.map((e, idx) => {
@@ -61,7 +61,8 @@ export function exportToPDF(
   });
 
   autoTable(doc, {
-    startY: 71,
+    startY: 69,
+    margin: { top: 12, bottom: 14, left: 10, right: 10 },
     head: [['ลำดับ', 'รหัส', 'ประเภท', 'สถานที่ติดตั้ง', 'สถานะตรวจ', 'ความพร้อม', 'สภาพ', 'อายุถัง/อุปกรณ์', 'ผู้ตรวจล่าสุด']],
     body: tableRows,
     styles: { font: 'helvetica', fontSize: 8, cellPadding: 2 },
@@ -75,8 +76,15 @@ export function exportToPDF(
       4: { cellWidth: 20 },
       5: { cellWidth: 18 },
       6: { cellWidth: 18 },
-      7: { cellWidth: 22 },
+      7: { cellWidth: 21 },
       8: { cellWidth: 22 }
+    },
+    didDrawPage: (data) => {
+      const pageCount = (doc.internal as any).getNumberOfPages();
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`หน้า ${data.pageNumber} / ${pageCount}`, 105, 292, { align: 'center' });
     }
   });
 
