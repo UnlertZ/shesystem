@@ -151,7 +151,8 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
       // 2. Render to canvas with fixed standard A4 capture width (800px)
       // This prevents the page from squishing on the left or having huge blank margins
       const captureWidth = 800;
-      let detectedBlocks: { top: number; bottom: number }[] = [];
+      let detectedBlocks: { top: number; bottom: number; tagName: string }[] = [];
+      let forceBreakBlocks: number[] = [];
 
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -176,6 +177,18 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
 
             // Measure blocks in clonedDoc under exact 800px layout
             const reportRect = clonedReport.getBoundingClientRect();
+
+            // Find elements that explicitly request to start on a new page
+            const forceElements = Array.from(
+              clonedReport.querySelectorAll('[data-page-break-before="true"], .page-break-before')
+            );
+            forceBreakBlocks = forceElements
+              .map((el) => {
+                const r = el.getBoundingClientRect();
+                return r.top - reportRect.top;
+              })
+              .sort((a, b) => a - b);
+
             const blocks = Array.from(
               clonedReport.querySelectorAll(
                 '.break-inside-avoid, [data-break-avoid], table, tr, h1, h2, h3'
@@ -222,33 +235,43 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
 
         let bestCutY = targetY;
 
-        // Check for orphan headings near targetY (within 50px unscaled)
-        const orphanHeading = detectedBlocks.find((b) => {
-          if (b.tagName !== 'H1' && b.tagName !== 'H2' && b.tagName !== 'H3') return false;
-          const top = b.top * scaleFactor;
-          return top > (targetY - 50 * scaleFactor) && top < targetY;
+        // 1. Check for explicit forced page break between currentY and targetY
+        const forcedBreak = forceBreakBlocks.find((topPx) => {
+          const canvasY = topPx * scaleFactor;
+          return canvasY > currentY + (maxPageCanvasHeight * 0.15) && canvasY <= targetY;
         });
 
-        if (orphanHeading) {
-          const headingTop = orphanHeading.top * scaleFactor;
-          if (headingTop > currentY + (maxPageCanvasHeight * 0.2)) {
-            bestCutY = headingTop - (6 * scaleFactor);
-          }
+        if (forcedBreak !== undefined) {
+          bestCutY = (forcedBreak * scaleFactor) - (6 * scaleFactor);
         } else {
-          // Find blocks that cross targetY
-          const crossingBlocks = detectedBlocks.filter(
-            (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
-          );
+          // 2. Check for orphan headings near targetY (within 50px unscaled)
+          const orphanHeading = detectedBlocks.find((b) => {
+            if (b.tagName !== 'H1' && b.tagName !== 'H2' && b.tagName !== 'H3') return false;
+            const top = b.top * scaleFactor;
+            return top > (targetY - 50 * scaleFactor) && top < targetY;
+          });
 
-          if (crossingBlocks.length > 0) {
-            // Sort by top descending (inspect deepest/innermost blocks first)
-            crossingBlocks.sort((a, b) => b.top - a.top);
+          if (orphanHeading) {
+            const headingTop = orphanHeading.top * scaleFactor;
+            if (headingTop > currentY + (maxPageCanvasHeight * 0.2)) {
+              bestCutY = headingTop - (6 * scaleFactor);
+            }
+          } else {
+            // 3. Find blocks that cross targetY
+            const crossingBlocks = detectedBlocks.filter(
+              (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
+            );
 
-            for (const block of crossingBlocks) {
-              const blockTopCanvas = block.top * scaleFactor;
-              if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.2)) {
-                bestCutY = blockTopCanvas - (6 * scaleFactor);
-                break;
+            if (crossingBlocks.length > 0) {
+              // Sort by top descending (inspect deepest/innermost blocks first)
+              crossingBlocks.sort((a, b) => b.top - a.top);
+
+              for (const block of crossingBlocks) {
+                const blockTopCanvas = block.top * scaleFactor;
+                if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.2)) {
+                  bestCutY = blockTopCanvas - (6 * scaleFactor);
+                  break;
+                }
               }
             }
           }

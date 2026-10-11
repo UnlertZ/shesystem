@@ -87,5 +87,10 @@
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
+  [data-page-break-before="true"],
+  .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
 }
 

@@ -323,6 +323,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
       // This matches standard A4 width proportions at 96 DPI
       const captureWidth = 800;
       let detectedBlocks: { top: number; bottom: number; tagName: string }[] = [];
+      let forceBreakBlocks: number[] = [];
 
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -347,6 +348,18 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
             // Measure blocks in clonedDoc under exact 800px layout
             const reportRect = clonedReport.getBoundingClientRect();
+
+            // Find elements that explicitly request to start on a new page
+            const forceElements = Array.from(
+              clonedReport.querySelectorAll('[data-page-break-before="true"], .page-break-before')
+            );
+            forceBreakBlocks = forceElements
+              .map((el) => {
+                const r = el.getBoundingClientRect();
+                return r.top - reportRect.top;
+              })
+              .sort((a, b) => a - b);
+
             const blocks = Array.from(
               clonedReport.querySelectorAll(
                 '.break-inside-avoid, [data-break-avoid], table, tr, h2, h3'
@@ -414,33 +427,43 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
         let bestCutY = targetY;
 
-        // Check for orphan headings near targetY (within 50px unscaled)
-        const orphanHeading = detectedBlocks.find((b) => {
-          if (b.tagName !== 'H2' && b.tagName !== 'H3') return false;
-          const top = b.top * scaleFactor;
-          return top > (targetY - 50 * scaleFactor) && top < targetY;
+        // 1. Check for explicit forced page break between currentY and targetY
+        const forcedBreak = forceBreakBlocks.find((topPx) => {
+          const canvasY = topPx * scaleFactor;
+          return canvasY > currentY + (maxPageCanvasHeight * 0.15) && canvasY <= targetY;
         });
 
-        if (orphanHeading) {
-          const headingTop = orphanHeading.top * scaleFactor;
-          if (headingTop > currentY + (maxPageCanvasHeight * 0.2)) {
-            bestCutY = headingTop - (6 * scaleFactor);
-          }
+        if (forcedBreak !== undefined) {
+          bestCutY = (forcedBreak * scaleFactor) - (6 * scaleFactor);
         } else {
-          // Find blocks that cross targetY
-          const crossingBlocks = detectedBlocks.filter(
-            (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
-          );
+          // 2. Check for orphan headings near targetY (within 50px unscaled)
+          const orphanHeading = detectedBlocks.find((b) => {
+            if (b.tagName !== 'H2' && b.tagName !== 'H3') return false;
+            const top = b.top * scaleFactor;
+            return top > (targetY - 50 * scaleFactor) && top < targetY;
+          });
 
-          if (crossingBlocks.length > 0) {
-            // Sort by top descending (inspect deepest/innermost blocks first)
-            crossingBlocks.sort((a, b) => b.top - a.top);
+          if (orphanHeading) {
+            const headingTop = orphanHeading.top * scaleFactor;
+            if (headingTop > currentY + (maxPageCanvasHeight * 0.2)) {
+              bestCutY = headingTop - (6 * scaleFactor);
+            }
+          } else {
+            // 3. Find blocks that cross targetY
+            const crossingBlocks = detectedBlocks.filter(
+              (b) => (b.top * scaleFactor) < targetY && (b.bottom * scaleFactor) > targetY
+            );
 
-            for (const block of crossingBlocks) {
-              const blockTopCanvas = block.top * scaleFactor;
-              if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.2)) {
-                bestCutY = blockTopCanvas - (6 * scaleFactor);
-                break;
+            if (crossingBlocks.length > 0) {
+              // Sort by top descending (inspect deepest/innermost blocks first)
+              crossingBlocks.sort((a, b) => b.top - a.top);
+
+              for (const block of crossingBlocks) {
+                const blockTopCanvas = block.top * scaleFactor;
+                if (blockTopCanvas > currentY + (maxPageCanvasHeight * 0.2)) {
+                  bestCutY = blockTopCanvas - (6 * scaleFactor);
+                  break;
+                }
               }
             }
           }
@@ -871,7 +894,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
             {/* 5. Yearly Only: ตารางแจกแจงรายเดือนตลอดทั้งปี (เดือนไหนตรวจไรบ้างเหมือนกัน) */}
             {reportType === 'YEARLY' && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-2 page-break-before" data-page-break-before="true">
                 <h3 className="text-sm font-black text-slate-900 flex items-center space-x-1.5 border-b border-slate-200 pb-1.5">
                   <span className="w-2.5 h-2.5 bg-blue-600 rounded-sm"></span>
                   <span>สถิติการตรวจเช็ครายเดือนตลอดทั้งปี พ.ศ. {targetYearBE} (Month-by-Month Inspection Breakdown)</span>
@@ -941,7 +964,10 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             )}
 
             {/* 6. รายการอุปกรณ์ที่ตรวจพบปัญหา / ข้อบกพร่อง (ถ้ามีปัญหาหาตรงไหนก็ไล่ระบุเป็นรายการลงไป) */}
-            <div className="space-y-3 pt-2">
+            <div 
+              className={`space-y-3 pt-2 ${defectItems.length > 0 ? 'page-break-before' : ''}`}
+              data-page-break-before={defectItems.length > 0 ? "true" : undefined}
+            >
               <h3 className="text-sm font-black text-slate-900 flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <span className="flex items-center space-x-1.5">
                   <span className="w-2.5 h-2.5 bg-amber-600 rounded-sm"></span>
