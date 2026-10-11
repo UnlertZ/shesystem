@@ -965,8 +965,8 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
             {/* 6. รายการอุปกรณ์ที่ตรวจพบปัญหา / ข้อบกพร่อง (ถ้ามีปัญหาหาตรงไหนก็ไล่ระบุเป็นรายการลงไป) */}
             <div 
-              className={`space-y-3 pt-2 ${defectItems.length > 0 ? 'page-break-before' : ''}`}
-              data-page-break-before={defectItems.length > 0 ? "true" : undefined}
+              className="space-y-3 pt-2 page-break-before"
+              data-page-break-before="true"
             >
               <h3 className="text-sm font-black text-slate-900 flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <span className="flex items-center space-x-1.5">
