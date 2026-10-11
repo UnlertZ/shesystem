@@ -21,8 +21,6 @@ import {
   UserCheck,
   ChevronDown
 } from 'lucide-react';
-import html2canvas from 'html2canvas-pro';
-import jsPDF from 'jspdf';
 
 interface SafetyPatrolExportModalProps {
   currentUser?: User | null;
@@ -42,7 +40,6 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
   const reportRef = useRef<HTMLDivElement>(null);
   const [selectedPatrolId, setSelectedPatrolId] = useState<string>(initialPatrolId || (patrols[0]?.id || 'ALL'));
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'RECOMMEND' | 'COMMEND' | 'BEFORE_AFTER'>('ALL');
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
 
   const now = getNowThai();
@@ -399,7 +396,7 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              เลือกรอบเดินตรวจที่ต้องการเพื่อดูตัวอย่าง และส่งออกรายงานเป็น PDF, Excel (.xlsx) หรือดาวน์โหลดรูปภาพ (.zip)
+              เลือกรอบเดินตรวจที่ต้องการเพื่อดูตัวอย่าง และส่งออกรายงานเป็น Excel (.xlsx) หรือดาวน์โหลดรูปภาพ (.zip)
             </p>
           </div>
 
@@ -456,22 +453,11 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
 
           {/* Export Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Download PDF */}
-            <button
-              onClick={handleExportPDF}
-              disabled={isExportingPDF}
-              className="px-3.5 py-2 bg-[#A04830] hover:bg-[#803A26] disabled:bg-[#A04830]/50 text-white font-bold rounded-xl shadow-xs transition flex items-center space-x-1.5"
-              title="บันทึกรายงานเป็นไฟล์ PDF"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isExportingPDF ? 'กำลังสร้าง PDF...' : 'ดาวน์โหลด PDF'}</span>
-            </button>
-
             {/* Print */}
             <button
               onClick={handlePrint}
               className="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-xl shadow-xs transition flex items-center space-x-1.5"
-              title="พิมพ์รายงานผ่านเครื่องพิมพ์หรือ Save to PDF"
+              title="พิมพ์รายงานผ่านเครื่องพิมพ์ (Print)"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>พิมพ์รายงาน (Print)</span>

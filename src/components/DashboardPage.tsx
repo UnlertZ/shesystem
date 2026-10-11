@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Equipment, InspectionRecord, User, SafetyPatrolRound, SafetyFinding } from '../types';
 import { storageService } from '../services/storage';
-import { exportToPDF, exportToExcel, exportEquipmentPhotos } from '../utils/reportExport';
+import { exportToExcel, exportEquipmentPhotos } from '../utils/reportExport';
 import { THAI_MONTHS, getNowThai } from '../utils/thaiDate';
-import { ReportPreviewModal } from './ReportPreviewModal';
 import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
 import { PhotoExportModal } from './PhotoExportModal';
 import { ExcelExportModal } from './ExcelExportModal';
@@ -23,7 +22,6 @@ import {
   Calendar,
   Download,
   FileSpreadsheet,
-  FileText,
   Images,
   CheckCircle2,
   AlertTriangle,
@@ -253,19 +251,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
         borderColor: '#ffffff'
       }
     ]
-  };
-
-  const [reportModalData, setReportModalData] = useState<{
-    type: 'MONTHLY' | 'YEARLY';
-    period: string;
-  } | null>(null);
-
-  // Export handlers
-  const handleExportPDF = (type: 'MONTHLY' | 'YEARLY') => {
-    const period = type === 'MONTHLY'
-      ? `${THAI_MONTHS[selectedMonth]} ${selectedYear}`
-      : `ปี พ.ศ. ${selectedYear}`;
-    setReportModalData({ type, period });
   };
 
   const handleExportExcel = () => {
@@ -570,28 +555,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               </div>
             </div>
 
-            {/* Admin Export & Print Buttons */}
+            {/* Admin Export Buttons */}
             {isAdminOrSuper && (
               <div className="flex flex-wrap items-center gap-2">
-                {/* PDF Monthly */}
-                <button
-                  onClick={() => handleExportPDF('MONTHLY')}
-                  className="px-3 py-1.5 bg-[#F7EEDC] hover:bg-[#F1E1C1] text-[#A04830] font-semibold rounded-lg flex items-center space-x-1 border border-[#E8DFC8] transition"
-                  title="พิมพ์รายงาน PDF รายเดือน"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>PDF รายเดือน</span>
-                </button>
-
-                {/* PDF Yearly */}
-                <button
-                  onClick={() => handleExportPDF('YEARLY')}
-                  className="px-3 py-1.5 bg-[#A04830] hover:bg-[#803A26] text-white font-semibold rounded-lg flex items-center space-x-1 shadow-xs transition"
-                  title="พิมพ์รายงาน PDF รายปี"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>PDF รายปี</span>
-                </button>
 
                 {/* Excel */}
                 <button
@@ -734,21 +700,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               </div>
             </div>
           </div>
-
-          {/* Report Preview & PDF Modal */}
-          {reportModalData && (
-            <ReportPreviewModal
-              equipmentList={equipment}
-              inspections={inspections}
-              reportType={reportModalData.type}
-              selectedPeriod={reportModalData.period}
-              selectedYear={selectedYear}
-              selectedMonth={selectedMonth}
-              barChartData={yearlyBarData}
-              doughnutData={monthlyDoughnutData}
-              onClose={() => setReportModalData(null)}
-            />
-          )}
         </div>
       )}
 

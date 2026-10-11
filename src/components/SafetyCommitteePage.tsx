@@ -672,7 +672,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                               setIsExportModalOpen(true);
                             }}
                             className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition flex items-center space-x-1 shadow-2xs"
-                            title="Export รายงานสำหรับรอบเดินตรวจนี้ (PDF, Excel, รูปภาพ)"
+                            title="Export รายงานสำหรับรอบเดินตรวจนี้ (Excel, รูปภาพ)"
                           >
                             <Download className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Export</span>
