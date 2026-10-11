@@ -326,14 +326,13 @@ export const SafetyPatrolExportModal: React.FC<SafetyPatrolExportModalProps> = (
         // Render with top, bottom, left, right padding
         pdf.addImage(pageImgData, 'JPEG', marginLeft, marginTop, contentWidth, renderedHeightMm);
 
-        // Add page number footer in the bottom padding area
         pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
+        pdf.setFontSize(9);
         pdf.setTextColor(148, 163, 184); // slate-400
         pdf.text(
-          `หน้า ${i + 1} / ${totalPages}`,
+          `${i + 1} / ${totalPages}`,
           pdfPageWidth / 2,
-          pdfPageHeight - 5,
+          pdfPageHeight - 6,
           { align: 'center' }
         );
       }

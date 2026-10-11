@@ -80,7 +80,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
   const equipmentCategories = [
     {
       type: 'EX' as const,
-      name: 'ถังดับเพลิง (EX)',
+      name: 'ถังดับเพลิง',
       fullName: 'เครื่องดับเพลิงยกหิ้ว (Fire Extinguisher - EX)',
       unit: 'ถัง',
       icon: Flame,
@@ -88,7 +88,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     },
     {
       type: 'FHC' as const,
-      name: 'ตู้ดับเพลิง (FHC)',
+      name: 'ตู้ดับเพลิง',
       fullName: 'ตู้สายดับเพลิงพร้อมสายฉีด (Fire Hose Cabinet - FHC)',
       unit: 'ตู้',
       icon: ShieldCheck,
@@ -96,7 +96,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     },
     {
       type: 'FH' as const,
-      name: 'ตู้สายฉีดดับเพลิง (FH)',
+      name: 'ตู้สายฉีดดับเพลิง',
       fullName: 'ตู้สายฉีดน้ำดับเพลิง (Fire Hose Reel/Rack - FH)',
       unit: 'สาย',
       icon: Droplets,
@@ -104,7 +104,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     },
     {
       type: 'HD' as const,
-      name: 'หัวรับน้ำดับเพลิง (HD)',
+      name: 'หัวรับน้ำดับเพลิง',
       fullName: 'หัวรับน้ำดับเพลิง / หัวจ่ายน้ำดับเพลิง (Fire Hydrant - HD)',
       unit: 'จุด',
       icon: Layers,
@@ -520,12 +520,12 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
         // Add page number footer in the bottom padding area
         pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
+        pdf.setFontSize(9);
         pdf.setTextColor(148, 163, 184); // slate-400
         pdf.text(
-          `หน้า ${i + 1} / ${totalPages}`,
+          `${i + 1} / ${totalPages}`,
           pdfPageWidth / 2,
-          pdfPageHeight - 5,
+          pdfPageHeight - 6,
           { align: 'center' }
         );
       }
@@ -665,126 +665,59 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
               </div>
             </div>
 
-            {/* 3. Charts Section */}
-            {/* รายเดือน: ลบกราฟแท่งออกตามคำสั่งผู้ใช้ และแสดงสัดส่วนโดนัทแบบชัดเจน */}
-            {/* รายปี: แสดงกราฟแท่งเปรียบเทียบสถิติรายปี + กราฟโดนัท */}
+            {/* 3. Charts Section - สรุปผลการตรวจสอบเชิงสถิติ (Charts Overview) แสดงกราฟ 2 ด้านสมดุลทั้งรายเดือนและรายปี */}
             <div className="space-y-3 pt-2 break-inside-avoid">
               <h3 className="text-sm font-black text-slate-900 flex items-center space-x-1.5 border-b border-slate-200 pb-1.5">
                 <span className="w-2.5 h-2.5 bg-red-600 rounded-sm"></span>
-                <span>
-                  {reportType === 'MONTHLY'
-                    ? `สัดส่วนผลการตรวจสอบรอบเดือน ${selectedPeriod}`
-                    : `สรุปผลการตรวจสอบเชิงสถิติ (Charts Overview)`}
-                </span>
+                <span>สรุปผลการตรวจสอบเชิงสถิติ (Charts Overview)</span>
               </h3>
 
-              {reportType === 'MONTHLY' ? (
-                /* Monthly View: NO Bar Chart (ลบกราฟแท่งออกแล้ว) */
+              <div
+                className="flex flex-row gap-4"
+                style={{ display: 'flex', flexDirection: 'row', gap: '16px', width: '100%', boxSizing: 'border-box' }}
+              >
                 <div
-                  className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 flex flex-row items-center gap-4"
-                  style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '16px', width: '100%', boxSizing: 'border-box' }}
+                  className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
+                  style={{ flex: '1 1 0%', minWidth: 0, width: '48%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', boxSizing: 'border-box' }}
                 >
-                  <div className="flex flex-col items-center justify-center" style={{ flex: '1 1 0%', width: '45%' }}>
-                    <div className="text-xs font-bold text-slate-700 mb-2 text-center">
-                      สัดส่วนสถานะการตรวจรอบเดือน {selectedPeriod}
-                    </div>
-                    <div className="h-44 w-44 flex items-center justify-center">
-                      <Doughnut
-                        data={liveDoughnutData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          animation: false,
-                          plugins: { legend: { display: false } },
-                          cutout: '65%'
-                        }}
-                      />
-                    </div>
+                  <div className="text-xs font-bold text-slate-700 mb-2 text-center">
+                    กราฟเปรียบเทียบสถิติรายปี (2 ปีย้อนหลัง)
                   </div>
-
-                  <div className="space-y-2 text-xs" style={{ flex: '1 1 0%', width: '55%' }}>
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                      <span className="flex items-center space-x-2 font-bold text-emerald-800">
-                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-                        <span>พร้อมใช้งาน (ปกติ)</span>
-                      </span>
-                      <span className="font-extrabold text-emerald-800">{Math.max(0, ready - resolved)} รายการ</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 border border-blue-200">
-                      <span className="flex items-center space-x-2 font-bold text-blue-800">
-                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full"></span>
-                        <span>พบปัญหาแต่แก้ไขแล้ว</span>
-                      </span>
-                      <span className="font-extrabold text-blue-800">{resolved} รายการ</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-red-50 border border-red-200">
-                      <span className="flex items-center space-x-2 font-bold text-red-800">
-                        <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
-                        <span>พบข้อบกพร่อง (รอแก้ไข)</span>
-                      </span>
-                      <span className="font-extrabold text-red-800">{defects} รายการ</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-                      <span className="flex items-center space-x-2 font-bold text-amber-800">
-                        <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
-                        <span>ยังไม่ได้ตรวจ</span>
-                      </span>
-                      <span className="font-extrabold text-amber-800">{pending} รายการ</span>
-                    </div>
+                  <div className="h-48" style={{ height: '192px', width: '100%' }}>
+                    <Bar
+                      data={barChartData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } }
+                      }}
+                    />
                   </div>
                 </div>
-              ) : (
-                /* Yearly View: Keep Bar Chart + Doughnut Chart */
-                <div
-                  className="flex flex-row gap-4"
-                  style={{ display: 'flex', flexDirection: 'row', gap: '16px', width: '100%', boxSizing: 'border-box' }}
-                >
-                  <div
-                    className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
-                    style={{ flex: '1 1 0%', minWidth: 0, width: '48%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', boxSizing: 'border-box' }}
-                  >
-                    <div className="text-xs font-bold text-slate-700 mb-2 text-center">
-                      กราฟเปรียบเทียบสถิติรายปี (2 ปีย้อนหลัง)
-                    </div>
-                    <div className="h-48" style={{ height: '192px', width: '100%' }}>
-                      <Bar
-                        data={barChartData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          animation: false,
-                          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
-                          plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } }
-                        }}
-                      />
-                    </div>
-                  </div>
 
-                  <div
-                    className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
-                    style={{ flex: '1 1 0%', minWidth: 0, width: '48%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', boxSizing: 'border-box' }}
-                  >
-                    <div className="text-xs font-bold text-slate-700 mb-2 text-center">
-                      สัดส่วนผลการตรวจสอบสะสม {selectedPeriod}
-                    </div>
-                    <div className="h-48 flex items-center justify-center" style={{ height: '192px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Doughnut
-                        data={liveDoughnutData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          animation: false,
-                          plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } },
-                          cutout: '60%'
-                        }}
-                      />
-                    </div>
+                <div
+                  className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50"
+                  style={{ flex: '1 1 0%', minWidth: 0, width: '48%', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', boxSizing: 'border-box' }}
+                >
+                  <div className="text-xs font-bold text-slate-700 mb-2 text-center">
+                    {reportType === 'MONTHLY' ? `สัดส่วนผลการตรวจสอบรอบเดือน ${selectedPeriod}` : `สัดส่วนผลการตรวจสอบสะสม ${selectedPeriod}`}
+                  </div>
+                  <div className="h-48 flex items-center justify-center" style={{ height: '192px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Doughnut
+                      data={liveDoughnutData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } },
+                        cutout: '60%'
+                      }}
+                    />
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* 4. สรุปผลการตรวจแยกตามประเภทอุปกรณ์ (ถัง, FHC, FH, HD) พร้อมระบุหน่วยชัดเจน */}
@@ -805,12 +738,15 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                     className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 space-y-2 hover:bg-slate-50 transition"
                     style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', boxSizing: 'border-box', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px' }}
                   >
-                    <div className="flex items-center justify-between border-b border-slate-200/80 pb-1.5">
-                      <span className="text-xs font-bold text-slate-800 flex items-center space-x-1">
+                    <div
+                      className="flex items-center justify-between border-b border-slate-200/80 pb-1.5"
+                      style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px' }}
+                    >
+                      <span className="text-xs font-bold text-slate-800 flex items-center space-x-1" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span className="font-extrabold text-red-600 mr-0.5">{idx + 1}.</span>
                         <span>{cat.name}</span>
                       </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700" style={{ flexShrink: 0 }}>
                         {cat.type}
                       </span>
                     </div>
@@ -892,12 +828,16 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
               </div>
             </div>
 
-            {/* 5. Yearly Only: ตารางแจกแจงรายเดือนตลอดทั้งปี (เดือนไหนตรวจไรบ้างเหมือนกัน) */}
-            {reportType === 'YEARLY' && (
+            {/* 5. ตารางแจกแจงรายเดือนตลอดทั้งปี (Month-by-Month Inspection Breakdown) */}
+            {(reportType === 'YEARLY' || reportType === 'MONTHLY') && (
               <div className="space-y-3 pt-2 page-break-before" data-page-break-before="true">
                 <h3 className="text-sm font-black text-slate-900 flex items-center space-x-1.5 border-b border-slate-200 pb-1.5">
                   <span className="w-2.5 h-2.5 bg-blue-600 rounded-sm"></span>
-                  <span>สถิติการตรวจเช็ครายเดือนตลอดทั้งปี พ.ศ. {targetYearBE} (Month-by-Month Inspection Breakdown)</span>
+                  <span>
+                    {reportType === 'MONTHLY'
+                      ? `สถิติการตรวจเช็คสะสมรายเดือนตลอดทั้งปี พ.ศ. ${targetYearBE} (Month-by-Month Inspection Breakdown)`
+                      : `สถิติการตรวจเช็ครายเดือนตลอดทั้งปี พ.ศ. ${targetYearBE} (Month-by-Month Inspection Breakdown)`}
+                  </span>
                 </h3>
 
                 <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -917,32 +857,51 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-800">
-                      {monthlyBreakdown.map((m) => (
-                        <tr key={m.monthIdx} className={m.totalInspected > 0 ? 'hover:bg-slate-50' : 'bg-slate-50/30 text-slate-400'}>
-                          <td className="py-2 px-3 font-semibold text-slate-800">
-                            {m.monthName}
-                          </td>
-                          <td className="py-2 px-2 text-center">{m.exCount > 0 ? `${m.exCount} ถัง` : '-'}</td>
-                          <td className="py-2 px-2 text-center">{m.fhcCount > 0 ? `${m.fhcCount} ตู้` : '-'}</td>
-                          <td className="py-2 px-2 text-center">{m.fhCount > 0 ? `${m.fhCount} สาย` : '-'}</td>
-                          <td className="py-2 px-2 text-center">{m.hdCount > 0 ? `${m.hdCount} จุด` : '-'}</td>
-                          <td className="py-2 px-2 text-center font-bold text-slate-900">
-                            {m.totalInspected > 0 ? `${m.totalInspected} รายการ` : '-'}
-                          </td>
-                          <td className="py-2 px-2 text-center font-semibold text-emerald-600">
-                            {m.normalCount > 0 ? m.normalCount : '-'}
-                          </td>
-                          <td className="py-2 px-2 text-center font-bold text-red-600">
-                            {m.defectCount > 0 ? m.defectCount : '-'}
-                          </td>
-                          <td className="py-2 px-2 text-center font-medium text-blue-600">
-                            {m.resolvedCount > 0 ? m.resolvedCount : '-'}
-                          </td>
-                          <td className="py-2 px-2 text-center font-semibold">
-                            {m.totalInspected > 0 ? `${m.passRate}%` : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {monthlyBreakdown.map((m) => {
+                        const isSelectedMonth = reportType === 'MONTHLY' && selectedMonth !== undefined && m.monthIdx === selectedMonth;
+                        return (
+                          <tr
+                            key={m.monthIdx}
+                            className={
+                              isSelectedMonth
+                                ? 'bg-amber-100/70 font-bold border-l-4 border-amber-600'
+                                : m.totalInspected > 0
+                                ? 'hover:bg-slate-50'
+                                : 'bg-slate-50/30 text-slate-400'
+                            }
+                          >
+                            <td className="py-2 px-3 font-semibold text-slate-800">
+                              <div className="flex items-center space-x-1.5">
+                                <span>{m.monthName}</span>
+                                {isSelectedMonth && (
+                                  <span className="text-[9px] bg-amber-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                                    รอบรายงานนี้
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-2 text-center">{m.exCount > 0 ? `${m.exCount} ถัง` : '-'}</td>
+                            <td className="py-2 px-2 text-center">{m.fhcCount > 0 ? `${m.fhcCount} ตู้` : '-'}</td>
+                            <td className="py-2 px-2 text-center">{m.fhCount > 0 ? `${m.fhCount} สาย` : '-'}</td>
+                            <td className="py-2 px-2 text-center">{m.hdCount > 0 ? `${m.hdCount} จุด` : '-'}</td>
+                            <td className="py-2 px-2 text-center font-bold text-slate-900">
+                              {m.totalInspected > 0 ? `${m.totalInspected} รายการ` : '-'}
+                            </td>
+                            <td className="py-2 px-2 text-center font-semibold text-emerald-600">
+                              {m.normalCount > 0 ? m.normalCount : '-'}
+                            </td>
+                            <td className="py-2 px-2 text-center font-bold text-red-600">
+                              {m.defectCount > 0 ? m.defectCount : '-'}
+                            </td>
+                            <td className="py-2 px-2 text-center font-medium text-blue-600">
+                              {m.resolvedCount > 0 ? m.resolvedCount : '-'}
+                            </td>
+                            <td className="py-2 px-2 text-center font-semibold">
+                              {m.totalInspected > 0 ? `${m.passRate}%` : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-300">
                         <td className="py-2 px-3 font-extrabold text-slate-900">รวมทั้งปี พ.ศ. {targetYearBE}</td>
                         <td className="py-2 px-2 text-center">{yearlyTotals.exCount} ถัง</td>
@@ -965,8 +924,8 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
             {/* 6. รายการอุปกรณ์ที่ตรวจพบปัญหา / ข้อบกพร่อง (ถ้ามีปัญหาหาตรงไหนก็ไล่ระบุเป็นรายการลงไป) */}
             <div 
-              className="space-y-3 pt-2 page-break-before"
-              data-page-break-before="true"
+              className={`space-y-3 pt-2 ${reportType === 'DAILY' ? 'page-break-before' : ''}`}
+              data-page-break-before={reportType === 'DAILY' ? 'true' : undefined}
             >
               <h3 className="text-sm font-black text-slate-900 flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <span className="flex items-center space-x-1.5">
