@@ -110,7 +110,34 @@
 
 ---
 
-## ☁️ การเชื่อมต่อ Cloudflare D1 (`d1shesystem`) และ R2 (`r2shesystem`)
+## ☁️ การ Deploy ขึ้น Microsoft Azure Portal (Static Web)
+
+ระบบรองรับการ Deploy เป็น **Static Web** บน **Microsoft Azure** อย่างสมบูรณ์แบบ ทั้งผ่าน **Azure Static Web Apps (แนะนำ)** และ **Azure Storage Account (Static Website)**
+
+> 📖 **ดูคู่มือฉบับเต็มทีละขั้นตอนได้ที่:** [AZURE_DEPLOY_GUIDE.md](./AZURE_DEPLOY_GUIDE.md)
+
+### วิธีที่ 1: Deploy ผ่าน Azure Static Web Apps (แนะนำสูงสุด)
+1. เข้าไปที่ **Azure Portal** ([portal.azure.com](https://portal.azure.com)) > ค้นหา **Static Web Apps** > กด **+ Create**
+2. เลือก Subscription, Resource Group และตั้งชื่อแอป
+3. Plan type: เลือก **Free**
+4. Deployment details: เลือก **GitHub** > เชื่อมต่อกับ Repository `shesystem` > Branch `main`
+5. Build Details:
+   - **Build Presets**: `Custom`
+   - **App location**: `/`
+   - **Api location**: *(ว่างไว้)*
+   - **Output location**: `dist`
+6. กด **Review + Create** แล้วกด **Create**
+7. ระบบจะสร้าง CI/CD Workflow ผ่าน GitHub Actions และ Deploy อัตโนมัติ พร้อม URL และใบรับรอง SSL ฟรีทันที!
+
+### วิธีที่ 2: Build ไฟล์สำหรับ Deploy ด้วยตนเอง
+```bash
+npm run build
+```
+ไฟล์ทั้งหมดที่พร้อมนำไปขึ้นโฮสติ้งจะถูกสร้างไว้ในโฟลเดอร์ `dist/`
+
+---
+
+## ⚡️ ทางเลือกเดิม: การเชื่อมต่อ Cloudflare D1 (`d1shesystem`) และ R2 (`r2shesystem`)
 
 ### 1. การสร้างฐานข้อมูล Cloudflare D1
 รันคำสั่ง Wrangler เพื่อสร้างฐานข้อมูล D1:
@@ -135,7 +162,7 @@ npx wrangler d1 create d1shesystem
 npx wrangler r2 bucket create r2shesystem
 ```
 
-### 4. Deploy ขึ้น Cloudflare Pages / Workers
+### 4. Deploy ขึ้น Cloudflare Workers
 ```bash
-npm run deploy
+npm run deploy:cloudflare
 ```

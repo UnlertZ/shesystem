@@ -127,6 +127,26 @@ const DEFAULT_TASKS: Task[] = [];
 const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
 
 /**
+ * API Base URL support for deployment on Azure Static Web Apps or external backend
+ * Configured via Vite environment variable: VITE_API_BASE_URL
+ * Example: VITE_API_BASE_URL=https://shesystem-api.azurewebsites.net
+ */
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+export function getApiUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path : '/' + path;
+  return API_BASE_URL ? (API_BASE_URL + cleanPath) : cleanPath;
+}
+
+export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  if (typeof input === 'string') {
+    return fetch(getApiUrl(input), init);
+  }
+  return fetch(input, init);
+}
+
+
+/**
  * Upload an image file directly to Cloudflare R2 bucket: r2shesystem
  * Automatically compresses the image on the client side before upload
  * to save storage space (reducing 5-15MB photos down to ~100-250KB) and accelerate upload speeds.
@@ -142,7 +162,7 @@ export async function uploadToR2(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', compressedFile);
   try {
-    const res = await fetch('/api/upload', {
+    const res = await apiFetch('/api/upload', {
       method: 'POST',
       body: formData
     });
@@ -271,7 +291,7 @@ class StorageService {
 
     try {
       // 1. Fetch departments
-      const deptRes = await fetch('/api/departments');
+      const deptRes = await apiFetch('/api/departments');
       if (deptRes.ok) {
         const data = await deptRes.json();
         if (Array.isArray(data.departments) && data.departments.length > 0) {
@@ -280,7 +300,7 @@ class StorageService {
       }
 
       // 2. Fetch positions
-      const posRes = await fetch('/api/positions');
+      const posRes = await apiFetch('/api/positions');
       if (posRes.ok) {
         const data = await posRes.json();
         if (Array.isArray(data.positions) && data.positions.length > 0) {
@@ -289,7 +309,7 @@ class StorageService {
       }
 
       // 3. Fetch users
-      const usersRes = await fetch('/api/users');
+      const usersRes = await apiFetch('/api/users');
       if (usersRes.ok) {
         const data = await usersRes.json();
         if (Array.isArray(data.users) && data.users.length > 0) {
@@ -302,7 +322,7 @@ class StorageService {
       }
 
       // 4. Fetch equipment (D1 is the single source of truth)
-      const equipRes = await fetch('/api/equipment');
+      const equipRes = await apiFetch('/api/equipment');
       if (equipRes.ok) {
         const data = await equipRes.json();
         if (Array.isArray(data.equipment)) {
@@ -311,7 +331,7 @@ class StorageService {
       }
 
       // 5. Fetch inspections
-      const inspRes = await fetch('/api/inspections');
+      const inspRes = await apiFetch('/api/inspections');
       if (inspRes.ok) {
         const data = await inspRes.json();
         if (Array.isArray(data.inspections)) {
@@ -320,7 +340,7 @@ class StorageService {
       }
 
       // 6. Fetch tasks
-      const taskRes = await fetch('/api/tasks');
+      const taskRes = await apiFetch('/api/tasks');
       if (taskRes.ok) {
         const data = await taskRes.json();
         if (Array.isArray(data.tasks)) {
@@ -331,7 +351,7 @@ class StorageService {
       // 7. Fetch notifications (Only for active registered users, excluding dismissed items)
       const user = this.getCurrentUser();
       if (user && user.role !== 'GUEST' && !user.id.startsWith('guest')) {
-        const notifRes = await fetch(`/api/notifications?userId=${encodeURIComponent(user.id)}&role=${encodeURIComponent(user.role)}`);
+        const notifRes = await apiFetch(`/api/notifications?userId=${encodeURIComponent(user.id)}&role=${encodeURIComponent(user.role)}`);
         if (notifRes.ok) {
           const data = await notifRes.json();
           if (Array.isArray(data.notifications)) {
@@ -345,7 +365,7 @@ class StorageService {
       }
 
       // 8. Fetch safety committee patrols
-      const patrolRes = await fetch('/api/safety-patrols');
+      const patrolRes = await apiFetch('/api/safety-patrols');
       if (patrolRes.ok) {
         const data = await patrolRes.json();
         if (Array.isArray(data.patrols)) {
@@ -354,7 +374,7 @@ class StorageService {
       }
 
       // 9. Fetch safety committee findings
-      const findRes = await fetch('/api/safety-findings');
+      const findRes = await apiFetch('/api/safety-findings');
       if (findRes.ok) {
         const data = await findRes.json();
         if (Array.isArray(data.findings)) {
@@ -401,7 +421,7 @@ class StorageService {
     this.saveDepartments(list);
 
     // Sync to Cloudflare D1
-    fetch('/api/departments', {
+    apiFetch('/api/departments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newItem.name })
@@ -418,7 +438,7 @@ class StorageService {
     this.saveDepartments(list);
 
     // Sync to Cloudflare D1
-    fetch(`/api/departments/${id}`, {
+    apiFetch(`/api/departments/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim() })
@@ -434,7 +454,7 @@ class StorageService {
       this.saveDepartments(filtered);
 
       // Sync to Cloudflare D1
-      fetch(`/api/departments/${id}`, {
+      apiFetch(`/api/departments/${id}`, {
         method: 'DELETE'
       }).catch(console.error);
 
@@ -467,7 +487,7 @@ class StorageService {
     this.savePositions(list);
 
     // Sync to Cloudflare D1
-    fetch('/api/positions', {
+    apiFetch('/api/positions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newItem.name, default_role })
@@ -485,7 +505,7 @@ class StorageService {
     this.savePositions(list);
 
     // Sync to Cloudflare D1
-    fetch(`/api/positions/${id}`, {
+    apiFetch(`/api/positions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim(), default_role })
@@ -501,7 +521,7 @@ class StorageService {
       this.savePositions(filtered);
 
       // Sync to Cloudflare D1
-      fetch(`/api/positions/${id}`, {
+      apiFetch(`/api/positions/${id}`, {
         method: 'DELETE'
       }).catch(console.error);
 
@@ -593,7 +613,7 @@ class StorageService {
   async verifyLoginAsync(username: string, password: string): Promise<{ user: User | null; error?: string }> {
     const cleanUsername = (username || '').trim();
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: cleanUsername, password })
@@ -648,7 +668,7 @@ class StorageService {
 
     // 2. Also send to Cloudflare D1
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -671,7 +691,7 @@ class StorageService {
     users[index] = { ...users[index], ...updates, updated_at: new Date().toISOString() };
     this.saveUsers(users);
 
-    fetch(`/api/users/${id}`, {
+    apiFetch(`/api/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
@@ -685,7 +705,7 @@ class StorageService {
     const filtered = users.filter(u => u.id !== id);
     if (filtered.length !== users.length) {
       this.saveUsers(filtered);
-      fetch(`/api/users/${id}`, { method: 'DELETE' }).catch(console.error);
+      apiFetch(`/api/users/${id}`, { method: 'DELETE' }).catch(console.error);
       return true;
     }
     return false;
@@ -699,7 +719,7 @@ class StorageService {
     users[index].status = approved ? 'approved' : 'rejected';
     this.saveUsers(users);
 
-    fetch(`/api/users/${id}/approve`, {
+    apiFetch(`/api/users/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approved })
@@ -716,7 +736,7 @@ class StorageService {
     users[index].password = '0000';
     this.saveUsers(users);
 
-    fetch(`/api/users/${id}/reset-password`, {
+    apiFetch(`/api/users/${id}/reset-password`, {
       method: 'POST'
     }).catch(console.error);
 
@@ -731,7 +751,7 @@ class StorageService {
     users[index].password = newPassword;
     this.saveUsers(users);
 
-    fetch(`/api/users/${id}/change-password`, {
+    apiFetch(`/api/users/${id}/change-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newPassword })
@@ -763,7 +783,7 @@ class StorageService {
     }
 
     // Cloudflare D1 (handles notification to P3/P4)
-    fetch(`/api/users/${userId}/request-name-change`, {
+    apiFetch(`/api/users/${userId}/request-name-change`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ new_full_name: cleanName })
@@ -806,7 +826,7 @@ class StorageService {
     }
 
     // Cloudflare D1 (handles notification to user)
-    fetch(`/api/users/${userId}/approve-name-change`, {
+    apiFetch(`/api/users/${userId}/approve-name-change`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approve, admin_name: adminName })
@@ -870,7 +890,7 @@ class StorageService {
     this.saveEquipment(list);
 
     // Save to Cloudflare D1 database
-    fetch('/api/equipment', {
+    apiFetch('/api/equipment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -912,7 +932,7 @@ class StorageService {
     this.saveEquipment(list);
 
     // Sync update to Cloudflare D1
-    fetch(`/api/equipment/${id}`, {
+    apiFetch(`/api/equipment/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
@@ -928,7 +948,7 @@ class StorageService {
       this.saveEquipment(filtered);
 
       // Sync delete to Cloudflare D1
-      fetch(`/api/equipment/${id}`, {
+      apiFetch(`/api/equipment/${id}`, {
         method: 'DELETE'
       }).catch(console.error);
 
@@ -989,7 +1009,7 @@ class StorageService {
 
     // Call Cloudflare D1 bulk insert endpoint
     try {
-      const res = await fetch('/api/equipment/bulk', {
+      const res = await apiFetch('/api/equipment/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items })
@@ -1114,7 +1134,7 @@ class StorageService {
     });
 
     // Send inspection to Cloudflare D1 (which also sends defect notification if abnormal)
-    fetch('/api/inspections', {
+    apiFetch('/api/inspections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1149,7 +1169,7 @@ class StorageService {
       defect_notes: `แก้ไขเรียบร้อยโดย ${resolverName}: ${notes || 'ตรวจสอบและแก้ไขตามมาตรฐานแล้ว'}`
     });
 
-    fetch(`/api/equipment/${equipmentId}/resolve-defect`, {
+    apiFetch(`/api/equipment/${equipmentId}/resolve-defect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notes, resolver_name: resolverName })
@@ -1188,7 +1208,7 @@ class StorageService {
     this.saveTasks(tasks);
 
     // Send to Cloudflare D1 (which inserts the single authoritative notification)
-    fetch('/api/tasks', {
+    apiFetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -1245,7 +1265,7 @@ class StorageService {
     this.saveTasks(tasks);
 
     // Send to Cloudflare D1 (which inserts the single authoritative completion notification)
-    fetch(`/api/tasks/${taskId}/status`, {
+    apiFetch(`/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1341,7 +1361,7 @@ class StorageService {
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
     }
 
-    fetch('/api/notifications/send', {
+    apiFetch('/api/notifications/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -1359,7 +1379,7 @@ class StorageService {
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
     }
 
-    fetch(`/api/notifications/${id}/read`, {
+    apiFetch(`/api/notifications/${id}/read`, {
       method: 'POST'
     }).catch(console.error);
   }
@@ -1393,7 +1413,7 @@ class StorageService {
     }
 
     // Call server API to persist in D1
-    fetch('/api/notifications/clear', {
+    apiFetch('/api/notifications/clear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, notification_id: notificationId })
@@ -1412,7 +1432,7 @@ class StorageService {
     const user = users.find(u => (u.username || '').trim().toLowerCase() === cleanUsername.toLowerCase());
     if (!user) return false;
 
-    fetch('/api/auth/forgot-password', {
+    apiFetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user.username || cleanUsername })
@@ -1456,7 +1476,7 @@ class StorageService {
     });
 
     // Sync to Cloudflare D1
-    fetch(`/api/users/${userId}/safety-committee`, {
+    apiFetch(`/api/users/${userId}/safety-committee`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1510,7 +1530,7 @@ class StorageService {
     });
 
     // Sync to Cloudflare D1
-    fetch('/api/safety-patrols', {
+    apiFetch('/api/safety-patrols', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPatrol)
@@ -1534,7 +1554,7 @@ class StorageService {
     this.saveSafetyPatrols(list);
 
     // Sync to Cloudflare D1
-    fetch(`/api/safety-patrols/${id}/status`, {
+    apiFetch(`/api/safety-patrols/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -1558,7 +1578,7 @@ class StorageService {
       const remFindings = findings.filter(f => f.patrol_id !== id);
       this.saveSafetyFindings(remFindings);
 
-      fetch(`/api/safety-patrols/${id}`, { method: 'DELETE' }).catch(console.error);
+      apiFetch(`/api/safety-patrols/${id}`, { method: 'DELETE' }).catch(console.error);
       return true;
     }
     return false;
@@ -1608,7 +1628,7 @@ class StorageService {
     }
 
     // Sync to Cloudflare D1
-    fetch('/api/safety-findings', {
+    apiFetch('/api/safety-findings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newFinding)
@@ -1654,7 +1674,7 @@ class StorageService {
     });
 
     // Sync to Cloudflare D1
-    fetch(`/api/safety-findings/${id}/resolve`, {
+    apiFetch(`/api/safety-findings/${id}/resolve`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1710,7 +1730,7 @@ class StorageService {
     }
 
     // Sync to Cloudflare D1
-    fetch(`/api/safety-findings/${id}/review`, {
+    apiFetch(`/api/safety-findings/${id}/review`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1731,7 +1751,7 @@ class StorageService {
     this.saveSafetyFindings(nextList);
 
     // Sync to backend Cloudflare D1
-    fetch(`/api/safety-findings/${id}`, { method: 'DELETE' }).catch(console.error);
+    apiFetch(`/api/safety-findings/${id}`, { method: 'DELETE' }).catch(console.error);
 
     window.dispatchEvent(new CustomEvent('she_data_synced'));
     return true;

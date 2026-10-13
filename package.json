@@ -9,9 +9,11 @@
     "server": "wrangler dev --port 8787",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "vite build",
+    "deploy:azure": "vite build && npx @azure/static-web-apps-cli deploy ./dist",
+    "deploy:cloudflare": "vite build && wrangler deploy",
     "d1:init:local": "wrangler d1 execute d1shesystem --local --file=./schema.sql",
-    "d1:init:remote": "wrangler d1 execute d1shesystem --remote --file=./schema.sql",
-    "deploy": "vite build && wrangler deploy"
+    "d1:init:remote": "wrangler d1 execute d1shesystem --remote --file=./schema.sql"
   },
   "repository": {
     "type": "git",

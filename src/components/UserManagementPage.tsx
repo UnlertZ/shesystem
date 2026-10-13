@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, UserRole, DepartmentItem, PositionItem } from '../types';
-import { storageService } from '../services/storage';
+import { storageService, apiFetch } from '../services/storage';
 import {
   Users,
   UserCheck,
@@ -273,7 +273,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
 
     const updated = [...users, newUser];
     storageService.saveUsers(updated);
-    fetch('/api/users', {
+    apiFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newUser)
