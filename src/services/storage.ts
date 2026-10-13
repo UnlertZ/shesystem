@@ -127,13 +127,25 @@ const DEFAULT_TASKS: Task[] = [];
 const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
 
 /**
- * API Base URL support for deployment on Azure Static Web Apps or external backend
- * Configured via Vite environment variable: VITE_API_BASE_URL
- * Example: VITE_API_BASE_URL=https://shesystem-api.azurewebsites.net
+ * Cloudflare Worker Backend URL (Connected to D1 Database & R2 Storage)
  */
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+export const DEFAULT_CLOUDFLARE_WORKER_URL = 'https://shesystem.anuruk3030.workers.dev';
 
-export function getApiUrl(path: string): string {
+/**
+ * API Base URL support for deployment on Azure Static Web Apps
+ * Defaults to the Cloudflare Worker URL in production so D1 & R2 are seamlessly connected
+ */
+export const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL !== undefined && import.meta.env.VITE_API_BASE_URL !== ''
+    ? import.meta.env.VITE_API_BASE_URL
+    : (import.meta.env.PROD ? DEFAULT_CLOUDFLARE_WORKER_URL : '')
+).replace(/\/$/, '');
+
+export function getApiUrl(path?: string | null): string {
+  if (!path) return '';
+  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
   const cleanPath = path.startsWith('/') ? path : '/' + path;
   return API_BASE_URL ? (API_BASE_URL + cleanPath) : cleanPath;
 }
@@ -168,7 +180,7 @@ export async function uploadToR2(file: File): Promise<string> {
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.url) return data.url;
+      if (data.url) return getApiUrl(data.url);
     }
   } catch (err) {
     console.error('Upload to Cloudflare R2 error:', err);
@@ -843,9 +855,11 @@ class StorageService {
     const data = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
     const list: Equipment[] = data ? JSON.parse(data) : DEFAULT_EQUIPMENT;
     
-    // Attach calculated age
+    // Attach calculated age and full Cloudflare R2 photo URLs
     const listWithAge = list.map(item => ({
       ...item,
+      inspection_sheet_photo: getApiUrl(item.inspection_sheet_photo),
+      location_photo: getApiUrl(item.location_photo),
       age: calculateEquipmentAge(item.in_service_date, item.latest_inspection_date)
     }));
 
@@ -1041,7 +1055,12 @@ class StorageService {
   getInspections(): InspectionRecord[] {
     if (!this.isBrowser) return [];
     const data = localStorage.getItem(STORAGE_KEYS.INSPECTIONS);
-    return data ? JSON.parse(data) : [];
+    const list: InspectionRecord[] = data ? JSON.parse(data) : [];
+    return list.map(r => ({
+      ...r,
+      inspection_photo: getApiUrl(r.inspection_photo),
+      location_photo: getApiUrl(r.location_photo)
+    }));
   }
 
   saveInspections(inspections: InspectionRecord[]) {
@@ -1584,15 +1603,19 @@ class StorageService {
     return false;
   }
 
-  // --- Safety Findings (Requirement 6 & 8) ---
   getSafetyFindings(patrolId?: string): SafetyFinding[] {
     if (!this.isBrowser) return [];
     const data = localStorage.getItem(STORAGE_KEYS.SAFETY_FINDINGS);
     const findings: SafetyFinding[] = data ? JSON.parse(data) : [];
+    const normalized = findings.map(f => ({
+      ...f,
+      photo_url: getApiUrl(f.photo_url),
+      after_photo_url: getApiUrl(f.after_photo_url)
+    }));
     if (patrolId) {
-      return findings.filter(f => f.patrol_id === patrolId);
+      return normalized.filter(f => f.patrol_id === patrolId);
     }
-    return findings.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
   saveSafetyFindings(findings: SafetyFinding[]) {

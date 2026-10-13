@@ -33,7 +33,7 @@ jobs:
           output_location: "dist" # Built app content directory for Vite
           ###### End of Repository/Build Configurations ######
         env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://shesystem.anuruk3030.workers.dev' }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
