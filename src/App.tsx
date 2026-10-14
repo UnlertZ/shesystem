@@ -52,6 +52,8 @@ export const App: React.FC = () => {
     setActiveTab('dashboard');
     setNotifications(storageService.getNotifications(user.id, user.role));
     setTasks(storageService.getTasks(user.id));
+    // Immediately pull latest notifications and assigned tasks for this user from Cloudflare D1
+    storageService.syncWithServer();
   };
 
   const handleLogout = () => {

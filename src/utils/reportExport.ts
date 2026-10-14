@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import { Equipment, InspectionRecord } from '../types';
 import { formatThaiDate, calculateEquipmentAge } from './thaiDate';
+import { getApiUrl } from '../services/storage';
 
 /**
  * Export data to Excel (.xlsx) file
@@ -94,31 +95,45 @@ export async function exportEquipmentPhotos(equipmentList: Equipment[], targetCo
   const targets = targetCode ? equipmentList.filter(e => e.code === targetCode) : equipmentList;
   let count = 0;
 
+  const appendPhoto = async (photoUrl: string | undefined | null, filename: string) => {
+    if (!photoUrl) return;
+    if (photoUrl.startsWith('data:image')) {
+      const parts = photoUrl.split(',');
+      const ext = parts[0].includes('png') ? 'png' : 'jpg';
+      folder?.file(`${filename}.${ext}`, parts[1], { base64: true });
+      count++;
+    } else {
+      const fullUrl = getApiUrl(photoUrl);
+      if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
+        try {
+          const res = await fetch(fullUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const ext = blob.type.includes('png') ? 'png' : 'jpg';
+            folder?.file(`${filename}.${ext}`, blob);
+            count++;
+          }
+        } catch (err) {
+          console.warn(`Could not fetch photo for ${filename}:`, err);
+        }
+      }
+    }
+  };
+
   for (const item of targets) {
-    // Add inspection sheet photo if available
-    if (item.inspection_sheet_photo && item.inspection_sheet_photo.startsWith('data:image')) {
-      const base64Data = item.inspection_sheet_photo.split(',')[1];
-      folder?.file(`${item.code}_inspection_sheet.jpg`, base64Data, { base64: true });
-      count++;
+    if (item.inspection_sheet_photo) {
+      await appendPhoto(item.inspection_sheet_photo, `${item.code}_inspection_sheet`);
     }
-
-    // Add location photo if available
-    if (item.location_photo && item.location_photo.startsWith('data:image')) {
-      const base64Data = item.location_photo.split(',')[1];
-      folder?.file(`${item.code}_location.jpg`, base64Data, { base64: true });
-      count++;
+    if (item.location_photo) {
+      await appendPhoto(item.location_photo, `${item.code}_location`);
     }
-
-    // Add defect photo if available
-    if (item.defect_photo && item.defect_photo.startsWith('data:image')) {
-      const base64Data = item.defect_photo.split(',')[1];
-      folder?.file(`${item.code}_defect_issue.jpg`, base64Data, { base64: true });
-      count++;
+    if (item.defect_photo) {
+      await appendPhoto(item.defect_photo, `${item.code}_defect_issue`);
     }
   }
 
   if (count === 0) {
-    // If photos are remote URLs (Unsplash/R2), open the photos or generate dummy placeholder text file
+    // If photos cannot be fetched, generate a manifest text file
     folder?.file('readme.txt', `รายการลิงก์รูปภาพสำหรับ ${targetCode || 'อุปกรณ์ทั้งหมด'}:\n\n` +
       targets.map(t => `${t.code}:\n- ใบตรวจ: ${t.inspection_sheet_photo || 'ไม่มี'}\n- สถานที่: ${t.location_photo || 'ไม่มี'}\n- ปัญหา: ${t.defect_photo || 'ไม่มี'}`).join('\n\n')
     );

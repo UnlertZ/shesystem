@@ -138,7 +138,7 @@ export const DEFAULT_CLOUDFLARE_WORKER_URL = 'https://shesystem.anuruk3030.worke
 export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL !== undefined && import.meta.env.VITE_API_BASE_URL !== ''
     ? import.meta.env.VITE_API_BASE_URL
-    : (import.meta.env.PROD ? DEFAULT_CLOUDFLARE_WORKER_URL : '')
+    : DEFAULT_CLOUDFLARE_WORKER_URL
 ).replace(/\/$/, '');
 
 export function getApiUrl(path?: string | null): string {
@@ -196,6 +196,7 @@ export async function uploadToR2(file: File): Promise<string> {
 class StorageService {
   private isBrowser = typeof window !== 'undefined';
   private syncInProgress = false;
+  private syncQueued = false;
 
   constructor() {
     this.initData();
@@ -298,7 +299,11 @@ class StorageService {
    * Synchronize all data with Cloudflare D1 Database
    */
   async syncWithServer(): Promise<void> {
-    if (!this.isBrowser || this.syncInProgress) return;
+    if (!this.isBrowser) return;
+    if (this.syncInProgress) {
+      this.syncQueued = true;
+      return;
+    }
     this.syncInProgress = true;
 
     try {
@@ -327,18 +332,28 @@ class StorageService {
         if (Array.isArray(data.users) && data.users.length > 0) {
           const sanitizedUsers = data.users.map((u: any) => ({
             ...u,
+            avatar_url: getApiUrl(u.avatar_url),
             is_safety_committee: Boolean(u.is_safety_committee)
           }));
           localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitizedUsers));
         }
       }
 
-      // 4. Fetch equipment (D1 is the single source of truth)
+      // 4. Fetch equipment (D1 is the single source of truth, R2 for photos)
       const equipRes = await apiFetch('/api/equipment');
       if (equipRes.ok) {
         const data = await equipRes.json();
         if (Array.isArray(data.equipment)) {
-          localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(data.equipment));
+          const normalizedEquip = data.equipment.map((e: any) => ({
+            ...e,
+            inspection_sheet_photo: getApiUrl(e.inspection_sheet_photo),
+            location_photo: getApiUrl(e.location_photo),
+            defect_photo: getApiUrl(e.defect_photo),
+            photo_history: Array.isArray(e.photo_history)
+              ? e.photo_history.map((h: any) => ({ ...h, photo_url: getApiUrl(h.photo_url) }))
+              : []
+          }));
+          localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(normalizedEquip));
         }
       }
 
@@ -347,7 +362,12 @@ class StorageService {
       if (inspRes.ok) {
         const data = await inspRes.json();
         if (Array.isArray(data.inspections)) {
-          localStorage.setItem(STORAGE_KEYS.INSPECTIONS, JSON.stringify(data.inspections));
+          const normalizedInsp = data.inspections.map((i: any) => ({
+            ...i,
+            inspection_photo: getApiUrl(i.inspection_photo),
+            location_photo: getApiUrl(i.location_photo)
+          }));
+          localStorage.setItem(STORAGE_KEYS.INSPECTIONS, JSON.stringify(normalizedInsp));
         }
       }
 
@@ -390,12 +410,15 @@ class StorageService {
       if (findRes.ok) {
         const data = await findRes.json();
         if (Array.isArray(data.findings)) {
-          // Normalize any legacy mismatched patrol_id
+          // Normalize any legacy mismatched patrol_id and wrap R2 photos
           const normalizedFindings = data.findings.map((f: SafetyFinding) => {
-            if (f.patrol_id === 'patrol_1791525622145') {
-              return { ...f, patrol_id: 'patrol_1791525622470' };
-            }
-            return f;
+            const patrol_id = f.patrol_id === 'patrol_1791525622145' ? 'patrol_1791525622470' : f.patrol_id;
+            return {
+              ...f,
+              patrol_id,
+              photo_url: getApiUrl(f.photo_url),
+              after_photo_url: getApiUrl(f.after_photo_url)
+            };
           });
           localStorage.setItem(STORAGE_KEYS.SAFETY_FINDINGS, JSON.stringify(normalizedFindings));
         }
@@ -407,6 +430,10 @@ class StorageService {
       console.warn('Sync with Cloudflare D1 warning (using cached data):', err);
     } finally {
       this.syncInProgress = false;
+      if (this.syncQueued) {
+        this.syncQueued = false;
+        setTimeout(() => this.syncWithServer(), 100);
+      }
     }
   }
 
@@ -860,6 +887,10 @@ class StorageService {
       ...item,
       inspection_sheet_photo: getApiUrl(item.inspection_sheet_photo),
       location_photo: getApiUrl(item.location_photo),
+      defect_photo: getApiUrl(item.defect_photo),
+      photo_history: Array.isArray(item.photo_history)
+        ? item.photo_history.map(h => ({ ...h, photo_url: getApiUrl(h.photo_url) }))
+        : [],
       age: calculateEquipmentAge(item.in_service_date, item.latest_inspection_date)
     }));
 

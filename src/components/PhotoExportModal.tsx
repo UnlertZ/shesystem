@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Equipment, InspectionRecord, EquipmentType } from '../types';
 import { formatThaiDate, getNowThai, THAI_MONTHS } from '../utils/thaiDate';
+import { getApiUrl } from '../services/storage';
 import JSZip from 'jszip';
 import {
   X,
@@ -264,16 +265,19 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
           const mimeMatch = parts[0].match(/:(.*?);/);
           const ext = mimeMatch && mimeMatch[1].includes('png') ? 'png' : 'jpg';
           targetFolder.file(`${item.filename}.${ext}`, parts[1], { base64: true });
-        } else if (item.url.startsWith('http://') || item.url.startsWith('https://')) {
-          try {
-            const resp = await fetch(item.url);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              const ext = blob.type.includes('png') ? 'png' : 'jpg';
-              targetFolder.file(`${item.filename}.${ext}`, blob);
+        } else {
+          const fullUrl = getApiUrl(item.url);
+          if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
+            try {
+              const resp = await fetch(fullUrl);
+              if (resp.ok) {
+                const blob = await resp.blob();
+                const ext = blob.type.includes('png') ? 'png' : 'jpg';
+                targetFolder.file(`${item.filename}.${ext}`, blob);
+              }
+            } catch (fetchErr) {
+              console.warn(`Could not fetch remote photo: ${fullUrl}`, fetchErr);
             }
-          } catch (fetchErr) {
-            console.warn(`Could not fetch remote photo: ${item.url}`, fetchErr);
           }
         }
         completedCount++;

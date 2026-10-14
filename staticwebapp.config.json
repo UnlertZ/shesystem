@@ -4,6 +4,7 @@
     "rewrite": "/index.html",
     "exclude": [
       "/assets/*",
+      "/api/*",
       "/*.{png,jpg,jpeg,gif,svg,ico,webp,json,css,js,txt,woff,woff2}"
     ]
   },

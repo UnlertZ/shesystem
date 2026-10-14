@@ -2,8 +2,8 @@ import { spawn } from 'child_process';
 
 console.log('🚀 กำลังเริ่มระบบ SHE System (Backend Worker + Frontend Vite)...');
 
-// 1. Start Wrangler Worker Backend on port 8787
-const wrangler = spawn('npx', ['wrangler', 'dev', '--port', '8787'], {
+// 1. Start Wrangler Worker Backend on port 8787 (connected to remote D1 & R2)
+const wrangler = spawn('npx', ['wrangler', 'dev', '--remote', '--port', '8787'], {
   stdio: 'inherit',
   shell: true
 });

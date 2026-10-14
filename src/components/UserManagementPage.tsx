@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserRole, DepartmentItem, PositionItem } from '../types';
 import { storageService, apiFetch } from '../services/storage';
 import {
@@ -77,6 +77,16 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setPositions(storageService.getPositions());
     if (onRefreshData) onRefreshData();
   };
+
+  useEffect(() => {
+    const handleSync = () => {
+      refreshList();
+    };
+    window.addEventListener('she_data_synced', handleSync);
+    // Trigger sync on mount so latest users/departments/positions are fetched
+    storageService.syncWithServer();
+    return () => window.removeEventListener('she_data_synced', handleSync);
+  }, []);
 
   const pendingUsers = users.filter(u => u.status === 'pending');
   const pendingNameChangeUsers = users.filter(u => u.pending_full_name);

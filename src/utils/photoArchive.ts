@@ -1,5 +1,6 @@
 import { Equipment, InspectionRecord, EquipmentPhotoArchiveItem } from '../types';
 import { THAI_MONTHS } from './thaiDate';
+import { getApiUrl } from '../services/storage';
 
 export interface ArchivedPhotoDetail {
   id: string;
@@ -48,9 +49,10 @@ export function getEquipmentPhotoArchives(
     const yearBE = validD.getFullYear() + 543;
     const monthIdx = validD.getMonth();
 
-    photoMap.set(`current_${equipment.inspection_sheet_photo}`, {
+    const fullPhotoUrl = getApiUrl(equipment.inspection_sheet_photo);
+    photoMap.set(`current_${fullPhotoUrl}`, {
       id: `cur_${equipment.id}`,
-      url: equipment.inspection_sheet_photo,
+      url: fullPhotoUrl,
       date: curDate,
       yearBE,
       monthIdx,
@@ -65,11 +67,12 @@ export function getEquipmentPhotoArchives(
   if (equipment.photo_history && Array.isArray(equipment.photo_history)) {
     equipment.photo_history.forEach(item => {
       if (!item.photo_url) return;
-      const key = `arch_${item.photo_url}_${item.year_be}_${item.month_idx}`;
+      const fullItemUrl = getApiUrl(item.photo_url);
+      const key = `arch_${fullItemUrl}_${item.year_be}_${item.month_idx}`;
       if (!photoMap.has(key)) {
         photoMap.set(key, {
           id: item.id || `arch_${Date.now()}_${Math.random()}`,
-          url: item.photo_url,
+          url: fullItemUrl,
           date: item.date,
           yearBE: item.year_be,
           monthIdx: item.month_idx,
@@ -96,12 +99,13 @@ export function getEquipmentPhotoArchives(
     const yearBE = validD.getFullYear() + 543;
     const monthIdx = validD.getMonth();
 
-    const key = `insp_${insp.inspection_photo}_${yearBE}_${monthIdx}`;
+    const fullInspUrl = getApiUrl(insp.inspection_photo);
+    const key = `insp_${fullInspUrl}_${yearBE}_${monthIdx}`;
     // If not already in map as current photo or archive
     if (!photoMap.has(key)) {
       photoMap.set(key, {
         id: insp.id,
-        url: insp.inspection_photo,
+        url: fullInspUrl,
         date: insp.inspection_date,
         yearBE,
         monthIdx,
