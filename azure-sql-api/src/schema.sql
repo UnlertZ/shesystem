@@ -33,6 +33,7 @@ BEGIN
         password NVARCHAR(255) NOT NULL,
         full_name NVARCHAR(255) NULL DEFAULT N'',
         pending_full_name NVARCHAR(255) NULL,
+        email NVARCHAR(255) NULL,
         department NVARCHAR(255) NOT NULL,
         position NVARCHAR(255) NOT NULL DEFAULT N'',
         role VARCHAR(20) NOT NULL, -- 'P1', 'P2', 'P3', 'P4', 'GUEST'
@@ -42,6 +43,12 @@ BEGIN
         created_at NVARCHAR(50) NOT NULL,
         updated_at NVARCHAR(50) NOT NULL
     );
+END;
+
+-- Ensure email column exists if table was already created
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.users') AND name = 'email')
+BEGIN
+    ALTER TABLE dbo.users ADD email NVARCHAR(255) NULL;
 END;
 
 -- Ensure indexes on users

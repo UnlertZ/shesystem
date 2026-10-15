@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Mail,
   Building2,
   Briefcase,
   Layers,
@@ -292,6 +291,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     setIsAddUserModalOpen(false);
     setNewUsername('');
     setNewFullName('');
+    setNewEmail('');
     refreshList();
     setAlertBanner({ type: 'success', message: `เพิ่มพนักงาน ${newUser.full_name || newUser.username} เรียบร้อยแล้ว` });
   };
@@ -325,7 +325,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   };
 
   const handleDeleteDept = (dept: DepartmentItem) => {
-    const userCount = users.filter(u => u.department === dept.name).length;
+    const userCount = approvedUsers.filter(u => (u.department || '').trim() === dept.name.trim()).length;
     const confirmMsg = userCount > 0
       ? `มีผู้ใช้งานอยู่ในแผนกนี้ ${userCount} คน คุณแน่ใจหรือไม่ที่จะลบแผนก "${dept.name}"?`
       : `คุณแน่ใจหรือไม่ที่จะลบแผนก "${dept.name}"?`;
@@ -368,7 +368,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   };
 
   const handleDeletePos = (pos: PositionItem) => {
-    const userCount = users.filter(u => u.position === pos.name).length;
+    const userCount = approvedUsers.filter(u => (u.position || '').trim() === pos.name.trim()).length;
     const confirmMsg = userCount > 0
       ? `มีผู้ใช้งานอยู่ในระดับ/ตำแหน่งนี้ ${userCount} คน คุณแน่ใจหรือไม่ที่จะลบ "${pos.name}"?`
       : `คุณแน่ใจหรือไม่ที่จะลบ "${pos.name}"?`;
@@ -822,7 +822,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </div>
               ) : (
                 departments.map(dept => {
-                  const memberCount = users.filter(u => u.department === dept.name).length;
+                  const memberCount = approvedUsers.filter(u => (u.department || '').trim() === dept.name.trim()).length;
                   return (
                     <div key={dept.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition">
                       <div className="space-y-0.5">
@@ -884,7 +884,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 </div>
               ) : (
                 positions.map(pos => {
-                  const memberCount = users.filter(u => u.position === pos.name).length;
+                  const memberCount = approvedUsers.filter(u => (u.position || '').trim() === pos.name.trim()).length;
                   return (
                     <div key={pos.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition">
                       <div className="space-y-1">
@@ -960,7 +960,12 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 <label className="block font-semibold text-slate-700 mb-1">ระดับ / ตำแหน่ง (Position)</label>
                 <select
                   value={editPosition}
-                  onChange={(e) => setEditPosition(e.target.value)}
+                  onChange={(e) => {
+                    const posName = e.target.value;
+                    setEditPosition(posName);
+                    const found = positions.find(p => p.name === posName);
+                    if (found) setEditRole(found.default_role);
+                  }}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 >
                   {positions.map((pos) => (
@@ -975,7 +980,20 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                 <label className="block font-semibold text-slate-700 mb-1">ระดับสิทธิ์ (Role)</label>
                 <select
                   value={editRole}
-                  onChange={(e) => setEditRole(e.target.value as UserRole)}
+                  onChange={(e) => {
+                    const nextRole = e.target.value as UserRole;
+                    setEditRole(nextRole);
+                    if (nextRole === 'P3' && (!editPosition || editPosition === 'พนักงาน')) {
+                      const p3Pos = positions.find(p => p.default_role === 'P3')?.name || 'เจ้าหน้าที่ความปลอดภัย (จป.)';
+                      setEditPosition(p3Pos);
+                    } else if (nextRole === 'P1' && editPosition !== 'พนักงาน') {
+                      const p1Pos = positions.find(p => p.default_role === 'P1')?.name || 'พนักงาน';
+                      setEditPosition(p1Pos);
+                    } else if (nextRole === 'P4') {
+                      const p4Pos = positions.find(p => p.default_role === 'P4')?.name || 'ผู้จัดการระบบ (IT / Super Admin)';
+                      setEditPosition(p4Pos);
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 >
                   <option value="P1">P1 - พนักงาน (ต้องได้รับอนุญาตจาก P2)</option>
@@ -1028,7 +1046,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <Mail className="w-5 h-5" />
+              <Send className="w-5 h-5" />
             </div>
             <h3 className="font-bold text-sm text-slate-800 text-center">
               ส่งข้อความแจ้งเตือนไปยัง: <span className="text-blue-600">{sendNotifUser.full_name || sendNotifUser.username}</span>

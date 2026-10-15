@@ -62,6 +62,7 @@ export const DEFAULT_USERS: User[] = [
     id: 'u_p4_opadmin',
     username: 'opadmin',
     full_name: 'ผู้จัดการระบบ โอพีแอดมิน',
+    email: 'opadmin@jdepeets.com',
     password: 'halls1999',
     department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
     position: 'ผู้จัดการระบบ (IT / Super Admin)',
@@ -75,6 +76,7 @@ export const DEFAULT_USERS: User[] = [
     id: 'u_p3_01',
     username: 'admin',
     full_name: 'สมบัติ ปลอดภัย (จป.วิชาชีพ)',
+    email: 'admin@jdepeets.com',
     password: 'admin123',
     department: 'แผนกความปลอดภัยและสิ่งแวดล้อม (SHE)',
     position: 'เจ้าหน้าที่ความปลอดภัย (จป.)',
@@ -88,6 +90,7 @@ export const DEFAULT_USERS: User[] = [
     id: 'u_p2_01',
     username: 'supervisor1',
     full_name: 'เกียรติศักดิ์ หัวหน้างาน',
+    email: 'supervisor1@jdepeets.com',
     password: '123456',
     department: 'แผนกผลิต (Production)',
     position: 'หัวหน้างาน',
@@ -101,6 +104,7 @@ export const DEFAULT_USERS: User[] = [
     id: 'u_p1_01',
     username: 'staff1',
     full_name: 'สมชาย ใจดี',
+    email: 'staff1@jdepeets.com',
     password: '123456',
     department: 'แผนกคลังสินค้าและโลจิสติกส์ (Warehouse & Logistics)',
     position: 'พนักงาน',
@@ -127,18 +131,13 @@ const DEFAULT_TASKS: Task[] = [];
 const DEFAULT_NOTIFICATIONS: AppNotification[] = [];
 
 /**
- * Cloudflare Worker Backend URL (Connected to D1 Database & R2 Storage)
- */
-export const DEFAULT_CLOUDFLARE_WORKER_URL = 'https://shesystem.anuruk3030.workers.dev';
-
-/**
- * API Base URL support for deployment on Azure Static Web Apps
- * Defaults to the Cloudflare Worker URL in production so D1 & R2 are seamlessly connected
+ * Microsoft Azure API Base URL
+ * Defaults to empty string so API calls are relative (/api/...) to the current Azure host
  */
 export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL !== undefined && import.meta.env.VITE_API_BASE_URL !== ''
     ? import.meta.env.VITE_API_BASE_URL
-    : DEFAULT_CLOUDFLARE_WORKER_URL
+    : ''
 ).replace(/\/$/, '');
 
 export function getApiUrl(path?: string | null): string {
@@ -159,7 +158,7 @@ export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
 
 
 /**
- * Upload an image file directly to Cloudflare R2 bucket: r2shesystem
+ * Upload an image file to Microsoft Azure Blob Storage (Container: picshesystem)
  * Automatically compresses the image on the client side before upload
  * to save storage space (reducing 5-15MB photos down to ~100-250KB) and accelerate upload speeds.
  */
@@ -183,7 +182,7 @@ export async function uploadToR2(file: File): Promise<string> {
       if (data.url) return getApiUrl(data.url);
     }
   } catch (err) {
-    console.error('Upload to Cloudflare R2 error:', err);
+    console.error('Upload to Azure Blob Storage error:', err);
   }
   // Fallback to base64 for seamless offline preview using the compressed file
   return new Promise((resolve) => {
@@ -201,7 +200,7 @@ class StorageService {
   constructor() {
     this.initData();
     if (this.isBrowser) {
-      // Trigger background sync with Cloudflare D1 immediately
+      // Trigger background sync with Azure SQL immediately
       this.syncWithServer();
     }
   }
@@ -296,7 +295,7 @@ class StorageService {
   }
 
   /**
-   * Synchronize all data with Cloudflare D1 Database
+   * Synchronize all data with Azure SQL Database
    */
   async syncWithServer(): Promise<void> {
     if (!this.isBrowser) return;
@@ -311,7 +310,7 @@ class StorageService {
       const deptRes = await apiFetch('/api/departments');
       if (deptRes.ok) {
         const data = await deptRes.json();
-        if (Array.isArray(data.departments) && data.departments.length > 0) {
+        if (Array.isArray(data.departments)) {
           localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(data.departments));
         }
       }
@@ -320,7 +319,7 @@ class StorageService {
       const posRes = await apiFetch('/api/positions');
       if (posRes.ok) {
         const data = await posRes.json();
-        if (Array.isArray(data.positions) && data.positions.length > 0) {
+        if (Array.isArray(data.positions)) {
           localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(data.positions));
         }
       }
@@ -330,12 +329,32 @@ class StorageService {
       if (usersRes.ok) {
         const data = await usersRes.json();
         if (Array.isArray(data.users) && data.users.length > 0) {
-          const sanitizedUsers = data.users.map((u: any) => ({
-            ...u,
-            avatar_url: getApiUrl(u.avatar_url),
-            is_safety_committee: Boolean(u.is_safety_committee)
-          }));
-          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitizedUsers));
+          const userMap = new Map<string, any>();
+          data.users.forEach((u: any) => {
+            const key = (u.username || '').trim().toLowerCase();
+            if (key) {
+              const sanitized = {
+                ...u,
+                email: u.email ? String(u.email).trim() : undefined,
+                avatar_url: getApiUrl(u.avatar_url),
+                is_safety_committee: Boolean(u.is_safety_committee)
+              };
+              if (!userMap.has(key) || sanitized.status === 'approved' || (sanitized.updated_at && (!userMap.get(key)?.updated_at || sanitized.updated_at > userMap.get(key).updated_at))) {
+                userMap.set(key, sanitized);
+              }
+            }
+          });
+          const deduplicatedUsers = Array.from(userMap.values());
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(deduplicatedUsers));
+
+          // Also keep currentUser session in sync if matching
+          const current = this.getCurrentUser();
+          if (current) {
+            const fresh = deduplicatedUsers.find(u => (u.username || '').toLowerCase() === (current.username || '').toLowerCase());
+            if (fresh) {
+              this.setCurrentUser({ ...current, ...fresh });
+            }
+          }
         }
       }
 
@@ -427,7 +446,7 @@ class StorageService {
       // Dispatch update event
       window.dispatchEvent(new CustomEvent('she_data_synced'));
     } catch (err) {
-      console.warn('Sync with Cloudflare D1 warning (using cached data):', err);
+      console.warn('Sync with Azure SQL warning (using cached data):', err);
     } finally {
       this.syncInProgress = false;
       if (this.syncQueued) {
@@ -459,7 +478,7 @@ class StorageService {
     list.push(newItem);
     this.saveDepartments(list);
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch('/api/departments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -476,7 +495,7 @@ class StorageService {
     list[index].name = name.trim();
     this.saveDepartments(list);
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch(`/api/departments/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -492,7 +511,7 @@ class StorageService {
     if (filtered.length !== list.length) {
       this.saveDepartments(filtered);
 
-      // Sync to Cloudflare D1
+      // Sync to Azure SQL
       apiFetch(`/api/departments/${id}`, {
         method: 'DELETE'
       }).catch(console.error);
@@ -525,7 +544,7 @@ class StorageService {
     list.push(newItem);
     this.savePositions(list);
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch('/api/positions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -543,7 +562,7 @@ class StorageService {
     list[index].default_role = default_role;
     this.savePositions(list);
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch(`/api/positions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -559,7 +578,7 @@ class StorageService {
     if (filtered.length !== list.length) {
       this.savePositions(filtered);
 
-      // Sync to Cloudflare D1
+      // Sync to Azure SQL
       apiFetch(`/api/positions/${id}`, {
         method: 'DELETE'
       }).catch(console.error);
@@ -604,10 +623,22 @@ class StorageService {
     if (!data) return DEFAULT_USERS;
     try {
       const list = JSON.parse(data);
-      return list.map((u: any) => ({
-        ...u,
-        is_safety_committee: Boolean(u.is_safety_committee)
-      }));
+      const userMap = new Map<string, User>();
+      // Deduplicate by clean username to guarantee a user is NEVER counted twice
+      list.forEach((u: any) => {
+        const key = (u.username || '').trim().toLowerCase();
+        if (key) {
+          const sanitized: User = {
+            ...u,
+            email: u.email ? String(u.email).trim() : undefined,
+            is_safety_committee: Boolean(u.is_safety_committee)
+          };
+          if (!userMap.has(key) || sanitized.status === 'approved' || (sanitized.updated_at && (!userMap.get(key)?.updated_at || sanitized.updated_at > userMap.get(key)!.updated_at!))) {
+            userMap.set(key, sanitized);
+          }
+        }
+      });
+      return Array.from(userMap.values());
     } catch (_) {
       return DEFAULT_USERS;
     }
@@ -615,7 +646,12 @@ class StorageService {
 
   saveUsers(users: User[]) {
     if (!this.isBrowser) return;
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    const userMap = new Map<string, User>();
+    users.forEach(u => {
+      const key = (u.username || '').trim().toLowerCase();
+      if (key) userMap.set(key, u);
+    });
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(Array.from(userMap.values())));
   }
 
   /**
@@ -647,7 +683,7 @@ class StorageService {
   }
 
   /**
-   * Async Login: queries Cloudflare D1 directly
+   * Async Login: queries Azure SQL directly
    */
   async verifyLoginAsync(username: string, password: string): Promise<{ user: User | null; error?: string }> {
     const cleanUsername = (username || '').trim();
@@ -669,10 +705,18 @@ class StorageService {
   }
 
   /**
-   * Register new user directly into Cloudflare D1 with local fallback
+   * Register new user directly into Azure SQL with local fallback
    */
-  async registerUser(data: { username: string; password: string; department: string; position: string; full_name?: string }): Promise<{ success: boolean; message: string }> {
+  async registerUser(data: {
+    username: string;
+    password: string;
+    department: string;
+    position: string;
+    full_name?: string;
+    email?: string;
+  }): Promise<{ success: boolean; message: string }> {
     const cleanUsername = (data.username || '').trim();
+    const cleanEmail = (data.email || '').trim() || undefined;
     // 1. Ensure user is recorded immediately so it appears in Pending Approvals for P3/P4
     const users = this.getUsers();
     if (!users.some(u => (u.username || '').trim().toLowerCase() === cleanUsername.toLowerCase())) {
@@ -683,6 +727,7 @@ class StorageService {
         id: `u_${Date.now()}`,
         username: data.username.trim(),
         full_name: data.full_name?.trim() || undefined,
+        email: cleanEmail,
         password: data.password.trim(),
         department: data.department,
         position: userPosition,
@@ -700,17 +745,20 @@ class StorageService {
         target_role: 'P3',
         sender_name: 'ระบบรับสมัครสมาชิก',
         title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
-        message: `ผู้ใช้ ${displayName} แผนก: ${data.department} ตำแหน่ง: ${userPosition} ได้ลงทะเบียนเข้าสู่ระบบ (สิทธิ์ P1) กรุณาตรวจสอบและอนุมัติ`,
+        message: `ผู้ใช้ ${displayName} (${data.department} - ${userPosition}) ได้ลงทะเบียนเข้าสู่ระบบ (สิทธิ์ P1) กรุณาตรวจสอบและอนุมัติ`,
         type: 'SYSTEM'
       });
     }
 
-    // 2. Also send to Cloudflare D1
+    // 2. Also send to Azure SQL
     try {
       const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          ...data,
+          email: cleanEmail
+        })
       });
       if (res.ok) {
         this.syncWithServer();
@@ -724,18 +772,40 @@ class StorageService {
 
   updateUser(id: string, updates: Partial<User>): boolean {
     const users = this.getUsers();
-    const index = users.findIndex(u => u.id === id);
+    const index = users.findIndex(u => u.id === id || (updates.username && (u.username || '').toLowerCase() === updates.username.toLowerCase()));
     if (index === -1) return false;
 
-    users[index] = { ...users[index], ...updates, updated_at: new Date().toISOString() };
-    this.saveUsers(users);
+    // Automatic role & position synchronization
+    const finalUpdates = { ...updates };
+    if (finalUpdates.role === 'P3' && (!finalUpdates.position || finalUpdates.position === 'พนักงาน')) {
+      finalUpdates.position = 'เจ้าหน้าที่ความปลอดภัย (จป.)';
+    } else if (finalUpdates.role === 'P1' && (!finalUpdates.position || finalUpdates.position === 'เจ้าหน้าที่ความปลอดภัย (จป.)')) {
+      finalUpdates.position = 'พนักงาน';
+    } else if (finalUpdates.role === 'P4' && (!finalUpdates.position || finalUpdates.position === 'พนักงาน')) {
+      finalUpdates.position = 'ผู้จัดการระบบ (IT / Super Admin)';
+    }
+
+    const updatedUser = { ...users[index], ...finalUpdates, updated_at: new Date().toISOString() };
+    users[index] = updatedUser;
+
+    // Ensure no duplicate username remains in the list
+    const cleanUsername = (updatedUser.username || '').trim().toLowerCase();
+    const deduplicatedUsers = users.filter((u, i) => i === index || (u.username || '').trim().toLowerCase() !== cleanUsername);
+    this.saveUsers(deduplicatedUsers);
+
+    // If current logged-in user is updated, sync session
+    const current = this.getCurrentUser();
+    if (current && (current.id === id || (current.username || '').toLowerCase() === cleanUsername)) {
+      this.setCurrentUser({ ...current, ...updatedUser });
+    }
 
     apiFetch(`/api/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+      body: JSON.stringify({ ...finalUpdates, username: updatedUser.username })
     }).catch(console.error);
 
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
     return true;
   }
 
@@ -821,7 +891,7 @@ class StorageService {
       this.setCurrentUser(updatedCurrent);
     }
 
-    // Cloudflare D1 (handles notification to P3/P4)
+    // Azure SQL (handles notification to P3/P4)
     apiFetch(`/api/users/${userId}/request-name-change`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -864,7 +934,7 @@ class StorageService {
       });
     }
 
-    // Cloudflare D1 (handles notification to user)
+    // Azure SQL (handles notification to user)
     apiFetch(`/api/users/${userId}/approve-name-change`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -882,7 +952,7 @@ class StorageService {
     const data = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
     const list: Equipment[] = data ? JSON.parse(data) : DEFAULT_EQUIPMENT;
     
-    // Attach calculated age and full Cloudflare R2 photo URLs
+    // Attach calculated age and full Azure Blob Storage photo URLs
     const listWithAge = list.map(item => ({
       ...item,
       inspection_sheet_photo: getApiUrl(item.inspection_sheet_photo),
@@ -934,7 +1004,7 @@ class StorageService {
     list.push(newEquip);
     this.saveEquipment(list);
 
-    // Save to Cloudflare D1 database
+    // Save to Azure SQL database
     apiFetch('/api/equipment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -976,7 +1046,7 @@ class StorageService {
     list[index] = updated;
     this.saveEquipment(list);
 
-    // Sync update to Cloudflare D1
+    // Sync update to Azure SQL
     apiFetch(`/api/equipment/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -992,7 +1062,7 @@ class StorageService {
     if (filtered.length !== list.length) {
       this.saveEquipment(filtered);
 
-      // Sync delete to Cloudflare D1
+      // Sync delete to Azure SQL
       apiFetch(`/api/equipment/${id}`, {
         method: 'DELETE'
       }).catch(console.error);
@@ -1052,7 +1122,7 @@ class StorageService {
     // Save locally immediately
     this.saveEquipment(list);
 
-    // Call Cloudflare D1 bulk insert endpoint
+    // Call Azure SQL bulk insert endpoint
     try {
       const res = await apiFetch('/api/equipment/bulk', {
         method: 'POST',
@@ -1183,7 +1253,7 @@ class StorageService {
       photo_history: photoHistory
     });
 
-    // Send inspection to Cloudflare D1 (which also sends defect notification if abnormal)
+    // Send inspection to Azure SQL (which also sends defect notification if abnormal)
     apiFetch('/api/inspections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1228,6 +1298,126 @@ class StorageService {
     return !!updated;
   }
 
+  updateInspectionTime(inspectionId: string, newDateIso: string): boolean {
+    if (!this.isBrowser) return false;
+    const inspections = this.getInspections();
+    const idx = inspections.findIndex(i => i.id === inspectionId);
+    if (idx === -1) return false;
+
+    inspections[idx] = {
+      ...inspections[idx],
+      inspection_date: newDateIso
+    };
+    this.saveInspections(inspections);
+
+    // Update equipment latest inspection date if this was latest
+    const eqId = inspections[idx].equipment_id;
+    const equipList = this.getEquipment();
+    const equip = equipList.find(e => e.id === eqId);
+    if (equip) {
+      const allForEq = inspections.filter(i => i.equipment_id === eqId);
+      allForEq.sort((a, b) => new Date(b.inspection_date).getTime() - new Date(a.inspection_date).getTime());
+      const latest = allForEq[0];
+      if (latest) {
+        this.updateEquipment(eqId, {
+          latest_inspection_date: latest.inspection_date,
+          latest_inspector: latest.inspector_name
+        });
+      }
+    }
+
+    // Call API
+    apiFetch(`/api/inspections/${inspectionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inspection_date: newDateIso })
+    }).catch(console.error);
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  deleteInspection(id: string): boolean {
+    if (!this.isBrowser) return false;
+    const inspections = this.getInspections();
+    const item = inspections.find(i => i.id === id);
+    const nextList = inspections.filter(i => i.id !== id);
+    this.saveInspections(nextList);
+
+    if (item) {
+      const eqId = item.equipment_id;
+      const allForEq = nextList.filter(i => i.equipment_id === eqId);
+      allForEq.sort((a, b) => new Date(b.inspection_date).getTime() - new Date(a.inspection_date).getTime());
+      const latest = allForEq[0];
+      this.updateEquipment(eqId, {
+        latest_inspection_date: latest ? latest.inspection_date : undefined,
+        latest_inspector: latest ? latest.inspector_name : undefined,
+        inspection_status: latest ? 'INSPECTED' : 'PENDING'
+      });
+    }
+
+    apiFetch(`/api/inspections/${id}`, { method: 'DELETE' }).catch(console.error);
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  async clearMonthInspections(options?: { equipment_id?: string; year?: number; month?: number }): Promise<boolean> {
+    const now = new Date();
+    const targetYear = options?.year !== undefined ? options.year : (now.getFullYear() + (now.getFullYear() < 2400 ? 543 : 0));
+    const targetYearCE = targetYear > 2400 ? targetYear - 543 : targetYear;
+    const targetMonth = options?.month !== undefined ? options.month : now.getMonth();
+
+    // Clear locally
+    const inspections = this.getInspections();
+    const filtered = inspections.filter(i => {
+      if (options?.equipment_id && i.equipment_id !== options.equipment_id) {
+        return true;
+      }
+      const d = new Date(i.inspection_date);
+      if (isNaN(d.getTime())) return true;
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      if (m === targetMonth && y === targetYearCE) {
+        return false; // remove
+      }
+      return true;
+    });
+
+    this.saveInspections(filtered);
+
+    // Reset equipment status
+    const equipList = this.getEquipment();
+    equipList.forEach(e => {
+      if (!options?.equipment_id || e.id === options.equipment_id) {
+        const remaining = filtered.filter(i => i.equipment_id === e.id);
+        remaining.sort((a, b) => new Date(b.inspection_date).getTime() - new Date(a.inspection_date).getTime());
+        const latest = remaining[0];
+        this.updateEquipment(e.id, {
+          inspection_status: 'PENDING',
+          latest_inspection_date: latest ? latest.inspection_date : undefined,
+          latest_inspector: latest ? latest.inspector_name : undefined
+        });
+      }
+    });
+
+    try {
+      await apiFetch('/api/inspections/clear-month', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipment_id: options?.equipment_id,
+          year: targetYearCE,
+          month: targetMonth
+        })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
   // --- Tasks (Delegation & Activities) (D1) ---
   getTasks(userId?: string): Task[] {
     if (!this.isBrowser) return DEFAULT_TASKS;
@@ -1257,7 +1447,7 @@ class StorageService {
     tasks.unshift(newTask);
     this.saveTasks(tasks);
 
-    // Send to Cloudflare D1 (which inserts the single authoritative notification)
+    // Send to Azure SQL (which inserts the single authoritative notification)
     apiFetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1314,7 +1504,7 @@ class StorageService {
 
     this.saveTasks(tasks);
 
-    // Send to Cloudflare D1 (which inserts the single authoritative completion notification)
+    // Send to Azure SQL (which inserts the single authoritative completion notification)
     apiFetch(`/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1525,7 +1715,7 @@ class StorageService {
       type: 'SYSTEM'
     });
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch(`/api/users/${userId}/safety-committee`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1579,7 +1769,7 @@ class StorageService {
       type: 'SYSTEM'
     });
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch('/api/safety-patrols', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1603,7 +1793,7 @@ class StorageService {
     list[idx].updated_at = new Date().toISOString();
     this.saveSafetyPatrols(list);
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch(`/api/safety-patrols/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1681,7 +1871,7 @@ class StorageService {
       });
     }
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch('/api/safety-findings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1727,7 +1917,7 @@ class StorageService {
       type: 'TASK'
     });
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch(`/api/safety-findings/${id}/resolve`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1783,7 +1973,7 @@ class StorageService {
       });
     }
 
-    // Sync to Cloudflare D1
+    // Sync to Azure SQL
     apiFetch(`/api/safety-findings/${id}/review`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1804,11 +1994,244 @@ class StorageService {
     const nextList = list.filter(f => f.id !== id);
     this.saveSafetyFindings(nextList);
 
-    // Sync to backend Cloudflare D1
+    // Sync to backend Azure SQL
     apiFetch(`/api/safety-findings/${id}`, { method: 'DELETE' }).catch(console.error);
 
     window.dispatchEvent(new CustomEvent('she_data_synced'));
     return true;
+  }
+
+  updateSafetyPatrol(id: string, data: Partial<SafetyPatrolRound>): boolean {
+    if (!this.isBrowser) return false;
+    const patrols = this.getSafetyPatrols();
+    const idx = patrols.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+
+    patrols[idx] = {
+      ...patrols[idx],
+      ...data,
+      updated_at: new Date().toISOString()
+    };
+    this.saveSafetyPatrols(patrols);
+
+    apiFetch(`/api/safety-patrols/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(console.error);
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  updateSafetyFinding(id: string, data: Partial<SafetyFinding>): boolean {
+    if (!this.isBrowser) return false;
+    const findings = this.getSafetyFindings();
+    const idx = findings.findIndex(f => f.id === id);
+    if (idx === -1) return false;
+
+    findings[idx] = {
+      ...findings[idx],
+      ...data,
+      updated_at: new Date().toISOString()
+    };
+    this.saveSafetyFindings(findings);
+
+    apiFetch(`/api/safety-findings/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(console.error);
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  // --- Photo Deletion & 2-Year Retention (Requirements 4, 5, 6) ---
+
+  async deleteEquipmentPhoto(equipmentId: string, field: 'inspection_sheet_photo' | 'location_photo' | 'defect_photo'): Promise<boolean> {
+    if (!this.isBrowser) return false;
+    const equipments = this.getEquipment();
+    const idx = equipments.findIndex(e => e.id === equipmentId);
+    if (idx !== -1) {
+      equipments[idx] = {
+        ...equipments[idx],
+        [field]: undefined
+      };
+      this.saveEquipment(equipments);
+    }
+
+    try {
+      await apiFetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'single_equipment',
+          equipmentId,
+          field
+        })
+      });
+    } catch (e) {
+      console.error('Failed to delete equipment photo on server:', e);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  async deleteInspectionPhoto(inspectionId: string, field: 'inspection_photo' | 'location_photo'): Promise<boolean> {
+    if (!this.isBrowser) return false;
+    const inspections = this.getInspections();
+    const idx = inspections.findIndex(i => i.id === inspectionId);
+    if (idx !== -1) {
+      inspections[idx] = {
+        ...inspections[idx],
+        [field]: undefined
+      };
+      this.saveInspections(inspections);
+    }
+
+    try {
+      await apiFetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'single_inspection',
+          inspectionId,
+          field
+        })
+      });
+    } catch (e) {
+      console.error('Failed to delete inspection photo on server:', e);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  async deleteAllEquipmentPhotos(equipmentId: string): Promise<boolean> {
+    if (!this.isBrowser) return false;
+    const equipments = this.getEquipment();
+    const idx = equipments.findIndex(e => e.id === equipmentId);
+    if (idx !== -1) {
+      equipments[idx] = {
+        ...equipments[idx],
+        inspection_sheet_photo: undefined,
+        location_photo: undefined,
+        defect_photo: undefined
+      };
+      this.saveEquipment(equipments);
+    }
+
+    const inspections = this.getInspections();
+    let inspChanged = false;
+    const updatedInspections = inspections.map(i => {
+      if (i.equipment_id === equipmentId && (i.inspection_photo || i.location_photo)) {
+        inspChanged = true;
+        return { ...i, inspection_photo: undefined, location_photo: undefined };
+      }
+      return i;
+    });
+    if (inspChanged) {
+      this.saveInspections(updatedInspections);
+    }
+
+    try {
+      await apiFetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'all_equipment',
+          equipmentId
+        })
+      });
+    } catch (e) {
+      console.error('Failed to delete all equipment photos on server:', e);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  async deleteSafetyFindingPhoto(findingId: string, field: 'photo_url' | 'after_photo_url'): Promise<boolean> {
+    if (!this.isBrowser) return false;
+    const findings = this.getSafetyFindings();
+    const idx = findings.findIndex(f => f.id === findingId);
+    if (idx !== -1) {
+      findings[idx] = {
+        ...findings[idx],
+        [field]: ''
+      };
+      this.saveSafetyFindings(findings);
+    }
+
+    try {
+      await apiFetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'single_finding',
+          findingId,
+          findingField: field
+        })
+      });
+    } catch (e) {
+      console.error('Failed to delete safety finding photo on server:', e);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  async deleteAllPatrolPhotos(patrolId: string): Promise<boolean> {
+    if (!this.isBrowser) return false;
+    const findings = this.getSafetyFindings();
+    let changed = false;
+    const updatedFindings = findings.map(f => {
+      if (f.patrol_id === patrolId && (f.photo_url || f.after_photo_url)) {
+        changed = true;
+        return {
+          ...f,
+          photo_url: '',
+          after_photo_url: undefined
+        };
+      }
+      return f;
+    });
+    if (changed) {
+      this.saveSafetyFindings(updatedFindings);
+    }
+
+    try {
+      await apiFetch('/api/images/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'all_patrol',
+          patrolId
+        })
+      });
+    } catch (e) {
+      console.error('Failed to delete all patrol photos on server:', e);
+    }
+
+    window.dispatchEvent(new CustomEvent('she_data_synced'));
+    return true;
+  }
+
+  async runRetentionCleanup(): Promise<{ success: boolean; deleted_inspections?: number; deleted_findings?: number; deleted_patrols?: number; deleted_photos?: number; error?: string }> {
+    try {
+      const res = await apiFetch('/api/cleanup/retention-2years', {
+        method: 'POST'
+      });
+      const data = await res.json();
+      await this.syncWithServer();
+      window.dispatchEvent(new CustomEvent('she_data_synced'));
+      return data;
+    } catch (err: any) {
+      console.error('Retention cleanup failed:', err);
+      return { success: false, error: err.message };
+    }
   }
 }
 

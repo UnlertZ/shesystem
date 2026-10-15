@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { Equipment, InspectionRecord } from '../types';
 import { formatThaiDate, calculateEquipmentAge } from './thaiDate';
 import { getApiUrl } from '../services/storage';
+import { fetchImageAsBlob } from './imageFetcher';
 
 /**
  * Export data to Excel (.xlsx) file
@@ -97,26 +98,20 @@ export async function exportEquipmentPhotos(equipmentList: Equipment[], targetCo
 
   const appendPhoto = async (photoUrl: string | undefined | null, filename: string) => {
     if (!photoUrl) return;
-    if (photoUrl.startsWith('data:image')) {
-      const parts = photoUrl.split(',');
-      const ext = parts[0].includes('png') ? 'png' : 'jpg';
-      folder?.file(`${filename}.${ext}`, parts[1], { base64: true });
-      count++;
-    } else {
-      const fullUrl = getApiUrl(photoUrl);
-      if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
-        try {
-          const res = await fetch(fullUrl);
-          if (res.ok) {
-            const blob = await res.blob();
-            const ext = blob.type.includes('png') ? 'png' : 'jpg';
-            folder?.file(`${filename}.${ext}`, blob);
-            count++;
-          }
-        } catch (err) {
-          console.warn(`Could not fetch photo for ${filename}:`, err);
-        }
+    try {
+      const blob = await fetchImageAsBlob(photoUrl);
+      if (blob && blob.size > 0) {
+        const ext = blob.type && blob.type.includes('png') ? 'png' : 'jpg';
+        folder?.file(`${filename}.${ext}`, blob);
+        count++;
+      } else if (photoUrl.startsWith('data:image')) {
+        const parts = photoUrl.split(',');
+        const ext = parts[0].includes('png') ? 'png' : 'jpg';
+        folder?.file(`${filename}.${ext}`, parts[1], { base64: true });
+        count++;
       }
+    } catch (err) {
+      console.warn(`Could not fetch photo for ${filename}:`, err);
     }
   };
 
@@ -147,5 +142,7 @@ export async function exportEquipmentPhotos(equipmentList: Equipment[], targetCo
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 10000);
 }

@@ -221,7 +221,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         defect_status: 'NORMAL' as const
       }));
 
-      // Add to storage and Cloudflare D1 atomically via batch
+      // Add to storage and Azure SQL atomically via batch
       await storageService.bulkAddEquipment(itemsToAdd);
 
       setIsProcessing(false);
@@ -265,7 +265,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                อัปโหลดรายการอุปกรณ์ดับเพลิงทีละหลายรายการเข้าระบบและฐานข้อมูล Cloudflare D1
+                อัปโหลดรายการอุปกรณ์ดับเพลิงทีละหลายรายการเข้าระบบและฐานข้อมูล Microsoft Azure SQL
               </p>
             </div>
           </div>

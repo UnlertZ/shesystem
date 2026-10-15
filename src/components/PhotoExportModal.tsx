@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Equipment, InspectionRecord, EquipmentType } from '../types';
 import { formatThaiDate, getNowThai, THAI_MONTHS } from '../utils/thaiDate';
-import { getApiUrl } from '../services/storage';
+import { resolveImageProxyUrl, fetchImageAsBlob } from '../utils/imageFetcher';
 import JSZip from 'jszip';
 import {
   X,
@@ -23,7 +23,9 @@ import {
   Eye,
   RefreshCw,
   FileText,
-  Check
+  Check,
+  FolderOpen,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface PhotoExportModalProps {
@@ -33,6 +35,20 @@ interface PhotoExportModalProps {
   initialYear?: number;  // e.g. 2569
   initialType?: string;  // 'ALL' | 'EX' | 'FHC' | 'FH' | 'HD'
   onClose: () => void;
+}
+
+export interface PreparedExportPhoto {
+  type: 'sheet' | 'location' | 'defect';
+  label: string;
+  url: string;
+  date?: string;
+}
+
+export interface PreparedExportItem extends Equipment {
+  availablePhotos: PreparedExportPhoto[];
+  primaryThumb: string;
+  hasInspectionInPeriod: boolean;
+  periodInspection?: InspectionRecord;
 }
 
 export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
@@ -50,7 +66,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
   // 1. Period filters (เลือกเดือน และ ปี)
   const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYearBE);
   const [selectedMonth, setSelectedMonth] = useState<number | 'ALL'>(
-    initialMonth !== undefined ? initialMonth : now.getMonth()
+    initialMonth !== undefined ? initialMonth : 'ALL'
   );
 
   // 2. Equipment type filter (เลือกประเภทของอุปกรณ์)
@@ -75,7 +91,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; stage: string } | null>(null);
 
-  // Check if date belongs to target year & month
+  // Check if a date string belongs to target year & month
   const isDateInSelectedPeriod = (dateStr?: string | null): boolean => {
     if (!dateStr) return false;
     const d = new Date(dateStr);
@@ -86,39 +102,101 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
     return true;
   };
 
-  // Compile items with their photos in the selected period
-  const preparedItems = useMemo(() => {
+  // Compile items with their photos in the selected period (comprehensive gathering)
+  const preparedItems: PreparedExportItem[] = useMemo(() => {
     return equipmentList.map(item => {
-      // Find matching inspection record in period
-      const itemInspections = inspections.filter(r => r.equipment_id === item.id || r.equipment_code === item.code);
-      const periodInspection = itemInspections.find(r => isDateInSelectedPeriod(r.inspection_date)) || itemInspections[0];
+      // Find matching inspection records for this equipment
+      const itemInspections = inspections.filter(r =>
+        (r.equipment_id && r.equipment_id === item.id) ||
+        (r.equipment_code && r.equipment_code.trim().toLowerCase() === item.code.trim().toLowerCase())
+      );
 
-      // Photos determination
-      const sheetPhoto = item.inspection_sheet_photo || periodInspection?.inspection_photo;
-      const locationPhoto = item.location_photo || periodInspection?.location_photo;
-      const defectPhoto = item.defect_photo || (periodInspection?.is_abnormal ? periodInspection.inspection_photo : undefined);
+      // Filter inspections matching the selected period
+      const periodInspections = itemInspections.filter(r => isDateInSelectedPeriod(r.inspection_date));
+      const hasInspectionInPeriod = periodInspections.length > 0 || isDateInSelectedPeriod(item.latest_inspection_date);
+      const periodInspection = periodInspections[0];
 
-      const hasInspectionInPeriod = itemInspections.some(r => isDateInSelectedPeriod(r.inspection_date)) ||
-        isDateInSelectedPeriod(item.latest_inspection_date);
+      // Track photo URLs already added to avoid duplicates
+      const seenUrls = new Set<string>();
+      const availablePhotos: PreparedExportPhoto[] = [];
 
-      // Photos matching current categories
-      const availablePhotos: { type: 'sheet' | 'location' | 'defect'; label: string; url: string }[] = [];
-      if (includeSheet && sheetPhoto) {
-        availablePhotos.push({ type: 'sheet', label: 'รูปตรวจเช็ค / ใบตรวจ', url: sheetPhoto });
+      const addPhoto = (type: 'sheet' | 'location' | 'defect', label: string, rawUrl?: string | null, date?: string) => {
+        if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) return;
+        const resolved = resolveImageProxyUrl(rawUrl.trim());
+        if (!resolved || seenUrls.has(resolved)) return;
+        seenUrls.add(resolved);
+        availablePhotos.push({
+          type,
+          label,
+          url: resolved,
+          date
+        });
+      };
+
+      // 1. Add inspection photos from period inspections
+      periodInspections.forEach(insp => {
+        const d = new Date(insp.inspection_date);
+        const validD = isNaN(d.getTime()) ? new Date() : d;
+        const mName = THAI_MONTHS[validD.getMonth()];
+        const yBE = validD.getFullYear() + 543;
+
+        if (insp.inspection_photo) {
+          if (insp.is_abnormal) {
+            if (includeDefect) {
+              addPhoto('defect', `รูปข้อบกพร่อง (${mName} ${yBE})`, insp.inspection_photo, insp.inspection_date);
+            }
+            if (includeSheet) {
+              addPhoto('sheet', `รูปตรวจเช็ค (${mName} ${yBE})`, insp.inspection_photo, insp.inspection_date);
+            }
+          } else if (includeSheet) {
+            addPhoto('sheet', `รูปตรวจเช็คประจำเดือน ${mName} ${yBE}`, insp.inspection_photo, insp.inspection_date);
+          }
+        }
+
+        if (insp.location_photo && includeLocation) {
+          addPhoto('location', `รูปสถานที่ (${mName} ${yBE})`, insp.location_photo, insp.inspection_date);
+        }
+      });
+
+      // 2. Add historical tank photos from item.photo_history
+      if (includeSheet && item.photo_history && Array.isArray(item.photo_history)) {
+        item.photo_history.forEach(h => {
+          if (!h.photo_url) return;
+          const matchesPeriod = h.year_be === selectedYear && (selectedMonth === 'ALL' || h.month_idx === selectedMonth);
+          if (matchesPeriod) {
+            const mName = h.month_name || THAI_MONTHS[h.month_idx] || '';
+            const lbl = h.note || `รูปถังประจำเดือน ${mName} ${h.year_be}`;
+            addPhoto('sheet', lbl, h.photo_url, h.date);
+          }
+        });
       }
-      if (includeLocation && locationPhoto) {
-        availablePhotos.push({ type: 'location', label: 'รูปสถานที่ติดตั้ง', url: locationPhoto });
+
+      // 3. Add primary tank photo (equipment.inspection_sheet_photo)
+      if (includeSheet && item.inspection_sheet_photo) {
+        // Include if no inspection photo was found in period, or if viewing ALL months
+        const hasSheetAlready = availablePhotos.some(p => p.type === 'sheet');
+        if (!hasSheetAlready || selectedMonth === 'ALL' || isDateInSelectedPeriod(item.latest_inspection_date)) {
+          addPhoto('sheet', 'รูปถังปัจจุบัน (อัปเดตล่าสุด)', item.inspection_sheet_photo, item.latest_inspection_date || item.updated_at);
+        }
       }
-      if (includeDefect && defectPhoto) {
-        availablePhotos.push({ type: 'defect', label: 'รูปข้อบกพร่อง / ปัญหา', url: defectPhoto });
+
+      // 4. Add location photo (equipment.location_photo)
+      if (includeLocation && item.location_photo) {
+        addPhoto('location', 'รูปสถานที่ติดตั้ง', item.location_photo);
       }
+
+      // 5. Add defect photo (equipment.defect_photo)
+      if (includeDefect && item.defect_photo) {
+        addPhoto('defect', 'รูปข้อบกพร่อง / ปัญหา', item.defect_photo);
+      }
+
+      // Primary thumbnail URL for card preview
+      const primaryThumb = availablePhotos[0]?.url || resolveImageProxyUrl(item.inspection_sheet_photo) || resolveImageProxyUrl(item.location_photo) || '';
 
       return {
         ...item,
-        sheetPhoto,
-        locationPhoto,
-        defectPhoto,
         availablePhotos,
+        primaryThumb,
         hasInspectionInPeriod,
         periodInspection
       };
@@ -130,14 +208,6 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
     return preparedItems.filter(item => {
       // Type filter
       if (selectedType !== 'ALL' && item.type !== selectedType) return false;
-
-      // Month/Year filter (if specific month is selected, prefer items inspected in that period)
-      if (selectedMonth !== 'ALL') {
-        if (!item.hasInspectionInPeriod && !item.sheetPhoto && !item.defectPhoto) {
-          // If not inspected in that period and no photos, skip
-          return false;
-        }
-      }
 
       // Status filter
       if (filterStatus === 'WITH_PHOTOS' && item.availablePhotos.length === 0) return false;
@@ -154,11 +224,10 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
 
       return true;
     });
-  }, [preparedItems, selectedType, selectedMonth, filterStatus, searchQuery]);
+  }, [preparedItems, selectedType, filterStatus, searchQuery]);
 
   // Initialize selected IDs whenever filteredItems change
   React.useEffect(() => {
-    // Select items that have photos by default
     const idsWithPhotos = filteredItems.filter(item => item.availablePhotos.length > 0).map(item => item.id);
     setSelectedIds(new Set(idsWithPhotos));
   }, [filteredItems.length, selectedType, selectedMonth, selectedYear]);
@@ -202,7 +271,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
     return selectedItems.reduce((acc, item) => acc + item.availablePhotos.length, 0);
   }, [selectedItems]);
 
-  // Download ZIP
+  // Download ZIP organized strictly by equipment code (รหัสอุปกรณ์)
   const handleDownloadZip = async () => {
     if (totalSelectedPhotos === 0) {
       alert('กรุณาเลือกอุปกรณ์ที่มีรูปภาพอย่างน้อย 1 รายการ');
@@ -210,7 +279,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
     }
 
     setIsExporting(true);
-    setExportProgress({ current: 0, total: totalSelectedPhotos, stage: 'กำลังเตรียมไฟล์รูปภาพ...' });
+    setExportProgress({ current: 0, total: totalSelectedPhotos, stage: 'กำลังเตรียมรายการรูปภาพ...' });
 
     try {
       const zip = new JSZip();
@@ -218,99 +287,138 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
         ? `ทั้งปี_${selectedYear}`
         : `${THAI_MONTHS[selectedMonth]}_${selectedYear}`;
 
-      const rootFolder = zip.folder(`SHE_Photos_${periodLabel}`) || zip;
+      const rootFolderName = `SHE_Photos_${periodLabel}_${selectedType === 'ALL' ? 'ทุกประเภท' : selectedType}`;
+      const rootFolder = zip.folder(rootFolderName) || zip;
 
-      // Group into folders by equipment type
+      // Group export items STRICTLY by equipment code (รหัสอุปกรณ์)
       const exportList: {
+        equipCode: string;
         folderName: string;
         filename: string;
         url: string;
-        code: string;
         photoLabel: string;
       }[] = [];
 
       selectedItems.forEach(item => {
-        let typeFolder = 'ถังดับเพลิง_EX';
-        if (item.type === 'FHC') typeFolder = 'ตู้ดับเพลิง_FHC';
-        if (item.type === 'FH') typeFolder = 'ตู้สายฉีด_FH';
-        if (item.type === 'HD') typeFolder = 'หัวรับน้ำ_HD';
+        // Folder name is the equipment code (e.g. "EX-001", "EX-002", "FHC-001")
+        const equipFolderName = item.code.trim();
+
+        // Track counts to give unique filenames when multiple photos of same type exist
+        const typeCounters: Record<string, number> = { sheet: 0, location: 0, defect: 0 };
 
         item.availablePhotos.forEach(photo => {
+          typeCounters[photo.type] = (typeCounters[photo.type] || 0) + 1;
+          const count = typeCounters[photo.type];
+
           let suffix = 'รูปตรวจเช็ค';
           if (photo.type === 'location') suffix = 'สถานที่ติดตั้ง';
           if (photo.type === 'defect') suffix = 'จุดที่พบปัญหา';
 
+          let filename = `${item.code}_${suffix}`;
+
+          // Append date/month if available to distinguish multiple photos
+          if (photo.date) {
+            try {
+              const d = new Date(photo.date);
+              if (!isNaN(d.getTime())) {
+                const mName = THAI_MONTHS[d.getMonth()];
+                const yBE = d.getFullYear() + 543;
+                filename = `${item.code}_${suffix}_${mName}_${yBE}`;
+              }
+            } catch (_) {}
+          } else if (count > 1) {
+            filename = `${item.code}_${suffix}_${count}`;
+          }
+
           exportList.push({
-            folderName: typeFolder,
-            filename: `${item.code}_${suffix}`,
+            equipCode: item.code,
+            folderName: equipFolderName,
+            filename,
             url: photo.url,
-            code: item.code,
             photoLabel: photo.label
           });
         });
       });
 
       let completedCount = 0;
-      for (const item of exportList) {
+      let successCount = 0;
+      const failedList: { code: string; label: string; url: string; error?: string }[] = [];
+
+      for (let i = 0; i < exportList.length; i++) {
+        const item = exportList[i];
         setExportProgress({
-          current: completedCount + 1,
+          current: i + 1,
           total: exportList.length,
-          stage: `กำลังดาวน์โหลด: [${item.code}] ${item.photoLabel}`
+          stage: `กำลังดาวน์โหลด (${i + 1}/${exportList.length}): [${item.equipCode}] ${item.photoLabel}`
         });
 
+        // Target folder inside ZIP is organized by equipment code (รหัสอุปกรณ์)
         const targetFolder = rootFolder.folder(item.folderName) || rootFolder;
 
-        if (item.url.startsWith('data:image')) {
-          const parts = item.url.split(',');
-          const mimeMatch = parts[0].match(/:(.*?);/);
-          const ext = mimeMatch && mimeMatch[1].includes('png') ? 'png' : 'jpg';
-          targetFolder.file(`${item.filename}.${ext}`, parts[1], { base64: true });
-        } else {
-          const fullUrl = getApiUrl(item.url);
-          if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
-            try {
-              const resp = await fetch(fullUrl);
-              if (resp.ok) {
-                const blob = await resp.blob();
-                const ext = blob.type.includes('png') ? 'png' : 'jpg';
-                targetFolder.file(`${item.filename}.${ext}`, blob);
-              }
-            } catch (fetchErr) {
-              console.warn(`Could not fetch remote photo: ${fullUrl}`, fetchErr);
-            }
+        try {
+          const blob = await fetchImageAsBlob(item.url);
+          if (blob && blob.size > 0 && !blob.type.includes('html')) {
+            let ext = 'jpg';
+            if (blob.type.includes('png')) ext = 'png';
+            else if (blob.type.includes('webp')) ext = 'webp';
+            else if (blob.type.includes('svg')) ext = 'svg';
+
+            targetFolder.file(`${item.filename}.${ext}`, blob);
+            successCount++;
+          } else {
+            console.warn(`[PhotoExport] Could not load image for [${item.equipCode}]: ${item.url}`);
+            failedList.push({ code: item.equipCode, label: item.photoLabel, url: item.url, error: 'ไม่สามารถโหลดรูปภาพได้' });
           }
+        } catch (fetchErr: any) {
+          console.warn(`[PhotoExport] Error for [${item.equipCode}]:`, fetchErr);
+          failedList.push({ code: item.equipCode, label: item.photoLabel, url: item.url, error: fetchErr?.message });
         }
         completedCount++;
       }
 
-      // Add a text manifest
+      // Add a detailed text manifest for the user
       rootFolder.file(
         'manifest.txt',
         `============================================================\n` +
         `ระบบจัดการความปลอดภัยและอุปกรณ์ดับเพลิง (SHE Safety Management)\n` +
-        `รายงานการส่งออกรูปภาพอุปกรณ์ดับเพลิง (.ZIP)\n` +
+        `รายงานการส่งออกรูปภาพอุปกรณ์ดับเพลิง (.ZIP) - แยกตามรหัสอุปกรณ์\n` +
         `============================================================\n\n` +
         `รอบข้อมูล: ${periodLabel.replace('_', ' ')}\n` +
         `ประเภทอุปกรณ์ที่เลือก: ${selectedType === 'ALL' ? 'ทุกประเภท' : selectedType}\n` +
         `วันที่ส่งออก: ${formatThaiDate(now, true)}\n` +
         `จำนวนอุปกรณ์ที่ส่งออก: ${selectedItems.length} รายการ\n` +
-        `จำนวนรูปภาพรวม: ${exportList.length} รูป\n\n` +
+        `จำนวนรูปภาพทั้งหมดที่ต้องดาวน์โหลด: ${exportList.length} รูป\n` +
+        `ดาวน์โหลดสำเร็จ: ${successCount} รูป\n` +
+        `ดาวน์โหลดไม่สำเร็จ: ${failedList.length} รูป\n\n` +
+        `โครงสร้างโฟลเดอร์ใน ZIP:\n` +
+        `- รูปภาพทั้งหมดถูกจัดเก็บแยกตามรหัสอุปกรณ์ (เช่น ${selectedItems[0]?.code || 'EX-001'}/)\n` +
+        `- ภายในแต่ละโฟลเดอร์รหัสอุปกรณ์ ประกอบด้วย รูปตรวจเช็ค, รูปสถานที่ติดตั้ง และรูปข้อบกพร่อง\n\n` +
         `หมวดหมู่รูปภาพที่เลือก:\n` +
         `- รูปตรวจเช็ค/ใบตรวจ: ${includeSheet ? 'ใช่' : 'ไม่ใช่'}\n` +
         `- รูปสถานที่ติดตั้ง: ${includeLocation ? 'ใช่' : 'ไม่ใช่'}\n` +
         `- รูปข้อบกพร่อง/ปัญหา: ${includeDefect ? 'ใช่' : 'ไม่ใช่'}\n\n` +
         `------------------------------------------------------------\n` +
-        `รายชื่ออุปกรณ์ที่ส่งออก:\n` +
+        `รายชื่ออุปกรณ์และรูปภาพที่ส่งออก:\n` +
         selectedItems.map((item, idx) => {
-          const photosDesc = item.availablePhotos.map(p => p.label).join(', ') || 'ไม่มีรูป';
-          return `${idx + 1}. [${item.code}] ${item.type} - ${item.location} (สถานะ: ${item.ready_status} | รูปภาพ: ${photosDesc})`;
-        }).join('\n')
+          const photosDesc = item.availablePhotos.map(p => p.label).join(', ') || 'ไม่มีรูปภาพ';
+          return `${idx + 1}. [${item.code}] โฟลเดอร์: ${item.code}/ (${item.type} - ${item.location}) -> ${photosDesc}`;
+        }).join('\n') +
+        (failedList.length > 0 ? (
+          `\n\n------------------------------------------------------------\n` +
+          `รายการรูปภาพที่ไม่สามารถดาวน์โหลดได้ (${failedList.length} รูป):\n` +
+          failedList.map(f => `- [${f.code}] ${f.label} (${f.url})`).join('\n')
+        ) : '')
       );
+
+      if (successCount === 0) {
+        alert('ไม่สามารถดาวน์โหลดรูปภาพได้ กรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดอยู่หรือมีการเชื่อมต่ออินเทอร์เน็ตที่ถูกต้อง');
+        return;
+      }
 
       setExportProgress({
         current: exportList.length,
         total: exportList.length,
-        stage: 'กำลังบีบอัดและสร้างไฟล์ ZIP...'
+        stage: `กำลังบีบอัดและสร้างไฟล์ ZIP... (สำเร็จ ${successCount}/${exportList.length} รูป)`
       });
 
       const zipBlob = await zip.generateAsync({
@@ -322,14 +430,20 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
       const downloadUrl = window.URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `SHE_Photos_${periodLabel}_${selectedType}.zip`;
+      link.download = `${rootFolderName}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (err) {
+      setTimeout(() => {
+        window.URL.revokeObjectURL(downloadUrl);
+      }, 10000);
+
+      if (failedList.length > 0) {
+        alert(`ส่งออกไฟล์ ZIP สำเร็จแล้ว (${successCount} รูป) มีบางรูปไม่สามารถโหลดได้ ${failedList.length} รูป (ดูรายละเอียดใน manifest.txt)`);
+      }
+    } catch (err: any) {
       console.error('ZIP generation failed:', err);
-      alert('เกิดข้อผิดพลาดในการสร้างไฟล์ ZIP');
+      alert('เกิดข้อผิดพลาดในการสร้างไฟล์ ZIP: ' + (err?.message || ''));
     } finally {
       setIsExporting(false);
       setExportProgress(null);
@@ -348,14 +462,14 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
             <div>
               <h2 className="font-extrabold text-base sm:text-lg">ส่งออกรูปภาพการตรวจสอบอุปกรณ์ (Export Photos)</h2>
               <p className="text-xs text-purple-200">
-                เลือกเดือน ปี ประเภทอุปกรณ์ และรายการรูปภาพที่ต้องการดาวน์โหลดเป็นไฟล์ .ZIP
+                เลือกเดือน ปี ประเภทอุปกรณ์ และรายการรูปภาพ — ระบบจะจัดแบ่งโฟลเดอร์ตามรหัสอุปกรณ์ (.ZIP) ให้อัตโนมัติ
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -374,7 +488,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
               <select
                 value={selectedYear}
                 onChange={e => setSelectedYear(Number(e.target.value))}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
               >
                 {availableYears.map(y => (
                   <option key={y} value={y}>ปี พ.ศ. {y}</option>
@@ -391,7 +505,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
               <select
                 value={selectedMonth}
                 onChange={e => setSelectedMonth(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
               >
                 <option value="ALL">ทุกเดือน (ตลอดทั้งปี พ.ศ. {selectedYear})</option>
                 {THAI_MONTHS.map((m, idx) => (
@@ -409,7 +523,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
               <select
                 value={selectedType}
                 onChange={e => setSelectedType(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
               >
                 <option value="ALL">ทั้งหมด (EX, FHC, FH, HD)</option>
                 <option value="EX">ถังดับเพลิง (EX)</option>
@@ -423,14 +537,14 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
           {/* Row 2: Photo Categories to Include */}
           <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-              <span className="text-xs font-bold text-slate-600">รูปที่ต้องการเอา:</span>
+              <span className="text-xs font-bold text-slate-600">รูปที่ต้องการส่งออก:</span>
 
               <label className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition">
                 <input
                   type="checkbox"
                   checked={includeSheet}
                   onChange={e => setIncludeSheet(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
+                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
                 />
                 <Camera className="w-3.5 h-3.5 text-blue-500" />
                 <span>รูปตรวจเช็ค / ใบตรวจ</span>
@@ -441,7 +555,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                   type="checkbox"
                   checked={includeLocation}
                   onChange={e => setIncludeLocation(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
+                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
                 />
                 <MapPin className="w-3.5 h-3.5 text-emerald-500" />
                 <span>รูปสถานที่ติดตั้ง</span>
@@ -452,7 +566,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                   type="checkbox"
                   checked={includeDefect}
                   onChange={e => setIncludeDefect(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
+                  className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
                 />
                 <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
                 <span>รูปข้อบกพร่อง / ปัญหา</span>
@@ -465,7 +579,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
               <select
                 value={filterStatus}
                 onChange={e => setFilterStatus(e.target.value as any)}
-                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700"
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 cursor-pointer"
               >
                 <option value="WITH_PHOTOS">เฉพาะที่มีรูปภาพ</option>
                 <option value="ALL">อุปกรณ์ทั้งหมด</option>
@@ -482,7 +596,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <button
               onClick={handleSelectAll}
-              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold flex items-center space-x-1 transition"
+              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold flex items-center space-x-1 transition cursor-pointer"
             >
               <CheckSquare className="w-3.5 h-3.5 text-purple-600" />
               <span>เลือกทั้งหมด ({filteredItems.length})</span>
@@ -490,7 +604,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
 
             <button
               onClick={handleDeselectAll}
-              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold flex items-center space-x-1 transition"
+              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold flex items-center space-x-1 transition cursor-pointer"
             >
               <Square className="w-3.5 h-3.5 text-slate-400" />
               <span>ล้างการเลือก</span>
@@ -498,7 +612,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
 
             <button
               onClick={handleSelectOnlyDefects}
-              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-semibold flex items-center space-x-1 transition"
+              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-semibold flex items-center space-x-1 transition cursor-pointer"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>เลือกเฉพาะที่มีปัญหา</span>
@@ -519,7 +633,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
             </div>
 
             <div className="text-xs bg-purple-50 text-purple-800 border border-purple-200 px-3 py-1 rounded-xl font-bold whitespace-nowrap">
-              เลือกแล้ว: <span className="text-purple-600">{selectedItems.length}</span> รายการ ({totalSelectedPhotos} รูป)
+              เลือกแล้ว: <span className="text-purple-600">{selectedItems.length}</span> รหัส ({totalSelectedPhotos} รูป)
             </div>
           </div>
         </div>
@@ -531,7 +645,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
               <Images className="w-10 h-10 mx-auto text-slate-300" />
               <div className="font-bold text-slate-600 text-sm">ไม่พบรายการอุปกรณ์ตามเงื่อนไขที่เลือก</div>
               <div className="text-xs text-slate-400">
-                ลองเปลี่ยนตัวเลือกเดือน หรือ เลือกประเภทอุปกรณ์เป็น &quot;ทั้งหมด&quot;
+                ลองเลือกเดือนเป็น &quot;ทุกเดือน&quot; หรือเปลี่ยนประเภทอุปกรณ์เป็น &quot;ทั้งหมด&quot;
               </div>
             </div>
           ) : (
@@ -540,9 +654,6 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                 const isSelected = selectedIds.has(item.id);
                 const hasPhotos = item.availablePhotos.length > 0;
                 const isDefect = item.defect_status === 'DEFECT' || item.ready_status === 'NOT_READY';
-
-                // Display thumbnail (first available photo)
-                const thumb = item.availablePhotos[0]?.url || item.location_photo || item.inspection_sheet_photo || item.defect_photo;
 
                 return (
                   <div
@@ -554,30 +665,59 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                         : 'bg-white/80 border-slate-200 hover:border-slate-300 opacity-90'
                     }`}
                   >
-                    {/* Header */}
+                    {/* Header with Checkbox and Info */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center space-x-2.5">
+                      <div className="flex items-start space-x-2.5">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => {}} // handled by div click
-                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          className="w-4 h-4 mt-1 rounded text-purple-600 focus:ring-purple-500 cursor-pointer shrink-0"
                         />
-                        <div>
+
+                        {/* Thumbnail image */}
+                        {item.primaryThumb ? (
+                          <div
+                            className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 relative group shadow-2xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewPhoto({ url: item.primaryThumb, title: `${item.code} - ${item.location}` });
+                            }}
+                            title="คลิกเพื่อดูรูปขนาดใหญ่"
+                          >
+                            <img
+                              src={item.primaryThumb}
+                              alt={item.code}
+                              className="w-full h-full object-cover group-hover:scale-110 transition duration-200"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                              <Eye className="w-3.5 h-3.5" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-300 shrink-0">
+                            <ImageIcon className="w-5 h-5 text-slate-400" />
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
                           <div className="flex items-center space-x-1.5">
                             <span className="font-bold text-xs text-slate-900">{item.code}</span>
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
                               {item.type}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                          <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5" title={item.location}>
                             {item.location}
                           </div>
                         </div>
                       </div>
 
                       {/* Status Tag */}
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                         isDefect
                           ? 'bg-red-100 text-red-700'
                           : item.defect_status === 'RESOLVED'
@@ -591,51 +731,36 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                     {/* Photos Preview Section */}
                     <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
                       {/* Photo badges */}
-                      <div className="flex items-center space-x-1 text-[11px]">
-                        {item.sheetPhoto && includeSheet && (
+                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                        {item.availablePhotos.map((p, idx) => (
                           <button
+                            key={`${p.url}_${idx}`}
                             type="button"
                             onClick={e => {
                               e.stopPropagation();
-                              setPreviewPhoto({ url: item.sheetPhoto!, title: `${item.code} - รูปตรวจเช็ค` });
+                              setPreviewPhoto({ url: p.url, title: `[${item.code}] ${p.label}` });
                             }}
-                            className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-[10px] font-semibold flex items-center space-x-0.5"
-                            title="ดูรูปตรวจเช็ค"
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center space-x-0.5 border cursor-pointer transition ${
+                              p.type === 'defect'
+                                ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                : p.type === 'location'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            }`}
+                            title={`คลิกเพื่อดูรูป: ${p.label}`}
                           >
-                            <Camera className="w-2.5 h-2.5" />
-                            <span>ตรวจเช็ค</span>
+                            {p.type === 'defect' ? (
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                            ) : p.type === 'location' ? (
+                              <MapPin className="w-2.5 h-2.5" />
+                            ) : (
+                              <Camera className="w-2.5 h-2.5" />
+                            )}
+                            <span className="truncate max-w-[80px]">
+                              {p.type === 'defect' ? 'ปัญหา' : p.type === 'location' ? 'สถานที่' : 'ตรวจเช็ค'}
+                            </span>
                           </button>
-                        )}
-
-                        {item.locationPhoto && includeLocation && (
-                          <button
-                            type="button"
-                            onClick={e => {
-                              e.stopPropagation();
-                              setPreviewPhoto({ url: item.locationPhoto!, title: `${item.code} - รูปสถานที่` });
-                            }}
-                            className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[10px] font-semibold flex items-center space-x-0.5"
-                            title="ดูรูปสถานที่"
-                          >
-                            <MapPin className="w-2.5 h-2.5" />
-                            <span>สถานที่</span>
-                          </button>
-                        )}
-
-                        {item.defectPhoto && includeDefect && (
-                          <button
-                            type="button"
-                            onClick={e => {
-                              e.stopPropagation();
-                              setPreviewPhoto({ url: item.defectPhoto!, title: `${item.code} - รูปปัญหา` });
-                            }}
-                            className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-[10px] font-semibold flex items-center space-x-0.5"
-                            title="ดูรูปจุดที่พบปัญหา"
-                          >
-                            <AlertTriangle className="w-2.5 h-2.5" />
-                            <span>ปัญหา</span>
-                          </button>
-                        )}
+                        ))}
 
                         {!hasPhotos && (
                           <span className="text-[10px] text-slate-400">ไม่มีรูปภาพ</span>
@@ -643,7 +768,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                       </div>
 
                       {/* Photo count indicator */}
-                      <div className="text-[10px] font-bold text-slate-500">
+                      <div className="text-[10px] font-bold text-slate-500 whitespace-nowrap ml-2">
                         {item.availablePhotos.length > 0 ? (
                           <span className="text-purple-600 font-extrabold">{item.availablePhotos.length} รูป</span>
                         ) : (
@@ -660,14 +785,17 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
 
         {/* Modal Footer Controls */}
         <div className="p-4 sm:p-5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs text-slate-500">
-            โฟลเดอร์ใน ZIP จะถูกจัดหมวดหมู่แยกตามประเภทอุปกรณ์ เช่น <code className="bg-slate-100 px-1 py-0.5 rounded text-purple-700">ถังดับเพลิง_EX/</code>, <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-700">ตู้ดับเพลิง_FHC/</code>
+          <div className="text-xs text-slate-500 flex items-center space-x-1">
+            <FolderOpen className="w-4 h-4 text-purple-600 shrink-0" />
+            <span>
+              โฟลเดอร์ใน ZIP จะถูกจัดหมวดหมู่แยกตามรหัสอุปกรณ์ เช่น <code className="bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded border border-purple-200">EX-001/</code>, <code className="bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded border border-purple-200">EX-002/</code>, <code className="bg-purple-50 text-purple-700 font-bold px-1.5 py-0.5 rounded border border-purple-200">FHC-001/</code>
+            </span>
           </div>
 
           <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
             >
               ยกเลิก
             </button>
@@ -675,7 +803,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
             <button
               onClick={handleDownloadZip}
               disabled={isExporting || totalSelectedPhotos === 0}
-              className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isExporting ? (
                 <>
@@ -732,16 +860,24 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
               onClick={e => e.stopPropagation()}
             >
               <div className="px-4 py-3 bg-slate-800 text-white flex items-center justify-between text-xs font-bold">
-                <span>{previewPhoto.title}</span>
+                <span className="truncate pr-2">{previewPhoto.title}</span>
                 <button
                   onClick={() => setPreviewPhoto(null)}
-                  className="p-1 hover:bg-slate-700 rounded-full transition"
+                  className="p-1 hover:bg-slate-700 rounded-full transition cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="p-2 bg-slate-950 flex items-center justify-center max-h-[70vh]">
-                <img src={previewPhoto.url} alt="Preview" className="max-h-full max-w-full object-contain rounded-lg" />
+                <img
+                  src={previewPhoto.url}
+                  alt="Preview"
+                  className="max-h-full max-w-full object-contain rounded-lg"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    el.alt = 'ไม่สามารถโหลดรูปภาพได้';
+                  }}
+                />
               </div>
             </div>
           </div>

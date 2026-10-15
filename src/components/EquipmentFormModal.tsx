@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Equipment, EquipmentType, User } from '../types';
 import { storageService, uploadToR2 } from '../services/storage';
 import { findLowestVacantNumber, formatEquipmentCode } from '../utils/thaiDate';
-import { X, Plus, Save, Camera, Building, Calendar, Scale, Layers, UserCheck } from 'lucide-react';
+import { X, Plus, Save, Camera, Building, Calendar, Scale, Layers, UserCheck, Image as ImageIcon, RotateCcw } from 'lucide-react';
 
 interface EquipmentFormModalProps {
   equipment?: Equipment | null; // If null, mode is Add
@@ -155,6 +155,27 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
     }
 
     onSaved();
+  };
+
+  const handleClearCurrentInspection = async () => {
+    if (!equipment) return;
+    const now = new Date();
+    const thaiDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const year = thaiDate.getUTCFullYear();
+    const month = thaiDate.getUTCMonth();
+
+    if (!confirm(`ยืนยันการล้างประวัติการตรวจเช็คของ "${equipment.code}" ในรอบเดือนปัจจุบันใช่หรือไม่?\n\nสถานะอุปกรณ์จะถูกรีเซ็ตกลับเป็น "ยังไม่ตรวจ" (PENDING)`)) {
+      return;
+    }
+
+    try {
+      await storageService.clearMonthInspections(equipment.id, year, month);
+      alert(`ล้างผลการตรวจเช็คของ ${equipment.code} ประจำรอบเดือนนี้เรียบร้อยแล้ว`);
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      alert('เกิดข้อผิดพลาดในการล้างประวัติ: ' + (err?.message || ''));
+    }
   };
 
   return (
@@ -313,16 +334,32 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <label className="border border-dashed border-slate-300 rounded-xl h-28 flex flex-col items-center justify-center cursor-pointer hover:border-red-500 transition bg-slate-50">
-                  <Camera className="w-5 h-5 text-slate-400 mb-1" />
-                  <span className="text-[11px] text-slate-500">อัปโหลดรูปใบตรวจ</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
-                  />
-                </label>
+                <div className="border border-dashed border-slate-300 rounded-xl p-2.5 bg-slate-50 flex flex-col justify-center space-y-1.5">
+                  <div className="text-[11px] text-slate-500 font-semibold text-center">รูปใบตรวจ / สภาพ</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="flex items-center justify-center space-x-1 p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-slate-700 text-xs font-semibold shadow-2xs">
+                      <Camera className="w-3.5 h-3.5 text-blue-600" />
+                      <span>กล้อง</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
+                      />
+                    </label>
+                    <label className="flex items-center justify-center space-x-1 p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-slate-700 text-xs font-semibold shadow-2xs">
+                      <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                      <span>คลัง</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
+                      />
+                    </label>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -342,36 +379,68 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <label className="border border-dashed border-slate-300 rounded-xl h-28 flex flex-col items-center justify-center cursor-pointer hover:border-red-500 transition bg-slate-50">
-                  <Camera className="w-5 h-5 text-slate-400 mb-1" />
-                  <span className="text-[11px] text-slate-500">อัปโหลดรูปสถานที่</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, setLocationPhoto)}
-                  />
-                </label>
+                <div className="border border-dashed border-slate-300 rounded-xl p-2.5 bg-slate-50 flex flex-col justify-center space-y-1.5">
+                  <div className="text-[11px] text-slate-500 font-semibold text-center">รูปจุดติดตั้ง</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="flex items-center justify-center space-x-1 p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-slate-700 text-xs font-semibold shadow-2xs">
+                      <Camera className="w-3.5 h-3.5 text-blue-600" />
+                      <span>กล้อง</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, setLocationPhoto)}
+                      />
+                    </label>
+                    <label className="flex items-center justify-center space-x-1 p-2 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 cursor-pointer text-slate-700 text-xs font-semibold shadow-2xs">
+                      <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                      <span>คลัง</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e, setLocationPhoto)}
+                      />
+                    </label>
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center space-x-1.5"
-            >
-              {isEdit ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              <span>{isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มอุปกรณ์ใหม่'}</span>
-            </button>
+          <div className="pt-4 flex items-center justify-between space-x-3 border-t border-slate-100">
+            <div>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={handleClearCurrentInspection}
+                  className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1 cursor-pointer shadow-2xs"
+                  title="ล้างผลการตรวจเช็คของอุปกรณ์นี้ในรอบเดือนปัจจุบัน"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                  <span>ล้างการตรวจรายการนี้</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-[#A04830] hover:bg-[#803A26] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center space-x-1.5 cursor-pointer"
+              >
+                {isEdit ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มอุปกรณ์ใหม่'}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

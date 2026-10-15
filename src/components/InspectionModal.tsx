@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Equipment, User, Task } from '../types';
 import { EQUIPMENT_CHECKLISTS } from '../utils/equipmentChecklists';
 import { storageService, uploadToR2 } from '../services/storage';
-import { X, CheckCircle2, AlertTriangle, Camera, Upload, AlertCircle, Sparkles } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, Camera, Upload, AlertCircle, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { calculateEquipmentAge } from '../utils/thaiDate';
 
 interface InspectionModalProps {
@@ -358,17 +358,38 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-xl aspect-video flex flex-col items-center justify-center cursor-pointer transition bg-white p-4 text-center">
-                    <Upload className="w-7 h-7 text-blue-500 mb-1" />
-                    <span className="text-xs text-blue-700 font-bold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปตรวจ</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพตรวจเช็คคู่กับถัง (ระบบลดขนาดภาพให้อัตโนมัติเพื่อประหยัดพื้นที่)</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
-                    />
-                  </label>
+                  <div className="border-2 border-dashed border-blue-300 rounded-xl p-4 bg-white flex flex-col items-center justify-center text-center space-y-3">
+                    <div className="text-xs font-bold text-blue-800">
+                      แนบภาพตรวจเช็คคู่กับอุปกรณ์
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                      {/* Option 1: Open Camera directly on Android/iOS */}
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100/80 active:bg-blue-200 transition cursor-pointer text-blue-700 shadow-2xs">
+                        <Camera className="w-5 h-5 mb-1" />
+                        <span className="text-xs font-bold">ถ่ายรูป (กล้อง)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
+                        />
+                      </label>
+
+                      {/* Option 2: Choose from Gallery / Files */}
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer text-slate-700 shadow-2xs">
+                        <ImageIcon className="w-5 h-5 mb-1 text-slate-500" />
+                        <span className="text-xs font-bold">เลือกจากคลัง</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleFileUpload(e, setInspectionPhoto)}
+                        />
+                      </label>
+                    </div>
+                    <span className="text-[10px] text-slate-400">ภาพตรวจเช็คคู่กับถัง (ระบบลดขนาดภาพให้อัตโนมัติเพื่อประหยัดพื้นที่)</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -424,16 +445,29 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                         </button>
                       </div>
                     ) : (
-                      <label className="border border-dashed border-red-300 rounded-xl p-3 flex items-center space-x-2 cursor-pointer bg-white hover:bg-red-50/30 transition">
-                        <Camera className="w-4 h-4 text-red-500" />
-                        <span className="text-xs text-slate-600">แนบภาพจุดชำรุด</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileUpload(e, setDefectPhoto)}
-                        />
-                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="border border-red-300 rounded-xl px-3 py-2 flex items-center space-x-1.5 cursor-pointer bg-red-50 hover:bg-red-100 active:bg-red-200 transition text-red-700 text-xs font-semibold shadow-2xs">
+                          <Camera className="w-4 h-4" />
+                          <span>ถ่ายรูป (กล้อง)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e, setDefectPhoto)}
+                          />
+                        </label>
+                        <label className="border border-slate-200 rounded-xl px-3 py-2 flex items-center space-x-1.5 cursor-pointer bg-white hover:bg-slate-50 active:bg-slate-100 transition text-slate-700 text-xs font-semibold shadow-2xs">
+                          <ImageIcon className="w-4 h-4 text-slate-500" />
+                          <span>เลือกจากคลัง</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e, setDefectPhoto)}
+                          />
+                        </label>
+                      </div>
                     )}
                   </div>
                 </div>

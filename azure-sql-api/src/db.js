@@ -28,8 +28,8 @@ function getDbConfig() {
   return {
     user: process.env.AZURE_SQL_USER || 'cloudadmin',
     password: process.env.AZURE_SQL_PASSWORD || '',
-    server: process.env.AZURE_SQL_SERVER || 'your-server.database.windows.net',
-    database: process.env.AZURE_SQL_DATABASE || 'shesystem',
+    server: process.env.AZURE_SQL_SERVER || 'halls.database.windows.net',
+    database: process.env.AZURE_SQL_DATABASE || 'shedatabase',
     port: parseInt(process.env.AZURE_SQL_PORT || '1433', 10),
     options: {
       encrypt: process.env.AZURE_SQL_ENCRYPT !== 'false', // Default true for Azure SQL

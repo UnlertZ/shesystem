@@ -27,7 +27,9 @@ import {
   MessageSquare,
   Download,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  Edit,
+  Image as ImageIcon
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 import { SafetyPatrolExportModal } from './SafetyPatrolExportModal';
@@ -100,6 +102,73 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportInitialPatrolId, setExportInitialPatrolId] = useState<string | undefined>(undefined);
 
+  // Edit Patrol Round modal state
+  const [editingPatrol, setEditingPatrol] = useState<SafetyPatrolRound | null>(null);
+  const [editPatrolTitle, setEditPatrolTitle] = useState('');
+  const [editPatrolDate, setEditPatrolDate] = useState('');
+  const [editPatrolTimeRange, setEditPatrolTimeRange] = useState('');
+  const [editPatrolLocation, setEditPatrolLocation] = useState('');
+  const [editPatrolDesc, setEditPatrolDesc] = useState('');
+
+  // Edit Finding modal state
+  const [editingFinding, setEditingFinding] = useState<SafetyFinding | null>(null);
+  const [editFindingCategory, setEditFindingCategory] = useState<SafetyFindingCategory>('RECOMMEND');
+  const [editFindingSubType, setEditFindingSubType] = useState<SafetyFindingSubType>('NEAR_MISS');
+  const [editFindingLocation, setEditFindingLocation] = useState('');
+  const [editFindingDesc, setEditFindingDesc] = useState('');
+  const [editFindingRec, setEditFindingRec] = useState('');
+  const [editFindingPhoto, setEditFindingPhoto] = useState('');
+
+  const handleOpenEditPatrol = (patrol: SafetyPatrolRound) => {
+    setEditingPatrol(patrol);
+    setEditPatrolTitle(patrol.title);
+    setEditPatrolDate(patrol.patrol_date);
+    setEditPatrolTimeRange(patrol.time_range || '');
+    setEditPatrolLocation(patrol.location || '');
+    setEditPatrolDesc(patrol.description || '');
+  };
+
+  const handleSaveEditPatrol = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPatrol) return;
+    storageService.updateSafetyPatrol(editingPatrol.id, {
+      title: editPatrolTitle.trim(),
+      patrol_date: editPatrolDate,
+      time_range: editPatrolTimeRange.trim(),
+      location: editPatrolLocation.trim(),
+      description: editPatrolDesc.trim()
+    });
+    setEditingPatrol(null);
+    refreshAll();
+    setBannerMessage({ type: 'success', text: `แก้ไขข้อมูลรอบเดินตรวจ "${editPatrolTitle}" เรียบร้อยแล้ว` });
+  };
+
+  const handleOpenEditFinding = (finding: SafetyFinding) => {
+    setEditingFinding(finding);
+    setEditFindingCategory(finding.category);
+    setEditFindingSubType(finding.sub_type || 'NEAR_MISS');
+    setEditFindingLocation(finding.location);
+    setEditFindingDesc(finding.description);
+    setEditFindingRec(finding.recommendation || '');
+    setEditFindingPhoto(finding.photo_url || '');
+  };
+
+  const handleSaveEditFinding = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFinding) return;
+    storageService.updateSafetyFinding(editingFinding.id, {
+      category: editFindingCategory,
+      sub_type: editFindingSubType,
+      location: editFindingLocation.trim(),
+      description: editFindingDesc.trim(),
+      recommendation: editFindingCategory === 'RECOMMEND' ? editFindingRec.trim() : undefined,
+      photo_url: editFindingPhoto || editingFinding.photo_url
+    });
+    setEditingFinding(null);
+    refreshAll();
+    setBannerMessage({ type: 'success', text: `แก้ไขข้อมูลจุดตรวจ "${editFindingLocation}" เรียบร้อยแล้ว` });
+  };
+
   const isAdmin = currentUser?.role === 'P3' || currentUser?.role === 'P4';
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -125,7 +194,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
     };
     window.addEventListener('she_data_synced', handleSync);
 
-    // Initial sync from Cloudflare D1 immediately on mount
+    // Initial sync from Azure SQL immediately on mount
     storageService.syncWithServer();
 
     // Auto-poll D1 every 8 seconds so photos submitted by other users appear live
@@ -464,7 +533,7 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
               onClick={refreshAll}
               disabled={isSyncing}
               className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition disabled:opacity-50"
-              title="รีเฟรชข้อมูล (Sync กับเซิร์ฟเวอร์ Cloudflare D1)"
+              title="รีเฟรชข้อมูล (Sync กับเซิร์ฟเวอร์ Azure SQL)"
             >
               <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
             </button>
@@ -664,6 +733,18 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                           </button>
                         )}
 
+                        {/* Edit patrol round (Admin only) */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleOpenEditPatrol(patrol)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 transition flex items-center space-x-1 shadow-2xs cursor-pointer"
+                            title="แก้ไขข้อมูลรอบเดินตรวจ"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-blue-600" />
+                            <span>แก้ไข</span>
+                          </button>
+                        )}
+
                         {/* Export specific patrol round (Admin only) */}
                         {isAdmin && (
                           <button
@@ -809,6 +890,18 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
 
                                   <div className="flex items-center space-x-1.5">
                                     {getStatusBadge(finding.status)}
+                                    {(isAdmin || currentUser?.id === finding.reporter_id) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenEditFinding(finding);
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                        title="แก้ไขรายการนี้"
+                                      >
+                                        <Edit className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                     {(isAdmin || currentUser?.id === finding.reporter_id) && (
                                       <button
                                         onClick={(e) => {
@@ -1006,6 +1099,17 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                               <span>ไม่ผ่าน (ส่งกลับไปแก้ใหม่)</span>
                             </button>
                           </div>
+                        )}
+
+                        {/* Edit Finding (Admin or Creator) */}
+                        {(isAdmin || currentUser?.id === item.reporter_id) && (
+                          <button
+                            onClick={() => handleOpenEditFinding(item)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition ml-1"
+                            title="แก้ไขข้อมูลข้อค้นพบนี้"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
                         )}
 
                         {/* Delete Finding (Admin or Creator) */}
@@ -1468,17 +1572,33 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                     </button>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl aspect-video max-h-48 flex flex-col items-center justify-center cursor-pointer transition bg-slate-50/50">
-                    <Upload className="w-7 h-7 text-slate-400 mb-1" />
-                    <span className="text-xs text-slate-600 font-semibold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปภาพ</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">รองรับ JPG, PNG (ระบบลดขนาดไฟล์อัตโนมัติเพื่อประหยัดพื้นที่)</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleUploadImage(e, setFindingPhoto)}
-                    />
-                  </label>
+                  <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50/50 flex flex-col items-center justify-center text-center space-y-2">
+                    <span className="text-xs text-slate-700 font-bold">แนบรูปภาพจุดตรวจ</span>
+                    <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer text-emerald-800 shadow-2xs">
+                        <Camera className="w-5 h-5 mb-1 text-emerald-600" />
+                        <span className="text-xs font-bold">ถ่ายรูป (กล้อง)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleUploadImage(e, setFindingPhoto)}
+                        />
+                      </label>
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer text-slate-700 shadow-2xs">
+                        <ImageIcon className="w-5 h-5 mb-1 text-slate-500" />
+                        <span className="text-xs font-bold">เลือกจากคลัง</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleUploadImage(e, setFindingPhoto)}
+                        />
+                      </label>
+                    </div>
+                    <span className="text-[10px] text-slate-400">ระบบลดขนาดไฟล์อัตโนมัติเพื่อประหยัดพื้นที่</span>
+                  </div>
                 )}
               </div>
 
@@ -1620,17 +1740,33 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
                     </button>
                   </div>
                 ) : (
-                  <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl aspect-video max-h-48 flex flex-col items-center justify-center cursor-pointer transition bg-white">
-                    <Upload className="w-7 h-7 text-slate-400 mb-1" />
-                    <span className="text-xs text-slate-600 font-semibold">กดเพื่อถ่ายรูป หรือ อัปโหลดรูปภาพหลังแก้ไข</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">ภาพหลังแก้ไข (ระบบลดขนาดไฟล์อัตโนมัติเพื่อประหยัดพื้นที่)</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleUploadImage(e, setResolveAfterPhoto)}
-                    />
-                  </label>
+                  <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 bg-white flex flex-col items-center justify-center text-center space-y-2">
+                    <span className="text-xs text-slate-700 font-bold">แนบรูปภาพหลังแก้ไข</span>
+                    <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer text-emerald-800 shadow-2xs">
+                        <Camera className="w-5 h-5 mb-1 text-emerald-600" />
+                        <span className="text-xs font-bold">ถ่ายรูป (กล้อง)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleUploadImage(e, setResolveAfterPhoto)}
+                        />
+                      </label>
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer text-slate-700 shadow-2xs">
+                        <ImageIcon className="w-5 h-5 mb-1 text-slate-500" />
+                        <span className="text-xs font-bold">เลือกจากคลัง</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleUploadImage(e, setResolveAfterPhoto)}
+                        />
+                      </label>
+                    </div>
+                    <span className="text-[10px] text-slate-400">ภาพหลังแก้ไข (ระบบลดขนาดไฟล์อัตโนมัติเพื่อประหยัดพื้นที่)</span>
+                  </div>
                 )}
               </div>
 
@@ -1784,6 +1920,308 @@ export const SafetyCommitteePage: React.FC<SafetyCommitteePageProps> = ({ curren
           initialPatrolId={exportInitialPatrolId}
           onClose={() => setIsExportModalOpen(false)}
         />
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: Edit Patrol Round (Requirement 5)                       */}
+      {/* ============================================================== */}
+      {editingPatrol && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Edit className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base text-slate-800">แก้ไขข้อมูลรอบการเดินตรวจ คปอ.</h3>
+                  <p className="text-xs text-slate-400">แก้ไขหัวข้อ วันที่ เวลา หรือพื้นที่เป้าหมาย</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingPatrol(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditPatrol} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">หัวข้อ / ชื่อรอบการเดินตรวจ *</label>
+                <input
+                  type="text"
+                  value={editPatrolTitle}
+                  onChange={(e) => setEditPatrolTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">วันที่เดินตรวจ *</label>
+                  <input
+                    type="date"
+                    value={editPatrolDate}
+                    onChange={(e) => setEditPatrolDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">ช่วงเวลา (เช่น 10:00น.-11:00น.)</label>
+                  <input
+                    type="text"
+                    value={editPatrolTimeRange}
+                    onChange={(e) => setEditPatrolTimeRange(e.target.value)}
+                    placeholder="10:00น.-11:00น."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">พื้นที่ / โซนเป้าหมายในการเดินตรวจ</label>
+                <input
+                  type="text"
+                  value={editPatrolLocation}
+                  onChange={(e) => setEditPatrolLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">วัตถุประสงค์ / หมายเหตุเพิ่มเติม</label>
+                <textarea
+                  value={editPatrolDesc}
+                  onChange={(e) => setEditPatrolDesc(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPatrol(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-200 transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>บันทึกการแก้ไข</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: Edit Finding (Requirement 5)                            */}
+      {/* ============================================================== */}
+      {editingFinding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-8 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Edit className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base text-slate-800">แก้ไขข้อมูลสิ่งที่ตรวจพบ</h3>
+                  <p className="text-xs text-slate-400">แก้ไขรายละเอียด จุดตรวจพบ ข้อเสนอแนะ หรือรูปภาพ</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingFinding(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditFinding} className="space-y-4 text-xs">
+              {/* Category Selection */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-2">เลือกประเภทรายการตรวจพบ *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditFindingCategory('RECOMMEND')}
+                    className={`p-3.5 rounded-2xl border text-left transition flex items-center space-x-3 cursor-pointer ${
+                      editFindingCategory === 'RECOMMEND'
+                        ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/30'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="w-9 h-9 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800">แนะนำ / จุดเสี่ยง</div>
+                      <div className="text-[11px] text-slate-500">Near Miss, อุบัติเหตุ</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditFindingCategory('COMMEND')}
+                    className={`p-3.5 rounded-2xl border text-left transition flex items-center space-x-3 cursor-pointer ${
+                      editFindingCategory === 'COMMEND'
+                        ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/30'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center shrink-0">
+                      <ThumbsUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800">ชมเชย (Good Practice)</div>
+                      <div className="text-[11px] text-slate-500">การปฏิบัติที่ถูกต้อง</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-type for Recommend */}
+              {editFindingCategory === 'RECOMMEND' && (
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1.5">ประเภทย่อยของความเสี่ยง</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: 'NEAR_MISS', label: 'เกือบเกิดอุบัติเหตุ (Near Miss)' },
+                      { id: 'ACCIDENT', label: 'อุบัติเหตุ (Accident)' },
+                      { id: 'UNSAFE_CONDITION', label: 'สภาพที่ไม่ปลอดภัย (Unsafe Condition)' },
+                      { id: 'UNSAFE_ACT', label: 'การกระทำที่ไม่ปลอดภัย (Unsafe Act)' }
+                    ].map(sub => (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => setEditFindingSubType(sub.id as any)}
+                        className={`px-3 py-1.5 rounded-xl font-bold transition text-[11px] cursor-pointer ${
+                          editFindingSubType === sub.id
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Photo Upload with camera & gallery */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  รูปภาพประกอบ {editFindingCategory === 'RECOMMEND' ? 'จุดเสี่ยง (Before Photo)' : 'สิ่งที่ชมเชย'}
+                </label>
+                {editFindingPhoto ? (
+                  <div className="relative aspect-video max-h-52 rounded-2xl overflow-hidden bg-black/5 border border-slate-200">
+                    <img src={editFindingPhoto} alt="รูปที่ตรวจพบ" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setEditFindingPhoto('')}
+                      className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full text-xs shadow-md cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50/50 flex flex-col items-center justify-center text-center space-y-2">
+                    <span className="text-xs text-slate-700 font-bold">แนบรูปภาพใหม่ (หากต้องการเปลี่ยน)</span>
+                    <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 transition cursor-pointer text-emerald-800 shadow-2xs">
+                        <Camera className="w-5 h-5 mb-1 text-emerald-600" />
+                        <span className="text-xs font-bold">ถ่ายรูป (กล้อง)</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleUploadImage(e, setEditFindingPhoto)}
+                        />
+                      </label>
+                      <label className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 active:bg-slate-200 transition cursor-pointer text-slate-700 shadow-2xs">
+                        <ImageIcon className="w-5 h-5 mb-1 text-slate-500" />
+                        <span className="text-xs font-bold">เลือกจากคลัง</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleUploadImage(e, setEditFindingPhoto)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">บริเวณ / จุดที่ตรวจพบ *</label>
+                <input
+                  type="text"
+                  value={editFindingLocation}
+                  onChange={(e) => setEditFindingLocation(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                  required
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">รายละเอียดสิ่งที่ตรวจพบ *</label>
+                <textarea
+                  value={editFindingDesc}
+                  onChange={(e) => setEditFindingDesc(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                  required
+                />
+              </div>
+
+              {/* Recommendation if category is RECOMMEND */}
+              {editFindingCategory === 'RECOMMEND' && (
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    มาตรการป้องกัน / ข้อแนะนำในการแก้ไข *
+                  </label>
+                  <textarea
+                    value={editFindingRec}
+                    onChange={(e) => setEditFindingRec(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingFinding(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-200 transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>บันทึกการแก้ไข</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

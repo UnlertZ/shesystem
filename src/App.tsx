@@ -9,6 +9,7 @@ import { DashboardPage } from './components/DashboardPage';
 import { SafetyCommitteePage } from './components/SafetyCommitteePage';
 import { UserManagementPage } from './components/UserManagementPage';
 import { ProfilePage } from './components/ProfilePage';
+import { PhotoGalleryPage } from './components/PhotoGalleryPage';
 import { InspectionModal } from './components/InspectionModal';
 
 export const App: React.FC = () => {
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     refreshUserData();
+    // Sync with Azure SQL immediately so fresh departments, positions, and records are loaded
+    storageService.syncWithServer();
 
     const handleSync = () => {
       refreshUserData();
@@ -52,7 +55,7 @@ export const App: React.FC = () => {
     setActiveTab('dashboard');
     setNotifications(storageService.getNotifications(user.id, user.role));
     setTasks(storageService.getTasks(user.id));
-    // Immediately pull latest notifications and assigned tasks for this user from Cloudflare D1
+    // Immediately pull latest notifications and assigned tasks for this user from Azure SQL
     storageService.syncWithServer();
   };
 
@@ -103,8 +106,8 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FCF9F4] flex flex-col justify-between">
-      <div>
+    <div className="min-h-screen bg-[#FCF9F4] flex flex-col justify-between w-full max-w-full">
+      <div className="w-full max-w-full">
         {/* Navigation Bar */}
         <Navbar
           currentUser={currentUser}
@@ -137,6 +140,12 @@ export const App: React.FC = () => {
             <SafetyCommitteePage
               currentUser={currentUser}
               onRefreshData={refreshUserData}
+            />
+          )}
+
+          {activeTab === 'gallery' && (currentUser.role === 'P3' || currentUser.role === 'P4') && (
+            <PhotoGalleryPage
+              currentUser={currentUser}
             />
           )}
 

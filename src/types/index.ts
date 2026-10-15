@@ -20,6 +20,7 @@ export interface User {
   username: string;
   password?: string;
   full_name?: string; // ชื่อจริง นามสกุล
+  email?: string;     // อีเมลสำหรับติดต่อหรือรับการแจ้งเตือน
   department: string; // แผนก เช่น แผนกความปลอดภัย (SHE), แผนกผลิต, แผนกคลังสินค้า
   position: string;   // ระดับ/ตำแหน่ง เช่น พนักงาน, หัวหน้างาน, รองผู้จัดการ, ผู้จัดการ
   role: UserRole;     // P1, P2, P3, P4
@@ -182,14 +183,14 @@ export interface SafetyFinding {
   location: string;
   description: string;       // รายละเอียดสิ่งที่พบ หรือ รายละเอียดการชมเชย
   recommendation?: string;  // มาตรการป้องกัน/แก้ไข หรือ ข้อแนะนำ
-  photo_url: string;        // รูปก่อนแก้ไข หรือ รูปชมเชย (Cloudflare R2)
+  photo_url: string;        // รูปก่อนแก้ไข หรือ รูปชมเชย (Azure Blob Storage)
   reporter_id: string;
   reporter_name: string;
   reporter_department?: string;
   status: SafetyFindingStatus;
   
   // Before-After Resolution fields
-  after_photo_url?: string; // รูปหลังแก้ไข (Cloudflare R2)
+  after_photo_url?: string; // รูปหลังแก้ไข (Azure Blob Storage)
   action_taken?: string;    // ระบุว่าแก้ไขอย่างไร
   resolved_by_id?: string;
   resolved_by_name?: string;

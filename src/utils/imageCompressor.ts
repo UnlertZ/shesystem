@@ -1,6 +1,6 @@
 /**
  * High-performance client-side image compression utility
- * Reduces image size by 90-97% before uploading to Cloudflare R2 / Server,
+ * Reduces image size by 90-97% before uploading to Azure Blob Storage / Server,
  * saving storage quota, reducing upload bandwidth, and speeding up PDF exports.
  */
 

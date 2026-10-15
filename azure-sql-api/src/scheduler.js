@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { query } from './db.js';
+import { deleteAzureBlob } from './blobStorage.js';
 
 const THAI_MONTH_NAMES = [
   'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -50,27 +51,99 @@ export async function runMonthlyReset() {
 }
 
 /**
- * Perform yearly cleanup: Delete inspections older than 2 years
+ * Perform retention cleanup: Delete inspection records and photos older than 2 years
+ * (Data and photos older than 2 years will be permanently purged from database and Azure Blob Storage)
+ * @param {number} retentionYears - default 2 years
  */
-export async function runYearlyCleanup() {
+export async function runRetentionCleanup(retentionYears = 2) {
   try {
     const now = new Date();
     const thaiDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-    const cutoffYear = thaiDate.getUTCFullYear() - 2;
-    const cutoffDate = `${cutoffYear}-01-01T00:00:00`;
+    const cutoffDateObj = new Date(thaiDate);
+    cutoffDateObj.setFullYear(cutoffDateObj.getFullYear() - retentionYears);
+    const cutoffDate = cutoffDateObj.toISOString();
+    const cutoffDateStr = cutoffDate.split('T')[0];
 
-    console.log(`🧹 [CRON] กำลังลบข้อมูลประวัติการตรวจเช็คที่เก่ากว่า 2 ปี (ก่อน ${cutoffDate})...`);
-    const res = await query('DELETE FROM dbo.inspections WHERE inspection_date < @cutoffDate', { cutoffDate });
-    console.log(`✅ [CRON] ลบข้อมูลเก่าเรียบร้อยแล้ว (${res.rowsAffected[0] || 0} แถว)`);
+    console.log(`🧹 [RETENTION] กำลังตรวจสอบและลบข้อมูลที่เก่ากว่า ${retentionYears} ปี (ก่อน ${cutoffDateStr})...`);
+
+    let deletedPhotosCount = 0;
+
+    // 1. Find and delete inspection photos older than 2 years
+    try {
+      const oldInspRes = await query(
+        'SELECT id, inspection_photo, location_photo FROM dbo.inspections WHERE inspection_date < @cutoffDate',
+        { cutoffDate }
+      );
+      const oldInspections = oldInspRes.recordset || [];
+      for (const insp of oldInspections) {
+        if (insp.inspection_photo) {
+          await deleteAzureBlob(insp.inspection_photo);
+          deletedPhotosCount++;
+        }
+        if (insp.location_photo) {
+          await deleteAzureBlob(insp.location_photo);
+          deletedPhotosCount++;
+        }
+      }
+    } catch (photoErr) {
+      console.warn('⚠️ ไม่สามารถลบรูปภาพประวัติการตรวจเก่าจาก Blob Storage:', photoErr.message);
+    }
+
+    // Delete inspection rows
+    const resInsp = await query('DELETE FROM dbo.inspections WHERE inspection_date < @cutoffDate', { cutoffDate });
+    const deletedInspections = resInsp.rowsAffected[0] || 0;
+
+    // 2. Find and delete Safety Committee findings photos older than 2 years
+    try {
+      const oldFindingsRes = await query(
+        'SELECT id, photo_url, after_photo_url FROM dbo.safety_findings WHERE created_at < @cutoffDate',
+        { cutoffDate }
+      );
+      const oldFindings = oldFindingsRes.recordset || [];
+      for (const f of oldFindings) {
+        if (f.photo_url) {
+          await deleteAzureBlob(f.photo_url);
+          deletedPhotosCount++;
+        }
+        if (f.after_photo_url) {
+          await deleteAzureBlob(f.after_photo_url);
+          deletedPhotosCount++;
+        }
+      }
+    } catch (findingPhotoErr) {
+      console.warn('⚠️ ไม่สามารถลบรูปภาพ คปอ. เก่าจาก Blob Storage:', findingPhotoErr.message);
+    }
+
+    const resFindings = await query('DELETE FROM dbo.safety_findings WHERE created_at < @cutoffDate', { cutoffDate });
+    const deletedFindings = resFindings.rowsAffected[0] || 0;
+
+    const resPatrols = await query('DELETE FROM dbo.safety_patrols WHERE patrol_date < @cutoffDateStr', { cutoffDateStr });
+    const deletedPatrols = resPatrols.rowsAffected[0] || 0;
+
+    console.log(`✅ [RETENTION] ล้างข้อมูลเก่ากว่า ${retentionYears} ปี สำเร็จ: ลบประวัติตรวจ ${deletedInspections} แถว, ลบผล คปอ. ${deletedFindings} แถว, ลบรอบ คปอ. ${deletedPatrols} แถว, ลบไฟล์รูปภาพ ${deletedPhotosCount} ไฟล์`);
+
+    return {
+      success: true,
+      cutoff_date: cutoffDate,
+      deleted_inspections: deletedInspections,
+      deleted_findings: deletedFindings,
+      deleted_patrols: deletedPatrols,
+      deleted_photos: deletedPhotosCount
+    };
   } catch (err) {
-    console.error('❌ [CRON] ข้อผิดพลาดในการลบข้อมูลเก่า:', err.message);
+    console.error('❌ [RETENTION] ข้อผิดพลาดในการลบข้อมูลเก่า 2 ปี:', err.message);
+    return { success: false, error: err.message };
   }
+}
+
+export async function runYearlyCleanup() {
+  return runRetentionCleanup(2);
 }
 
 /**
  * Initialize cron scheduled triggers
- * 1. Monthly Reset: Run at 00:00 on the 1st day of every month (Thai Time UTC+7 = 17:00 UTC previous day)
- * 2. Yearly Cleanup: Run on January 1st at 00:00 (Thai Time)
+ * 1. Monthly Reset: Run at 00:00 on the 1st day of every month (Thai Time UTC+7)
+ * 2. 2-Year Retention Purge: Runs at 02:00 on the 1st day of every month
  */
 export function startScheduler() {
   // Check every hour whether it is 00:00 Thai Time on day 1
@@ -79,18 +152,17 @@ export function startScheduler() {
     const thaiDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
     const day = thaiDate.getUTCDate();
     const hour = thaiDate.getUTCHours();
-    const month = thaiDate.getUTCMonth();
 
     // 00:00 Thai Time on 1st of month
     if (day === 1 && hour === 0) {
       await runMonthlyReset();
+    }
 
-      // Jan 1st yearly cleanup
-      if (month === 0) {
-        await runYearlyCleanup();
-      }
+    // 02:00 Thai Time on 1st of month -> Run 2-year retention cleanup
+    if (day === 1 && hour === 2) {
+      await runRetentionCleanup(2);
     }
   });
 
-  console.log('⏰ ระบบ Scheduler (Monthly Reset & Retention Cleanup) เริ่มทำงานแล้ว');
+  console.log('⏰ ระบบ Scheduler (Monthly Reset & 2-Year Retention Cleanup) เริ่มทำงานแล้ว');
 }

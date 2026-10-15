@@ -19,10 +19,23 @@
 }
 
 @layer base {
+  html {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
   body {
     font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: #FCF9F4;
     color: #3F3A31;
+    max-width: 100vw;
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
+  #root {
+    max-width: 100vw;
+    overflow-x: hidden;
+    width: 100%;
   }
 }
 

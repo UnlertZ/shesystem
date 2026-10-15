@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Equipment, InspectionRecord } from '../types';
 import { formatThaiDate } from '../utils/thaiDate';
 import { getEquipmentPhotoArchives } from '../utils/photoArchive';
+import { storageService } from '../services/storage';
 import {
   X,
   Flame,
@@ -21,7 +22,10 @@ import {
   ZoomIn,
   Images,
   FolderArchive,
-  ChevronRight
+  ChevronRight,
+  RotateCcw,
+  Save,
+  Check
 } from 'lucide-react';
 
 interface EquipmentDetailModalProps {
@@ -55,6 +59,65 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
 
   const activeArchiveYear = selectedArchiveYear || photoArchives[0]?.yearBE || null;
   const currentYearGroup = photoArchives.find(y => y.yearBE === activeArchiveYear) || photoArchives[0];
+
+  const [localHistory, setLocalHistory] = useState<InspectionRecord[]>(inspectionHistory);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editingDateValue, setEditingDateValue] = useState<string>('');
+  const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+  const [isClearing, setIsClearing] = useState<boolean>(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalHistory(inspectionHistory);
+  }, [inspectionHistory]);
+
+  const toDateTimeLocal = (isoStr: string) => {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleStartEditTime = (record: InspectionRecord) => {
+    setEditingRecordId(record.id);
+    setEditingDateValue(toDateTimeLocal(record.inspection_date));
+  };
+
+  const handleSaveEditTime = (recordId: string) => {
+    if (!editingDateValue) return;
+    const newDateIso = new Date(editingDateValue).toISOString();
+    storageService.updateInspectionTime(recordId, newDateIso);
+    setLocalHistory(prev => prev.map(r => r.id === recordId ? { ...r, inspection_date: newDateIso } : r));
+    setEditingRecordId(null);
+    setActionMessage('แก้ไขเวลาตรวจเช็คเรียบร้อยแล้ว');
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const hasInspectionThisMonth = localHistory.some(r => {
+    const d = new Date(r.inspection_date);
+    return !isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const handleClearThisEquipmentMonth = async () => {
+    setIsClearing(true);
+    try {
+      await storageService.clearMonthInspections({ equipment_id: equipment.id });
+      setLocalHistory(prev => prev.filter(r => {
+        const d = new Date(r.inspection_date);
+        return isNaN(d.getTime()) || !(d.getMonth() === currentMonth && d.getFullYear() === currentYear);
+      }));
+      setShowClearConfirm(false);
+      setActionMessage('ล้างประวัติการตรวจเช็ครอบเดือนนี้ของอุปกรณ์นี้เรียบร้อยแล้ว');
+      setTimeout(() => setActionMessage(null), 3000);
+    } catch (err: any) {
+      alert('เกิดข้อผิดพลาดในการล้างประวัติ: ' + err.message);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const getTypeTitle = () => {
     switch (equipment.type) {
@@ -389,30 +452,95 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
 
           {/* Inspection History */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
-            <h4 className="font-bold text-slate-800 flex items-center space-x-1.5">
-              <History className="w-4 h-4 text-slate-500" />
-              <span>ประวัติการตรวจเช็คย้อนหลัง ({inspectionHistory.length} ครั้ง)</span>
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-slate-800 flex items-center space-x-1.5">
+                <History className="w-4 h-4 text-slate-500" />
+                <span>ประวัติการตรวจเช็คย้อนหลัง ({localHistory.length} ครั้ง)</span>
+              </h4>
 
-            {inspectionHistory.length === 0 ? (
+              {isAdminOrSuper && hasInspectionThisMonth && (
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(true)}
+                  className="px-2.5 py-1 text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg border border-rose-200 flex items-center space-x-1 transition cursor-pointer"
+                  title="ล้างผลการตรวจเช็ครอบเดือนนี้ของอุปกรณ์นี้ (สิทธิ์ P3/P4)"
+                >
+                  <RotateCcw className="w-3 h-3 text-rose-600" />
+                  <span>ล้างประวัติเดือนนี้</span>
+                </button>
+              )}
+            </div>
+
+            {actionMessage && (
+              <div className="p-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>{actionMessage}</span>
+              </div>
+            )}
+
+            {localHistory.length === 0 ? (
               <div className="p-4 text-center text-slate-400 bg-slate-50 rounded-xl text-xs">
                 ยังไม่มีประวัติการตรวจเช็คสำหรับอุปกรณ์นี้
               </div>
             ) : (
               <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                {inspectionHistory.map(record => (
+                {localHistory.map(record => (
                   <div
                     key={record.id}
                     className="p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/60 transition space-y-1.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-800">
-                        ผู้ตรวจ: {record.inspector_name}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {formatThaiDate(record.inspection_date, true, true)}
-                      </span>
-                    </div>
+                    {editingRecordId === record.id ? (
+                      <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg space-y-2">
+                        <label className="block text-[11px] font-bold text-blue-900">
+                          แก้ไขวันและเวลาตรวจเช็ค:
+                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="datetime-local"
+                            value={editingDateValue}
+                            onChange={(e) => setEditingDateValue(e.target.value)}
+                            className="text-xs px-2.5 py-1.5 bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditTime(record.id)}
+                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>บันทึก</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingRecordId(null)}
+                            className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                          >
+                            ยกเลิก
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800">
+                          ผู้ตรวจ: {record.inspector_name}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[10px] text-slate-400">
+                            {formatThaiDate(record.inspection_date, true, true)}
+                          </span>
+                          {isAdminOrSuper && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditTime(record)}
+                              className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline flex items-center space-x-0.5 font-bold cursor-pointer"
+                              title="แก้ไขเวลาตรวจเช็ค (สิทธิ์ P3/P4)"
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>แก้ไขเวลา</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-[11px]">
                       <span className={`font-bold ${record.is_abnormal ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -458,6 +586,17 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
               </button>
             )}
 
+            {isAdminOrSuper && (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1 cursor-pointer shadow-2xs"
+                title="ล้างผลการตรวจเช็คของอุปกรณ์นี้ในรอบเดือนปัจจุบัน"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                <span>ล้างการตรวจรายการนี้</span>
+              </button>
+            )}
+
             {isAdminOrSuper && onDeleteEquipment && (
               <button
                 onClick={() => {
@@ -494,6 +633,41 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
             )}
           </div>
         </div>
+        {/* Clear Month Inspection Confirmation Modal */}
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-2xs p-4">
+            <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-3 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+              <div className="flex items-center space-x-2 text-rose-600 font-bold text-sm">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>ยืนยันล้างประวัติการตรวจรอบเดือนนี้</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                ต้องการล้างประวัติการตรวจเช็คของ <strong>{equipment.code}</strong> ในรอบเดือนนี้หรือไม่?
+                <br />
+                สถานะอุปกรณ์จะถูกรีเซ็ตกลับเป็น <strong>"ยังไม่ตรวจ" (PENDING)</strong>
+              </p>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isClearing}
+                  onClick={() => setShowClearConfirm(false)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  disabled={isClearing}
+                  onClick={handleClearThisEquipmentMonth}
+                  className="px-4 py-1.5 rounded-xl text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold transition flex items-center space-x-1 shadow-md shadow-rose-200"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isClearing ? 'animate-spin' : ''}`} />
+                  <span>{isClearing ? 'กำลังล้าง...' : 'ยืนยันล้างประวัติ'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

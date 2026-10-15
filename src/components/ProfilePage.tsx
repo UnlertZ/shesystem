@@ -99,7 +99,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       return;
     }
 
-    // Save to users list and Cloudflare D1
+    // Save to users list and Azure SQL
     storageService.changeUserPassword(currentUser.id, newPassword);
 
     setPasswordMsg({ type: 'success', text: 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว' });

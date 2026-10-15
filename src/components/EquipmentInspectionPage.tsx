@@ -25,7 +25,8 @@ import {
   User as UserIcon,
   Info,
   FileSpreadsheet,
-  ZoomIn
+  ZoomIn,
+  RotateCcw
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 
@@ -53,6 +54,24 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
   const [selectedEquipmentForDetail, setSelectedEquipmentForDetail] = useState<Equipment | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; title?: string } | null>(null);
   const [permissionErrorModal, setPermissionErrorModal] = useState<string | null>(null);
+  const [showClearAllMonthModal, setShowClearAllMonthModal] = useState<boolean>(false);
+  const [isClearingAll, setIsClearingAll] = useState<boolean>(false);
+  const [bannerAlert, setBannerAlert] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleConfirmClearAllMonth = async () => {
+    setIsClearingAll(true);
+    try {
+      await storageService.clearMonthInspections();
+      setShowClearAllMonthModal(false);
+      setEquipmentList(storageService.getEquipment());
+      setBannerAlert({ type: 'success', text: 'ล้างข้อมูลและรีเซ็ตสถานะการตรวจเช็คประจำรอบเดือนนี้ทั้งหมดเรียบร้อยแล้ว' });
+      setTimeout(() => setBannerAlert(null), 4000);
+    } catch (err: any) {
+      alert('เกิดข้อผิดพลาดในการล้างข้อมูล: ' + err.message);
+    } finally {
+      setIsClearingAll(false);
+    }
+  };
 
   const refreshEquipment = () => {
     setEquipmentList(storageService.getEquipment());
@@ -165,7 +184,15 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
 
         {/* Admin & P4 Action Buttons */}
         {isAdminOrSuper && (
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowClearAllMonthModal(true)}
+              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-rose-600/20 transition flex items-center space-x-1.5 cursor-pointer"
+              title="ล้างข้อมูลการตรวจเช็คของเดือนนี้ทั้งหมด (สิทธิ์ P3/P4)"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>ล้างการตรวจเช็คเดือนนี้ทั้งหมด</span>
+            </button>
             {currentUser?.role === 'P4' && (
               <button
                 onClick={() => setIsExcelImportModalOpen(true)}
@@ -185,6 +212,17 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
           </div>
         )}
       </div>
+
+      {bannerAlert && (
+        <div className={`p-4 rounded-2xl text-xs font-semibold flex items-center space-x-2 animate-in fade-in ${
+          bannerAlert.type === 'success'
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+            : 'bg-rose-50 border border-rose-200 text-rose-800'
+        }`}>
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{bannerAlert.text}</span>
+        </div>
+      )}
 
       {/* 4 Tabs Selector */}
       <div className="flex space-x-2 border-b border-[#E8DFC8] overflow-x-auto pb-1">
@@ -637,6 +675,54 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
             >
               เข้าใจแล้ว
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Inspections Confirmation Modal (P3/P4) */}
+      {showClearAllMonthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-bold text-slate-800">ยืนยันการล้างการตรวจเช็คของเดือนนี้ทั้งหมด</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                คุณต้องการล้างข้อมูลการตรวจเช็คอุปกรณ์ประจำรอบเดือนนี้ทั้งหมดใช่หรือไม่?
+              </p>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-xs text-rose-800 space-y-1.5">
+              <div className="font-bold flex items-center space-x-1.5">
+                <span>ข้อควรระวัง:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-rose-700">
+                <li>อุปกรณ์ทุกชนิดจะถูกรีเซ็ตสถานะเป็น <strong>"ยังไม่ตรวจ" (PENDING)</strong></li>
+                <li>ประวัติผลการตรวจเช็คของรอบเดือนนี้ทั้งหมดจะถูกลบออกจากฐานข้อมูล</li>
+                <li>สิทธิ์ดำเนินการเฉพาะ <strong>P3 (จป.)</strong> และ <strong>P4 (Super Admin)</strong> เท่านั้น</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                disabled={isClearingAll}
+                onClick={() => setShowClearAllMonthModal(false)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={isClearingAll}
+                onClick={handleConfirmClearAllMonth}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-semibold shadow-md shadow-rose-200 transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <RotateCcw className={`w-4 h-4 ${isClearingAll ? 'animate-spin' : ''}`} />
+                <span>{isClearingAll ? 'กำลังล้างข้อมูล...' : 'ยืนยันล้างข้อมูลรอบเดือนนี้'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

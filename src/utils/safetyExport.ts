@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
 import { SafetyPatrolRound, SafetyFinding } from '../types';
 import { formatThaiDate, getNowThai } from './thaiDate';
+import { fetchImageAsBlob } from './imageFetcher';
 
 export const getFindingStatusText = (status: SafetyFinding['status']): string => {
   switch (status) {
@@ -206,48 +207,43 @@ export async function exportSafetyPatrolPhotos(
 
     // 1. Finding Photo (Before photo)
     if (item.photo_url) {
-      if (item.photo_url.startsWith('data:image')) {
-        const base64Data = item.photo_url.split(',')[1];
-        const ext = item.photo_url.includes('image/png') ? 'png' : 'jpg';
-        folder?.file(`${dateStr}_${locStr}_${categoryStr}_before_${item.id.substring(0, 6)}.${ext}`, base64Data, { base64: true });
-        count++;
-      } else {
-        // Try to fetch remote URL as blob
-        try {
-          const resp = await fetch(item.photo_url);
-          if (resp.ok) {
-            const blob = await resp.blob();
-            folder?.file(`${dateStr}_${locStr}_${categoryStr}_before_${item.id.substring(0, 6)}.jpg`, blob);
-            count++;
-          } else {
-            readmeLines.push(`- ก่อนแก้ไข (${item.location}): ${item.photo_url}`);
-          }
-        } catch (_) {
+      try {
+        const blob = await fetchImageAsBlob(item.photo_url);
+        if (blob && blob.size > 0) {
+          const ext = blob.type && blob.type.includes('png') ? 'png' : 'jpg';
+          folder?.file(`${dateStr}_${locStr}_${categoryStr}_before_${item.id.substring(0, 6)}.${ext}`, blob);
+          count++;
+        } else if (item.photo_url.startsWith('data:image')) {
+          const base64Data = item.photo_url.split(',')[1];
+          const ext = item.photo_url.includes('image/png') ? 'png' : 'jpg';
+          folder?.file(`${dateStr}_${locStr}_${categoryStr}_before_${item.id.substring(0, 6)}.${ext}`, base64Data, { base64: true });
+          count++;
+        } else {
           readmeLines.push(`- ก่อนแก้ไข (${item.location}): ${item.photo_url}`);
         }
+      } catch (_) {
+        readmeLines.push(`- ก่อนแก้ไข (${item.location}): ${item.photo_url}`);
       }
     }
 
     // 2. After Photo (Resolution photo)
     if (item.after_photo_url) {
-      if (item.after_photo_url.startsWith('data:image')) {
-        const base64Data = item.after_photo_url.split(',')[1];
-        const ext = item.after_photo_url.includes('image/png') ? 'png' : 'jpg';
-        folder?.file(`${dateStr}_${locStr}_after_${item.id.substring(0, 6)}.${ext}`, base64Data, { base64: true });
-        count++;
-      } else {
-        try {
-          const resp = await fetch(item.after_photo_url);
-          if (resp.ok) {
-            const blob = await resp.blob();
-            folder?.file(`${dateStr}_${locStr}_after_${item.id.substring(0, 6)}.jpg`, blob);
-            count++;
-          } else {
-            readmeLines.push(`- หลังแก้ไข (${item.location}): ${item.after_photo_url}`);
-          }
-        } catch (_) {
+      try {
+        const blob = await fetchImageAsBlob(item.after_photo_url);
+        if (blob && blob.size > 0) {
+          const ext = blob.type && blob.type.includes('png') ? 'png' : 'jpg';
+          folder?.file(`${dateStr}_${locStr}_after_${item.id.substring(0, 6)}.${ext}`, blob);
+          count++;
+        } else if (item.after_photo_url.startsWith('data:image')) {
+          const base64Data = item.after_photo_url.split(',')[1];
+          const ext = item.after_photo_url.includes('image/png') ? 'png' : 'jpg';
+          folder?.file(`${dateStr}_${locStr}_after_${item.id.substring(0, 6)}.${ext}`, base64Data, { base64: true });
+          count++;
+        } else {
           readmeLines.push(`- หลังแก้ไข (${item.location}): ${item.after_photo_url}`);
         }
+      } catch (_) {
+        readmeLines.push(`- หลังแก้ไข (${item.location}): ${item.after_photo_url}`);
       }
     }
   }
@@ -272,5 +268,7 @@ export async function exportSafetyPatrolPhotos(
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 10000);
 }

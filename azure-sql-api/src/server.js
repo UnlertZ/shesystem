@@ -5,7 +5,15 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { query, initSchema, sql } from './db.js';
-import { startScheduler, runMonthlyReset, runYearlyCleanup } from './scheduler.js';
+import { startScheduler, runMonthlyReset, runYearlyCleanup, runRetentionCleanup } from './scheduler.js';
+import {
+  uploadImageToAzureBlob,
+  getAzureBlobStream,
+  deleteAzureBlob,
+  isBlobStorageConfigured,
+  getStorageInfo,
+  getContainerClient
+} from './blobStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,23 +21,38 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8787;
 
-// Uploads directory for image files
+/**
+ * Helper: Insert notification into database
+ */
+async function insertNotification({ id, recipient_user_id, target_role, sender_name, title, message, type = 'SYSTEM', created_at }) {
+  const notifId = id || `notif_${Date.now()}`;
+  const now = created_at || new Date().toISOString();
+  await query(`
+    INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
+    VALUES (@id, @recipient_user_id, @target_role, @sender_name, @title, @message, @type, 0, @created_at)
+  `, {
+    id: notifId,
+    recipient_user_id: recipient_user_id || null,
+    target_role: target_role || null,
+    sender_name: sender_name || 'SHE System',
+    title: title || '',
+    message: message || '',
+    type: type || 'SYSTEM',
+    created_at: now
+  });
+
+  return notifId;
+}
+
+// Uploads directory for image files (local fallback/cache)
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Multer storage configuration
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const safeName = path.basename(file.originalname, ext).replace(/\s+/g, '_');
-    cb(null, `${Date.now()}_${safeName}${ext}`);
-  }
-});
+// Multer memory storage configuration (allows direct streaming to Azure Blob Storage)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB max limit
 });
 
@@ -47,23 +70,99 @@ app.use((req, res, next) => {
 });
 
 // ==========================================
-// 0. Health Check & Diagnostics
+// 0. Root & Health Check Endpoints
 // ==========================================
+const distDir = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
+}
+
+app.get('/', (req, res) => {
+  // If frontend build exists, serve index.html
+  const indexHtmlPath = path.join(distDir, 'index.html');
+  if (fs.existsSync(indexHtmlPath)) {
+    return res.sendFile(indexHtmlPath);
+  }
+
+  // Otherwise, return friendly API landing page
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+      <meta charset="UTF-8">
+      <title>SHE System - Azure API Service</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; margin: 0; }
+        .card { max-width: 650px; margin: 0 auto; background: #1e293b; border-radius: 12px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        h1 { color: #38bdf8; margin-top: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }
+        .badge { background: #059669; color: white; padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: normal; }
+        .item { margin-bottom: 16px; padding: 12px; background: #0f172a; border-radius: 8px; border-left: 4px solid #38bdf8; font-size: 14px; }
+        .item b { color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; }
+        .links a { display: inline-block; margin-right: 12px; margin-top: 8px; color: #38bdf8; text-decoration: none; padding: 6px 12px; background: #334155; border-radius: 6px; font-size: 13px; }
+        .links a:hover { background: #475569; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>🚀 SHE System API Service <span class="badge">Online</span></h1>
+        <p style="color: #94a3b8; line-height: 1.6;">โปรเจกต์นี้เป็น <b>REST API Backend</b> สำหรับเชื่อมต่อ Microsoft Azure Portal</p>
+        
+        <div class="item">
+          <b>ฐานข้อมูล (Database)</b>
+          Microsoft Azure SQL Database: <code>${process.env.AZURE_SQL_DATABASE || 'shedatabase'}</code> (<code>${process.env.AZURE_SQL_SERVER || 'halls.database.windows.net'}</code>)
+        </div>
+        
+        <div class="item">
+          <b>ที่เก็บรูปภาพ (Blob Storage)</b>
+          Microsoft Azure Blob Storage: <code>${process.env.AZURE_STORAGE_CONTAINER_NAME || 'picshesystem'}</code>
+        </div>
+        
+        <div class="item">
+          <b>หมายเหตุเรื่องหน้าเว็บ (Frontend)</b>
+          โค้ดหน้าเว็บ React UI อยู่ที่โฟลเดอร์ <code>shesystem</code> หรือสามารถนำไฟล์ Build มาวางในโฟลเดอร์ <code>dist/</code> ของโปรเจกต์นี้เพื่อเปิดหน้าเว็บได้ทันที
+        </div>
+
+        <div class="links">
+          <b style="color: #94a3b8; display: block; margin-top: 16px;">Quick API Links:</b>
+          <a href="/api/health" target="_blank">📡 /api/health (ตรวจสถานะ)</a>
+          <a href="/api/equipment" target="_blank">🧯 /api/equipment</a>
+          <a href="/api/departments" target="_blank">🏢 /api/departments</a>
+          <a href="/api/users" target="_blank">👥 /api/users</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 app.get('/api/health', async (req, res) => {
+  const storageInfo = getStorageInfo();
   try {
     const testResult = await query('SELECT 1 as is_alive');
+    const isDbAlive = Boolean(testResult.recordset && testResult.recordset[0]?.is_alive === 1);
     res.json({
       status: 'ok',
       service: 'shesystem-azure-sql-api',
-      database: 'Azure SQL Database',
-      db_alive: Boolean(testResult.recordset && testResult.recordset[0]?.is_alive === 1),
+      database: {
+        type: 'Microsoft Azure SQL Database',
+        server: process.env.AZURE_SQL_SERVER || 'halls.database.windows.net',
+        name: process.env.AZURE_SQL_DATABASE || 'shedatabase',
+        db_alive: isDbAlive
+      },
+      storage: storageInfo,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
     res.status(500).json({
       status: 'error',
       service: 'shesystem-azure-sql-api',
-      database: 'Azure SQL Database',
+      database: {
+        type: 'Microsoft Azure SQL Database',
+        server: process.env.AZURE_SQL_SERVER || 'halls.database.windows.net',
+        name: process.env.AZURE_SQL_DATABASE || 'shedatabase',
+        db_alive: false
+      },
+      storage: storageInfo,
       error: err.message
     });
   }
@@ -224,7 +323,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password, full_name, department, position } = req.body;
+    const { username, password, full_name, email, department, position } = req.body;
     const cleanUsername = (username || '').trim();
 
     const existingResult = await query(
@@ -240,15 +339,17 @@ app.post('/api/auth/register', async (req, res) => {
     const id = `u_${Date.now()}`;
     const now = new Date().toISOString();
     const displayName = (full_name && full_name.trim()) ? full_name.trim() : cleanUsername;
+    const userEmail = (email && email.trim()) ? email.trim() : null;
 
     await query(`
-      INSERT INTO dbo.users (id, username, password, full_name, department, position, role, status, is_safety_committee, created_at, updated_at)
-      VALUES (@id, @username, @password, @full_name, @department, @position, @role, 'pending', 0, @created_at, @updated_at)
+      INSERT INTO dbo.users (id, username, password, full_name, email, department, position, role, status, is_safety_committee, created_at, updated_at)
+      VALUES (@id, @username, @password, @full_name, @email, @department, @position, @role, 'pending', 0, @created_at, @updated_at)
     `, {
       id,
       username: cleanUsername,
       password: password || '123456',
       full_name: displayName,
+      email: userEmail,
       department: department || '',
       position: userPosition,
       role,
@@ -257,15 +358,12 @@ app.post('/api/auth/register', async (req, res) => {
     });
 
     // Notify admin
-    const notifId = `notif_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, NULL, 'P3', @sender, @title, @message, 'SYSTEM', 0, @created_at)
-    `, {
-      id: notifId,
-      sender: 'ระบบสมัครสมาชิก',
+    await insertNotification({
+      target_role: 'P3',
+      sender_name: 'ระบบสมัครสมาชิก',
       title: 'มีสมาชิกรอการอนุมัติ',
       message: `ผู้ใช้ ${displayName} (${department || ''} - ${userPosition}) สมัครสมาชิกเข้าสู่ระบบ รอการอนุมัติ`,
+      type: 'SYSTEM',
       created_at: now
     });
 
@@ -298,15 +396,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     );
 
     // Notify admin
-    const notifId = `notif_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, NULL, 'P3', @sender, @title, @message, 'PASSWORD_RESET', 0, @created_at)
-    `, {
-      id: notifId,
-      sender: user.username,
+    await insertNotification({
+      target_role: 'P3',
+      sender_name: user.username,
       title: 'คำขอรีเซ็ทรหัสผ่าน',
       message: `ผู้ใช้ ${user.username} ขอรีเซ็ทรหัสผ่าน กรุณาตรวจสอบและดำเนินการ`,
+      type: 'PASSWORD_RESET',
       created_at: now
     });
 
@@ -322,7 +417,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     const result = await query(`
-      SELECT id, username, password, full_name, pending_full_name, department, position, role,
+      SELECT id, username, password, full_name, pending_full_name, email, department, position, role,
              status, is_safety_committee, avatar_url, created_at, updated_at
       FROM dbo.users
       ORDER BY created_at DESC
@@ -344,13 +439,14 @@ app.post('/api/users', async (req, res) => {
     const now = new Date().toISOString();
 
     await query(`
-      INSERT INTO dbo.users (id, username, password, full_name, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at)
-      VALUES (@id, @username, @password, @full_name, @department, @position, @role, 'approved', @is_safety_committee, @avatar_url, @created_at, @updated_at)
+      INSERT INTO dbo.users (id, username, password, full_name, email, department, position, role, status, is_safety_committee, avatar_url, created_at, updated_at)
+      VALUES (@id, @username, @password, @full_name, @email, @department, @position, @role, 'approved', @is_safety_committee, @avatar_url, @created_at, @updated_at)
     `, {
       id,
       username: data.username,
       password: data.password || '123456',
       full_name: data.full_name || data.username,
+      email: data.email ? data.email.trim() : null,
       department: data.department || '',
       position: data.position || '',
       role: data.role || 'P1',
@@ -375,6 +471,7 @@ app.put('/api/users/:id', async (req, res) => {
     await query(`
       UPDATE dbo.users SET
         full_name = COALESCE(@full_name, full_name),
+        email = COALESCE(@email, email),
         department = COALESCE(@department, department),
         position = COALESCE(@position, position),
         role = COALESCE(@role, role),
@@ -383,9 +480,10 @@ app.put('/api/users/:id', async (req, res) => {
         password = COALESCE(@password, password),
         avatar_url = COALESCE(@avatar_url, avatar_url),
         updated_at = @updated_at
-      WHERE id = @id
+      WHERE id = @id OR (@username IS NOT NULL AND LOWER(LTRIM(RTRIM(username))) = LOWER(LTRIM(RTRIM(@username))))
     `, {
       full_name: data.full_name || null,
+      email: data.email !== undefined ? (data.email ? data.email.trim() : null) : null,
       department: data.department || null,
       position: data.position || null,
       role: data.role || null,
@@ -393,6 +491,7 @@ app.put('/api/users/:id', async (req, res) => {
       is_safety_committee: data.is_safety_committee !== undefined ? (data.is_safety_committee ? 1 : 0) : null,
       password: data.password || null,
       avatar_url: data.avatar_url || null,
+      username: data.username || null,
       updated_at: now,
       id
     });
@@ -417,21 +516,17 @@ app.put('/api/users/:id/safety-committee', async (req, res) => {
       id
     });
 
-    const notifId = `notif_${Date.now()}`;
     const title = is_safety_committee ? 'คุณได้รับการแต่งตั้งเป็นคณะกรรมการ คปอ.' : 'แจ้งปรับสถานะคณะกรรมการ คปอ.';
     const message = is_safety_committee
       ? `คุณได้รับการแต่งตั้งให้เป็น คณะกรรมการความปลอดภัย อาชีวอนามัย และสภาพแวดล้อมในการทำงาน (คปอ.) โดย ${admin_name || 'แอดมิน'}`
       : `คุณพ้นจากสถานะ คณะกรรมการความปลอดภัย (คปอ.) เรียบร้อยแล้ว`;
 
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, @recipient_user_id, NULL, @sender_name, @title, @message, 'SYSTEM', 0, @created_at)
-    `, {
-      id: notifId,
+    await insertNotification({
       recipient_user_id: id,
       sender_name: admin_name || 'แอดมิน',
       title,
       message,
+      type: 'SYSTEM',
       created_at: now
     });
 
@@ -454,16 +549,12 @@ app.post('/api/users/:id/approve', async (req, res) => {
       id
     });
 
-    const notifId = `notif_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, @recipient_user_id, NULL, @sender_name, @title, @message, 'SYSTEM', 0, @created_at)
-    `, {
-      id: notifId,
+    await insertNotification({
       recipient_user_id: id,
       sender_name: 'แอดมิน',
       title: approved ? 'บัญชีของคุณได้รับการอนุมัติแล้ว' : 'บัญชีของคุณไม่ได้รับการอนุมัติ',
       message: approved ? 'คุณสามารถเข้าสู่ระบบและเริ่มใช้งาน SHE System ได้ทันที' : 'ขออภัย บัญชีของคุณไม่ได้รับการอนุมัติการใช้งาน',
+      type: 'SYSTEM',
       created_at: now
     });
 
@@ -524,15 +615,12 @@ app.post('/api/users/:id/request-name-change', async (req, res) => {
       id
     });
 
-    const notifId = `notif_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, NULL, 'P3', @sender, @title, @message, 'SYSTEM', 0, @created_at)
-    `, {
-      id: notifId,
-      sender: 'ระบบเปลี่ยนชื่อ-นามสกุล',
+    await insertNotification({
+      target_role: 'P3',
+      sender_name: 'ระบบเปลี่ยนชื่อ-นามสกุล',
       title: 'มีคำขออนุมัติเปลี่ยนชื่อ-นามสกุล',
       message: `ผู้ใช้ ${user.full_name || user.username} (${user.department}) ขอเปลี่ยนชื่อเป็น "${cleanName}" กรุณาตรวจสอบและอนุมัติในหน้าจัดการสมาชิก`,
+      type: 'SYSTEM',
       created_at: now
     });
 
@@ -570,18 +658,14 @@ app.post('/api/users/:id/approve-name-change', async (req, res) => {
       await query('UPDATE dbo.users SET pending_full_name = NULL, updated_at = @now WHERE id = @id', { now, id });
     }
 
-    const notifId = `notif_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, @recipient_user_id, NULL, @sender_name, @title, @message, 'SYSTEM', 0, @created_at)
-    `, {
-      id: notifId,
+    await insertNotification({
       recipient_user_id: id,
       sender_name: admin_name || 'แอดมิน',
       title: approve ? 'คำขอเปลี่ยนชื่อได้รับการอนุมัติแล้ว' : 'คำขอเปลี่ยนชื่อไม่ได้รับการอนุมัติ',
       message: approve
         ? `แอดมินได้อนุมัติการเปลี่ยนชื่อของคุณเป็น "${targetPendingName}" เรียบร้อยแล้ว`
         : `ขออภัย คำขอเปลี่ยนชื่อเป็น "${targetPendingName}" ไม่ได้รับการอนุมัติจากแอดมิน`,
+      type: 'SYSTEM',
       created_at: now
     });
 
@@ -900,15 +984,12 @@ app.post('/api/inspections', async (req, res) => {
 
     // If abnormal, notify admins
     if (isAbnormal) {
-      const notifId = `notif_${Date.now()}`;
-      await query(`
-        INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-        VALUES (@id, NULL, 'P3', @sender, @title, @message, 'DEFECT', 0, @created_at)
-      `, {
-        id: notifId,
-        sender: data.inspector_name,
+      await insertNotification({
+        target_role: 'P3',
+        sender_name: data.inspector_name,
         title: 'แจ้งเตือนพบอุปกรณ์ชำรุด/ผิดปกติ',
         message: `อุปกรณ์ ${data.equipment_code || data.equipment_id} พบปัญหา: ${data.abnormal_description}`,
+        type: 'DEFECT',
         created_at: now
       });
     }
@@ -927,38 +1008,398 @@ app.post('/api/inspections', async (req, res) => {
   }
 });
 
-// ==========================================
-// 7. Image Upload & File Serving Endpoints
-// ==========================================
-app.post('/api/upload', upload.single('file'), (req, res) => {
+app.put('/api/inspections/:id', async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'ไม่พบไฟล์รูปภาพที่อัปโหลด' });
+    const { id } = req.params;
+    const { inspection_date, inspector_name } = req.body;
+    const now = new Date().toISOString();
+
+    await query(`
+      UPDATE dbo.inspections SET
+        inspection_date = COALESCE(@inspection_date, inspection_date),
+        inspector_name = COALESCE(@inspector_name, inspector_name)
+      WHERE id = @id
+    `, { id, inspection_date, inspector_name });
+
+    // Update equipment latest inspection date if this was the latest
+    const inspRes = await query('SELECT TOP 1 equipment_id FROM dbo.inspections WHERE id = @id', { id });
+    if (inspRes.recordset && inspRes.recordset[0]) {
+      const eqId = inspRes.recordset[0].equipment_id;
+      const latestRes = await query(`
+        SELECT TOP 1 inspection_date, inspector_name 
+        FROM dbo.inspections 
+        WHERE equipment_id = @eqId 
+        ORDER BY inspection_date DESC
+      `, { eqId });
+
+      if (latestRes.recordset && latestRes.recordset[0]) {
+        await query(`
+          UPDATE dbo.equipment SET
+            latest_inspection_date = @latestDate,
+            latest_inspector = @latestInspector,
+            updated_at = @now
+          WHERE id = @eqId
+        `, {
+          latestDate: latestRes.recordset[0].inspection_date,
+          latestInspector: latestRes.recordset[0].inspector_name,
+          now,
+          eqId
+        });
+      }
     }
-    const fileKey = `photos/${req.file.filename}`;
-    const url = `/api/images/${fileKey}`;
-    res.json({ success: true, key: fileKey, url });
+
+    res.json({ success: true, message: 'แก้ไขเวลาตรวจเช็คเรียบร้อยแล้ว' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/images/*', (req, res) => {
+app.delete('/api/inspections/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const now = new Date().toISOString();
+
+    const inspRes = await query('SELECT TOP 1 equipment_id FROM dbo.inspections WHERE id = @id', { id });
+    const eqId = inspRes.recordset?.[0]?.equipment_id;
+
+    await query('DELETE FROM dbo.inspections WHERE id = @id', { id });
+
+    if (eqId) {
+      const latestRes = await query(`
+        SELECT TOP 1 inspection_date, inspector_name 
+        FROM dbo.inspections 
+        WHERE equipment_id = @eqId 
+        ORDER BY inspection_date DESC
+      `, { eqId });
+
+      const prev = latestRes.recordset?.[0];
+      await query(`
+        UPDATE dbo.equipment SET
+          latest_inspection_date = @latestDate,
+          latest_inspector = @latestInspector,
+          updated_at = @now
+        WHERE id = @eqId
+      `, {
+        latestDate: prev ? prev.inspection_date : null,
+        latestInspector: prev ? prev.inspector_name : null,
+        now,
+        eqId
+      });
+    }
+
+    res.json({ success: true, message: 'ลบข้อมูลการตรวจเช็คเรียบร้อยแล้ว' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/inspections/clear-month', async (req, res) => {
+  try {
+    const { equipment_id, year, month } = req.body;
+    const now = new Date();
+    // Thai Time UTC+7
+    const thaiNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const targetYear = year !== undefined ? Number(year) : thaiNow.getUTCFullYear();
+    const targetMonth = month !== undefined ? Number(month) : thaiNow.getUTCMonth();
+
+    const startDate = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0)).toISOString();
+    const endDate = new Date(Date.UTC(targetYear, targetMonth + 1, 1, 0, 0, 0)).toISOString();
+
+    let deleteQuery = 'DELETE FROM dbo.inspections WHERE inspection_date >= @startDate AND inspection_date < @endDate';
+    const params = { startDate, endDate };
+
+    if (equipment_id) {
+      deleteQuery += ' AND equipment_id = @equipment_id';
+      params.equipment_id = equipment_id;
+    }
+
+    const delRes = await query(deleteQuery, params);
+
+    // Reset equipment status to PENDING
+    if (equipment_id) {
+      const prevLatest = await query(`
+        SELECT TOP 1 inspection_date, inspector_name
+        FROM dbo.inspections
+        WHERE equipment_id = @equipment_id
+        ORDER BY inspection_date DESC
+      `, { equipment_id });
+
+      const prev = prevLatest.recordset?.[0];
+      await query(`
+        UPDATE dbo.equipment SET
+          inspection_status = 'PENDING',
+          latest_inspection_date = @latestDate,
+          latest_inspector = @latestInspector,
+          updated_at = @now
+        WHERE id = @equipment_id
+      `, {
+        equipment_id,
+        latestDate: prev ? prev.inspection_date : null,
+        latestInspector: prev ? prev.inspector_name : null,
+        now: now.toISOString()
+      });
+    } else {
+      await query(`UPDATE dbo.equipment SET inspection_status = 'PENDING', updated_at = @now`, {
+        now: now.toISOString()
+      });
+    }
+
+    res.json({
+      success: true,
+      deletedCount: delRes.rowsAffected?.[0] || 0,
+      message: equipment_id
+        ? 'ล้างประวัติการตรวจเช็คของอุปกรณ์นี้ในรอบเดือนนี้เรียบร้อยแล้ว'
+        : 'ล้างประวัติและรีเซ็ตสถานะการตรวจเช็คของเดือนนี้ทั้งหมดเรียบร้อยแล้ว'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 7. Image Upload & File Serving Endpoints
+// ==========================================
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'ไม่พบไฟล์รูปภาพที่อัปโหลด' });
+    }
+
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const safeName = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9_\u0E00-\u0E7F-]/g, '_');
+    const filename = `${Date.now()}_${safeName}${ext}`;
+    const fileKey = `photos/${filename}`;
+
+    // Write to local cache / uploads directory as reliable backup
+    try {
+      const localFilePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(localFilePath, req.file.buffer);
+    } catch (fsErr) {
+      console.warn('⚠️ บันทึกไฟล์ลงแคชในเครื่องไม่สำเร็จ:', fsErr.message);
+    }
+
+    // Upload to Microsoft Azure Blob Storage (Container: picshesystem)
+    if (isBlobStorageConfigured()) {
+      try {
+        const uploadResult = await uploadImageToAzureBlob(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype || 'image/jpeg'
+        );
+        return res.json({
+          success: true,
+          key: uploadResult.key,
+          url: uploadResult.url,
+          blob_url: uploadResult.blobUrl,
+          storage: 'azure-blob'
+        });
+      } catch (blobErr) {
+        console.warn('⚠️ อัปโหลดไปยัง Azure Blob Storage ไม่สำเร็จ จะใช้การเสิร์ฟไฟล์ผ่าน API ชั่วคราว:', blobErr.message);
+      }
+    }
+
+    const url = `/api/images/${fileKey}`;
+    res.json({ success: true, key: fileKey, url, storage: 'local' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/images/*', async (req, res) => {
   try {
     const subPath = req.params[0] || req.path.replace(/^\/api\/images\//, '');
     const filename = path.basename(subPath);
-    const filePath = path.join(uploadsDir, filename);
 
+    // 1. ลองดึงรูปภาพจาก Microsoft Azure Blob Storage (Container: picshesystem) ก่อน
+    if (isBlobStorageConfigured()) {
+      try {
+        const blobData = await getAzureBlobStream(subPath);
+        if (blobData && blobData.stream) {
+          res.setHeader('Content-Type', blobData.contentType || 'image/jpeg');
+          if (blobData.contentLength) {
+            res.setHeader('Content-Length', blobData.contentLength);
+          }
+          res.setHeader('Cache-Control', 'public, max-age=31536000');
+          return blobData.stream.pipe(res);
+        }
+      } catch (blobErr) {
+        console.warn('⚠️ ดึงรูปภาพจาก Azure Blob Storage ล้มเหลว ตรวจสอบไฟล์ในเครื่องแทน:', blobErr.message);
+      }
+    }
+
+    // 2. หากไม่พบใน Blob หรือยังไม่ได้ตั้งค่า Key ให้ค้นหาจากโฟลเดอร์ uploads ในเครื่อง
+    const filePath = path.join(uploadsDir, filename);
     if (fs.existsSync(filePath)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000');
       return res.sendFile(filePath);
     }
 
-    res.status(404).send('Image Not Found');
+    res.status(404).send('Image Not Found in Azure Blob Storage or Local Cache');
   } catch (err) {
     res.status(500).send('Error loading image');
   }
 });
+
+// ==========================================
+// Delete Images from Azure Blob Storage & Database
+// ==========================================
+app.post('/api/images/delete', async (req, res) => {
+  try {
+    const {
+      type, // 'single_equipment' | 'all_equipment' | 'single_inspection' | 'single_finding' | 'all_patrol' | 'direct'
+      equipmentId,
+      field, // 'inspection_sheet_photo' | 'location_photo' | 'defect_photo' | 'inspection_photo'
+      inspectionId,
+      findingId,
+      findingField, // 'photo_url' | 'after_photo_url'
+      patrolId,
+      url
+    } = req.body;
+
+    let deletedBlobs = 0;
+
+    const cleanupFile = async (fileUrlOrKey) => {
+      if (!fileUrlOrKey) return;
+      try {
+        await deleteAzureBlob(fileUrlOrKey);
+        deletedBlobs++;
+      } catch (err) {
+        console.warn('⚠️ deleteAzureBlob error:', err.message);
+      }
+      try {
+        const basename = path.basename(fileUrlOrKey);
+        const localPath = path.join(uploadsDir, basename);
+        if (fs.existsSync(localPath)) {
+          fs.unlinkSync(localPath);
+        }
+      } catch (_) {}
+    };
+
+    // 1. Direct URL/Key deletion
+    if (url || type === 'direct') {
+      const targetUrl = url || req.body.key;
+      if (targetUrl) {
+        await cleanupFile(targetUrl);
+      }
+    }
+
+    // 2. Single Equipment Photo
+    if (type === 'single_equipment' && equipmentId && field) {
+      const validFields = ['inspection_sheet_photo', 'location_photo', 'defect_photo'];
+      if (validFields.includes(field)) {
+        const itemRes = await query(`SELECT ${field} FROM dbo.equipment WHERE id = @equipmentId`, { equipmentId });
+        const oldUrl = itemRes.recordset?.[0]?.[field];
+        if (oldUrl) {
+          await cleanupFile(oldUrl);
+        }
+        await query(`UPDATE dbo.equipment SET ${field} = NULL, updated_at = @now WHERE id = @equipmentId`, {
+          equipmentId,
+          now: new Date().toISOString()
+        });
+      }
+    }
+
+    // 3. Single Inspection Photo
+    if (type === 'single_inspection' && inspectionId && field) {
+      const validFields = ['inspection_photo', 'location_photo'];
+      if (validFields.includes(field)) {
+        const itemRes = await query(`SELECT ${field} FROM dbo.inspections WHERE id = @inspectionId`, { inspectionId });
+        const oldUrl = itemRes.recordset?.[0]?.[field];
+        if (oldUrl) {
+          await cleanupFile(oldUrl);
+        }
+        await query(`UPDATE dbo.inspections SET ${field} = NULL WHERE id = @inspectionId`, { inspectionId });
+      }
+    }
+
+    // 4. All Photos of an Equipment
+    if (type === 'all_equipment' && equipmentId) {
+      const eqRes = await query(
+        'SELECT inspection_sheet_photo, location_photo, defect_photo FROM dbo.equipment WHERE id = @equipmentId',
+        { equipmentId }
+      );
+      if (eqRes.recordset?.length > 0) {
+        const eq = eqRes.recordset[0];
+        for (const f of ['inspection_sheet_photo', 'location_photo', 'defect_photo']) {
+          if (eq[f]) {
+            await cleanupFile(eq[f]);
+          }
+        }
+        await query(
+          'UPDATE dbo.equipment SET inspection_sheet_photo = NULL, location_photo = NULL, defect_photo = NULL, updated_at = @now WHERE id = @equipmentId',
+          { equipmentId, now: new Date().toISOString() }
+        );
+      }
+
+      const inspRes = await query(
+        'SELECT id, inspection_photo, location_photo FROM dbo.inspections WHERE equipment_id = @equipmentId',
+        { equipmentId }
+      );
+      for (const insp of inspRes.recordset || []) {
+        if (insp.inspection_photo) {
+          await cleanupFile(insp.inspection_photo);
+        }
+        if (insp.location_photo) {
+          await cleanupFile(insp.location_photo);
+        }
+      }
+      await query(
+        'UPDATE dbo.inspections SET inspection_photo = NULL, location_photo = NULL WHERE equipment_id = @equipmentId',
+        { equipmentId }
+      );
+    }
+
+    // 5. Single Finding Photo
+    if (type === 'single_finding' && findingId && findingField) {
+      const validFields = ['photo_url', 'after_photo_url'];
+      if (validFields.includes(findingField)) {
+        const findingRes = await query(`SELECT ${findingField} FROM dbo.safety_findings WHERE id = @findingId`, { findingId });
+        const oldUrl = findingRes.recordset?.[0]?.[findingField];
+        if (oldUrl) {
+          await cleanupFile(oldUrl);
+        }
+        await query(`UPDATE dbo.safety_findings SET ${findingField} = NULL WHERE id = @findingId`, { findingId });
+      }
+    }
+
+    // 6. All Photos of a Safety Patrol Round
+    if (type === 'all_patrol' && patrolId) {
+      const findingsRes = await query(
+        'SELECT id, photo_url, after_photo_url FROM dbo.safety_findings WHERE patrol_id = @patrolId',
+        { patrolId }
+      );
+      for (const finding of findingsRes.recordset || []) {
+        if (finding.photo_url) {
+          await cleanupFile(finding.photo_url);
+        }
+        if (finding.after_photo_url) {
+          await cleanupFile(finding.after_photo_url);
+        }
+      }
+      await query(
+        'UPDATE dbo.safety_findings SET photo_url = NULL, after_photo_url = NULL WHERE patrol_id = @patrolId',
+        { patrolId }
+      );
+    }
+
+    res.json({ success: true, message: 'ลบรูปภาพสำเร็จ', deleted_blobs: deletedBlobs });
+  } catch (err) {
+    console.error('❌ ข้อผิดพลาดในการลบรูปภาพ:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2-Year Retention Purge Trigger Endpoint
+app.post('/api/cleanup/retention-2years', async (req, res) => {
+  try {
+    const result = await runRetentionCleanup(2);
+    res.json(result);
+  } catch (err) {
+    console.error('❌ ข้อผิดพลาดในการรัน Retention Cleanup:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ==========================================
 // 8. Tasks Management
@@ -1009,19 +1450,15 @@ app.post('/api/tasks', async (req, res) => {
       updated_at: now
     });
 
-    const notifId = `notif_${Date.now()}`;
     const assignerName = data.assigned_by_name || 'ผู้มอบหมายงาน';
     const dueDateMsg = data.due_date ? ` (กำหนดเสร็จ: ${data.due_date})` : '';
 
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, @recipient_user_id, NULL, @sender_name, @title, @message, 'TASK', 0, @created_at)
-    `, {
-      id: notifId,
+    await insertNotification({
       recipient_user_id: data.assigned_to_id,
       sender_name: assignerName,
       title: 'คุณได้รับมอบหมายงานใหม่',
       message: `คุณได้รับมอบหมายงาน: "${data.title}" จาก ${assignerName}${dueDateMsg}`,
+      type: 'TASK',
       created_at: now
     });
 
@@ -1065,19 +1502,15 @@ app.patch('/api/tasks/:id/status', async (req, res) => {
     });
 
     if (status === 'COMPLETED' && existingTask.status !== 'COMPLETED' && existingTask.assigned_by_id) {
-      const notifId = `notif_${Date.now()}`;
       const doerName = completer_name || existingTask.assigned_to_name || 'ผู้รับมอบหมาย';
       const notesMsg = notes ? ` (บันทึก: ${notes})` : '';
 
-      await query(`
-        INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-        VALUES (@id, @recipient_user_id, NULL, @sender_name, @title, @message, 'TASK', 0, @created_at)
-      `, {
-        id: notifId,
+      await insertNotification({
         recipient_user_id: existingTask.assigned_by_id,
         sender_name: doerName,
         title: 'งานที่มอบหมายดำเนินการเสร็จสิ้นแล้ว',
         message: `งาน "${existingTask.title}" ได้รับการทำสำเร็จเรียบร้อยแล้ว โดย ${doerName}${notesMsg}`,
+        type: 'TASK',
         created_at: now
       });
     }
@@ -1155,14 +1588,9 @@ app.get('/api/notifications', async (req, res) => {
 app.post('/api/notifications/send', async (req, res) => {
   try {
     const { recipient_user_id, target_role, sender_name, title, message, type } = req.body;
-    const id = `notif_${Date.now()}`;
     const now = new Date().toISOString();
 
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, @recipient_user_id, @target_role, @sender_name, @title, @message, @type, 0, @created_at)
-    `, {
-      id,
+    const id = await insertNotification({
       recipient_user_id: recipient_user_id || null,
       target_role: target_role || null,
       sender_name: sender_name || 'ระบบ',
@@ -1315,15 +1743,12 @@ app.post('/api/safety-patrols', async (req, res) => {
       updated_at: now
     });
 
-    const notifId = `notif_patrol_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, NULL, 'ALL', @sender_name, @title, @message, 'SYSTEM', 0, @created_at)
-    `, {
-      id: notifId,
+    await insertNotification({
+      target_role: 'ALL',
       sender_name: data.created_by_name || 'แอดมิน คปอ.',
       title: 'เปิดรอบเดินตรวจ คปอ. ใหม่',
       message: `มีรายการเดินตรวจ คปอ. วันที่ ${data.patrol_date} (${timeRange}) สมาชิก คปอ. สามารถกดเข้าร่วมเพื่อบันทึกข้อมูลได้แล้ว`,
+      type: 'SYSTEM',
       created_at: now
     });
 
@@ -1357,6 +1782,29 @@ app.put('/api/safety-patrols/:id/status', async (req, res) => {
     const now = new Date().toISOString();
     await query('UPDATE dbo.safety_patrols SET status = @status, updated_at = @now WHERE id = @id', { status, now, id });
     res.json({ success: true, status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/safety-patrols/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, patrol_date, time_range, location, description } = req.body;
+    const now = new Date().toISOString();
+
+    await query(`
+      UPDATE dbo.safety_patrols SET
+        title = COALESCE(@title, title),
+        patrol_date = COALESCE(@patrol_date, patrol_date),
+        time_range = COALESCE(@time_range, time_range),
+        location = COALESCE(@location, location),
+        description = COALESCE(@description, description),
+        updated_at = @now
+      WHERE id = @id
+    `, { id, title, patrol_date, time_range, location, description, now });
+
+    res.json({ success: true, message: 'แก้ไขข้อมูลรอบเดินตรวจเรียบร้อยแล้ว' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1463,15 +1911,12 @@ app.put('/api/safety-findings/:id/resolve', async (req, res) => {
       id
     });
 
-    const notifId = `notif_rev_${Date.now()}`;
-    await query(`
-      INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-      VALUES (@id, NULL, 'P3', @sender, @title, @message, 'TASK', 0, @created_at)
-    `, {
-      id: notifId,
-      sender: data.resolved_by_name || 'สมาชิก คปอ.',
+    await insertNotification({
+      target_role: 'P3',
+      sender_name: data.resolved_by_name || 'สมาชิก คปอ.',
       title: 'มีการส่งผลแก้ไขปัญหา (Before/After) รอตรวจสอบ',
       message: `รายการที่ "${data.location || 'คปอ.'}" ได้รับการแก้ไขและแนบรูปผลการแก้ไขแล้ว กรุณาเข้าตรวจสอบผล`,
+      type: 'TASK',
       created_at: now
     });
 
@@ -1515,18 +1960,13 @@ app.put('/api/safety-findings/:id/review', async (req, res) => {
 
     const targetUserId = finding.resolved_by_id || finding.reporter_id;
     if (targetUserId) {
-      const notifId = `notif_review_${Date.now()}`;
       const title = approved ? 'การแก้ไขปัญหาผ่านการตรวจสอบแล้ว' : 'ผลการแก้ไขไม่ผ่าน (ส่งกลับไปแก้ใหม่)';
       const message = approved
         ? `รายการที่ "${finding.location}" ผ่านการตรวจสอบจากแอดมิน (${reviewer_name || 'แอดมิน'}) บันทึกผลสำเร็จเรียบร้อยแล้ว`
         : `รายการที่ "${finding.location}" ไม่ผ่านการตรวจสอบ: "${reject_reason || 'กรุณาแก้ไขเพิ่มเติม'}" กรุณาดำเนินการแก้ไขและส่งรูปภาพผลการแก้ไขใหม่อีกครั้ง`;
 
-      await query(`
-        INSERT INTO dbo.notifications (id, recipient_user_id, target_role, sender_name, title, message, type, is_read, created_at)
-        VALUES (@id, @targetUserId, NULL, @sender_name, @title, @message, @type, 0, @created_at)
-      `, {
-        id: notifId,
-        targetUserId,
+      await insertNotification({
+        recipient_user_id: targetUserId,
         sender_name: reviewer_name || 'แอดมิน คปอ.',
         title,
         message,
@@ -1536,6 +1976,30 @@ app.put('/api/safety-findings/:id/review', async (req, res) => {
     }
 
     res.json({ success: true, status: newStatus });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/safety-findings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category, sub_type, location, description, recommendation, photo_url } = req.body;
+    const now = new Date().toISOString();
+
+    await query(`
+      UPDATE dbo.safety_findings SET
+        category = COALESCE(@category, category),
+        sub_type = COALESCE(@sub_type, sub_type),
+        location = COALESCE(@location, location),
+        description = COALESCE(@description, description),
+        recommendation = COALESCE(@recommendation, recommendation),
+        photo_url = COALESCE(@photo_url, photo_url),
+        updated_at = @now
+      WHERE id = @id
+    `, { id, category, sub_type, location, description, recommendation, photo_url, now });
+
+    res.json({ success: true, message: 'แก้ไขข้อมูลรายการตรวจ คปอ. เรียบร้อยแล้ว' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1573,6 +2037,19 @@ app.post('/api/cron/yearly-cleanup', async (req, res) => {
 });
 
 // ==========================================
+// SPA Client-Side Routing Fallback
+// ==========================================
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  const targetDir = fs.existsSync(distDir) ? distDir : path.join(__dirname, '..', 'build');
+  const indexFile = path.join(targetDir, 'index.html');
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
+  }
+  next();
+});
+
+// ==========================================
 // Start Server
 // ==========================================
 async function start() {
@@ -1581,6 +2058,36 @@ async function start() {
     
     // Optional schema setup check (non-blocking)
     initSchema().catch((e) => console.log('Schema init notice:', e.message));
+
+    // Ensure email column exists on dbo.users
+    try {
+      await query(`
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.users') AND name = 'email')
+        BEGIN
+          ALTER TABLE dbo.users ADD email NVARCHAR(255) NULL;
+        END;
+      `);
+    } catch (e) {
+      console.log('User schema column check notice:', e.message);
+    }
+
+    // De-duplicate users table if duplicate records exist for the same username
+    try {
+      await query(`
+        WITH CTE AS (
+          SELECT id, username,
+                 ROW_NUMBER() OVER(
+                   PARTITION BY LOWER(LTRIM(RTRIM(username)))
+                   ORDER BY COALESCE(updated_at, created_at) DESC
+                 ) as rn
+          FROM dbo.users
+          WHERE username IS NOT NULL AND LTRIM(RTRIM(username)) <> ''
+        )
+        DELETE FROM CTE WHERE rn > 1;
+      `);
+    } catch (e) {
+      console.log('User duplicate cleanup notice:', e.message);
+    }
 
     // Start background cron jobs
     startScheduler();

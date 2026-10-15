@@ -19,7 +19,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'https://shesystem.anuruk3030.workers.dev',
+        target: 'http://localhost:8787',
         changeOrigin: true,
         secure: false
       }
