@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Equipment, InspectionRecord, EquipmentType } from '../types';
 import { formatThaiDate, getNowThai, THAI_MONTHS } from '../utils/thaiDate';
-import { resolveImageProxyUrl, fetchImageAsBlob } from '../utils/imageFetcher';
+import { resolveImageProxyUrl, fetchImageAsBlob, createFallbackImageBlob, getCandidateUrls } from '../utils/imageFetcher';
 import JSZip from 'jszip';
 import {
   X,
@@ -63,11 +63,9 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
   const currentYearBE = now.getFullYear() + 543;
   const availableYears = [currentYearBE, currentYearBE - 1, currentYearBE - 2];
 
-  // 1. Period filters (เลือกเดือน และ ปี)
+  // 1. Period filters (เลือกเดือน และ ปี) - ค่าเริ่มต้นเป็น 'ALL' (ทุกเดือน) เพื่อให้เห็นรูปทั้งหมดทันที
   const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYearBE);
-  const [selectedMonth, setSelectedMonth] = useState<number | 'ALL'>(
-    initialMonth !== undefined ? initialMonth : 'ALL'
-  );
+  const [selectedMonth, setSelectedMonth] = useState<number | 'ALL'>('ALL');
 
   // 2. Equipment type filter (เลือกประเภทของอุปกรณ์)
   const [selectedType, setSelectedType] = useState<string>(initialType || 'ALL');
@@ -90,6 +88,19 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
   // 7. Loading / Progress state
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; stage: string } | null>(null);
+
+  // Candidate fallback error handler for <img> elements
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, originalUrl: string) => {
+    const img = e.currentTarget;
+    const tried = parseInt(img.getAttribute('data-tried') || '0', 10);
+    const candidates = getCandidateUrls(originalUrl);
+    if (tried < candidates.length) {
+      img.setAttribute('data-tried', String(tried + 1));
+      img.src = candidates[tried];
+    } else {
+      img.style.display = 'none';
+    }
+  };
 
   // Check if a date string belongs to target year & month
   const isDateInSelectedPeriod = (dateStr?: string | null): boolean => {
@@ -230,7 +241,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
   React.useEffect(() => {
     const idsWithPhotos = filteredItems.filter(item => item.availablePhotos.length > 0).map(item => item.id);
     setSelectedIds(new Set(idsWithPhotos));
-  }, [filteredItems.length, selectedType, selectedMonth, selectedYear]);
+  }, [filteredItems]);
 
   // Selection handlers
   const handleToggleItem = (id: string) => {
@@ -288,7 +299,6 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
         : `${THAI_MONTHS[selectedMonth]}_${selectedYear}`;
 
       const rootFolderName = `SHE_Photos_${periodLabel}_${selectedType === 'ALL' ? 'ทุกประเภท' : selectedType}`;
-      const rootFolder = zip.folder(rootFolderName) || zip;
 
       // Group export items STRICTLY by equipment code (รหัสอุปกรณ์)
       const exportList: {
@@ -301,15 +311,12 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
 
       selectedItems.forEach(item => {
         // Folder name is the equipment code (e.g. "EX-001", "EX-002", "FHC-001")
-        const equipFolderName = item.code.trim();
+        const equipFolderName = item.code.trim().replace(/[\\/:*?"<>|]/g, '_');
 
-        // Track counts to give unique filenames when multiple photos of same type exist
-        const typeCounters: Record<string, number> = { sheet: 0, location: 0, defect: 0 };
+        // Track counts to give unique filenames when multiple photos exist
+        let photoIndex = 1;
 
         item.availablePhotos.forEach(photo => {
-          typeCounters[photo.type] = (typeCounters[photo.type] || 0) + 1;
-          const count = typeCounters[photo.type];
-
           let suffix = 'รูปตรวจเช็ค';
           if (photo.type === 'location') suffix = 'สถานที่ติดตั้ง';
           if (photo.type === 'defect') suffix = 'จุดที่พบปัญหา';
@@ -326,22 +333,33 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                 filename = `${item.code}_${suffix}_${mName}_${yBE}`;
               }
             } catch (_) {}
-          } else if (count > 1) {
-            filename = `${item.code}_${suffix}_${count}`;
+          } else {
+            filename = `${item.code}_${suffix}_${photoIndex}`;
+          }
+
+          // Sanitize filename for Windows OS filesystem safety
+          const safeName = filename.replace(/[\\/:*?"<>|]/g, '_');
+          let finalFilename = safeName;
+          let counter = 2;
+          while (exportList.some(e => e.folderName === equipFolderName && e.filename === finalFilename)) {
+            finalFilename = `${safeName}_${counter}`;
+            counter++;
           }
 
           exportList.push({
             equipCode: item.code,
             folderName: equipFolderName,
-            filename,
+            filename: finalFilename,
             url: photo.url,
             photoLabel: photo.label
           });
+          photoIndex++;
         });
       });
 
       let completedCount = 0;
       let successCount = 0;
+      let fallbackCount = 0;
       const failedList: { code: string; label: string; url: string; error?: string }[] = [];
 
       for (let i = 0; i < exportList.length; i++) {
@@ -352,12 +370,12 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
           stage: `กำลังดาวน์โหลด (${i + 1}/${exportList.length}): [${item.equipCode}] ${item.photoLabel}`
         });
 
-        // Target folder inside ZIP is organized by equipment code (รหัสอุปกรณ์)
-        const targetFolder = rootFolder.folder(item.folderName) || rootFolder;
+        // Target folder inside ZIP is organized directly by equipment code at the root of the ZIP
+        const targetFolder = zip.folder(item.folderName) || zip;
 
         try {
           const blob = await fetchImageAsBlob(item.url);
-          if (blob && blob.size > 0 && !blob.type.includes('html')) {
+          if (blob && blob.size > 100 && !blob.type.includes('html')) {
             let ext = 'jpg';
             if (blob.type.includes('png')) ext = 'png';
             else if (blob.type.includes('webp')) ext = 'webp';
@@ -367,17 +385,28 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
             successCount++;
           } else {
             console.warn(`[PhotoExport] Could not load image for [${item.equipCode}]: ${item.url}`);
-            failedList.push({ code: item.equipCode, label: item.photoLabel, url: item.url, error: 'ไม่สามารถโหลดรูปภาพได้' });
+            // Generate clear fallback card image so the folder is NEVER empty
+            const fallbackBlob = createFallbackImageBlob(item.equipCode, item.photoLabel, item.url);
+            if (fallbackBlob) {
+              targetFolder.file(`${item.filename}.jpg`, fallbackBlob);
+              fallbackCount++;
+            }
+            failedList.push({ code: item.equipCode, label: item.photoLabel, url: item.url, error: 'ไม่พบไฟล์ภาพบนเซิร์ฟเวอร์ (สร้างการ์ดแจ้งเตือนแทน)' });
           }
         } catch (fetchErr: any) {
           console.warn(`[PhotoExport] Error for [${item.equipCode}]:`, fetchErr);
+          const fallbackBlob = createFallbackImageBlob(item.equipCode, item.photoLabel, item.url);
+          if (fallbackBlob) {
+            targetFolder.file(`${item.filename}.jpg`, fallbackBlob);
+            fallbackCount++;
+          }
           failedList.push({ code: item.equipCode, label: item.photoLabel, url: item.url, error: fetchErr?.message });
         }
         completedCount++;
       }
 
-      // Add a detailed text manifest for the user
-      rootFolder.file(
+      // Add a detailed text manifest directly at the root of the ZIP
+      zip.file(
         'manifest.txt',
         `============================================================\n` +
         `ระบบจัดการความปลอดภัยและอุปกรณ์ดับเพลิง (SHE Safety Management)\n` +
@@ -388,10 +417,10 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
         `วันที่ส่งออก: ${formatThaiDate(now, true)}\n` +
         `จำนวนอุปกรณ์ที่ส่งออก: ${selectedItems.length} รายการ\n` +
         `จำนวนรูปภาพทั้งหมดที่ต้องดาวน์โหลด: ${exportList.length} รูป\n` +
-        `ดาวน์โหลดสำเร็จ: ${successCount} รูป\n` +
-        `ดาวน์โหลดไม่สำเร็จ: ${failedList.length} รูป\n\n` +
+        `ดาวน์โหลดรูปจริงสำเร็จ: ${successCount} รูป\n` +
+        `รูปที่สร้างการ์ดแจ้งเตือนแทน: ${fallbackCount} รูป\n\n` +
         `โครงสร้างโฟลเดอร์ใน ZIP:\n` +
-        `- รูปภาพทั้งหมดถูกจัดเก็บแยกตามรหัสอุปกรณ์ (เช่น ${selectedItems[0]?.code || 'EX-001'}/)\n` +
+        `- รูปภาพทั้งหมดถูกจัดเก็บแยกโฟลเดอร์ตามรหัสอุปกรณ์ทันทีที่เปิด ZIP (เช่น ${selectedItems[0]?.code || 'EX-001'}/)\n` +
         `- ภายในแต่ละโฟลเดอร์รหัสอุปกรณ์ ประกอบด้วย รูปตรวจเช็ค, รูปสถานที่ติดตั้ง และรูปข้อบกพร่อง\n\n` +
         `หมวดหมู่รูปภาพที่เลือก:\n` +
         `- รูปตรวจเช็ค/ใบตรวจ: ${includeSheet ? 'ใช่' : 'ไม่ใช่'}\n` +
@@ -405,20 +434,15 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
         }).join('\n') +
         (failedList.length > 0 ? (
           `\n\n------------------------------------------------------------\n` +
-          `รายการรูปภาพที่ไม่สามารถดาวน์โหลดได้ (${failedList.length} รูป):\n` +
+          `รายการรูปภาพที่ไม่สามารถดาวน์โหลดรูปจริงได้ (${failedList.length} รูป - มีการ์ดแจ้งเตือนในโฟลเดอร์แทน):\n` +
           failedList.map(f => `- [${f.code}] ${f.label} (${f.url})`).join('\n')
         ) : '')
       );
 
-      if (successCount === 0) {
-        alert('ไม่สามารถดาวน์โหลดรูปภาพได้ กรุณาตรวจสอบว่าเซิร์ฟเวอร์เปิดอยู่หรือมีการเชื่อมต่ออินเทอร์เน็ตที่ถูกต้อง');
-        return;
-      }
-
       setExportProgress({
         current: exportList.length,
         total: exportList.length,
-        stage: `กำลังบีบอัดและสร้างไฟล์ ZIP... (สำเร็จ ${successCount}/${exportList.length} รูป)`
+        stage: `กำลังบีบอัดและสร้างไฟล์ ZIP... (สำเร็จ ${successCount} รูปจริง${fallbackCount > 0 ? `, ${fallbackCount} การ์ดแจ้งเตือน` : ''})`
       });
 
       const zipBlob = await zip.generateAsync({
@@ -438,8 +462,12 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
         window.URL.revokeObjectURL(downloadUrl);
       }, 10000);
 
-      if (failedList.length > 0) {
-        alert(`ส่งออกไฟล์ ZIP สำเร็จแล้ว (${successCount} รูป) มีบางรูปไม่สามารถโหลดได้ ${failedList.length} รูป (ดูรายละเอียดใน manifest.txt)`);
+      if (failedList.length === 0) {
+        alert(`ส่งออกไฟล์ ZIP สำเร็จเรียบร้อยแล้ว (${successCount} รูป) แยกโฟลเดอร์ตามรหัสอุปกรณ์เรียบร้อย`);
+      } else if (successCount > 0) {
+        alert(`ส่งออกไฟล์ ZIP สำเร็จแล้ว (${successCount} รูปจริง, ${fallbackCount} การ์ดแจ้งเตือน) มีบางรูปไม่สามารถโหลดต้นฉบับได้ (ดูรายละเอียดใน manifest.txt)`);
+      } else {
+        alert(`ส่งออกไฟล์ ZIP สำเร็จแล้ว (${fallbackCount} รูป) หมายเหตุ: ไม่พบรูปจริงบนเซิร์ฟเวอร์ ระบบได้สร้างการ์ดแจ้งเตือนแยกใส่ในแต่ละโฟลเดอร์รหัสอุปกรณ์ให้เรียบร้อย`);
       }
     } catch (err: any) {
       console.error('ZIP generation failed:', err);
