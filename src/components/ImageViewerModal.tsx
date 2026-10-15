@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCcw, Download, Maximize2 } from 'lucide-react';
+import { resolveImageProxyUrl, getCandidateUrls } from '../utils/imageFetcher';
 
 interface ImageViewerModalProps {
   imageUrl: string | null;
@@ -13,6 +14,18 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   onClose
 }) => {
   const [scale, setScale] = useState(1);
+  const resolvedUrl = resolveImageProxyUrl(imageUrl);
+
+  // Candidate fallback error handler for <img> elements
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const tried = parseInt(img.getAttribute('data-tried') || '0', 10);
+    const candidates = getCandidateUrls(imageUrl || '');
+    if (tried < candidates.length) {
+      img.setAttribute('data-tried', String(tried + 1));
+      img.src = candidates[tried];
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,7 +93,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
             <RotateCcw className="w-4 h-4" />
           </button>
           <a
-            href={imageUrl}
+            href={resolvedUrl}
             target="_blank"
             rel="noopener noreferrer"
             download="she_image.jpg"
@@ -107,11 +120,12 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
         }}
       >
         <img
-          src={imageUrl}
+          src={resolvedUrl}
           alt={title || 'รูปภาพขยาย'}
           style={{ transform: `scale(${scale})`, transition: 'transform 0.15s ease-out' }}
           className="max-h-[82vh] max-w-full object-contain rounded-xl shadow-2xl cursor-grab active:cursor-grabbing select-none"
           onClick={(e) => e.stopPropagation()}
+          onError={handleImageError}
         />
       </div>
 

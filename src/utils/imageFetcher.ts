@@ -1,4 +1,5 @@
-import { getApiUrl } from '../services/storage';
+import { getApiUrl, R2_PUBLIC_BASE_URL, extractPhotoKey } from '../services/storage';
+export { R2_PUBLIC_BASE_URL, extractPhotoKey };
 
 /**
  * Directly convert a base64 Data URI into a Blob without using network fetch.
@@ -28,36 +29,26 @@ export function dataUriToBlob(dataUri: string): Blob | null {
 
 /**
  * Resolves an image URL so it can be reliably fetched in the browser:
- * - If it's a direct Microsoft Azure Blob Storage URL, routes via `/api/images/...`
- * - If it starts with `photos/`, routes via `/api/images/photos/...`
- * - If it contains `/api/images/`, normalizes it
- * - If already a data URI, returns as-is
+ * - Prioritizes Cloudflare R2 Public CDN directly (bypasses Zscaler blocks & backend proxy issues)
+ * - Returns base64 data URIs as-is
+ * - Preserves third-party external image URLs (e.g. Unsplash avatars)
  */
 export function resolveImageProxyUrl(rawUrl?: string | null): string {
   if (!rawUrl) return '';
   const trimmed = rawUrl.trim();
+  if (!trimmed) return '';
   if (trimmed.startsWith('data:')) return trimmed;
 
-  // 1. Azure Blob Storage URL (e.g. https://<account>.blob.core.windows.net/<container>/photos/<filename>)
-  const azureBlobMatch = trimmed.match(/https?:\/\/[^\/]+\.blob\.core\.windows\.net\/[^\/]+\/(.+)/i);
-  if (azureBlobMatch && azureBlobMatch[1]) {
-    return getApiUrl(`/api/images/${azureBlobMatch[1]}`);
+  // If already pointing to the public R2 domain, return as-is
+  if (trimmed.includes('.r2.dev/')) return trimmed;
+
+  const key = extractPhotoKey(trimmed);
+  if (key) {
+    return `${R2_PUBLIC_BASE_URL}/${encodeURI(key)}`;
   }
 
-  // 2. Path starts with photos/
-  if (trimmed.startsWith('photos/')) {
-    return getApiUrl(`/api/images/${trimmed}`);
-  }
-
-  // 3. Full URL that contains /api/images/
-  if (trimmed.includes('/api/images/')) {
-    const apiPart = trimmed.substring(trimmed.indexOf('/api/images/'));
-    return getApiUrl(apiPart);
-  }
-
-  // 4. Relative path starting with /api/
-  if (trimmed.startsWith('/api/')) {
-    return getApiUrl(trimmed);
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
   }
 
   return getApiUrl(trimmed);
@@ -82,41 +73,36 @@ export function getCandidateUrls(rawUrl: string): string[] {
     return candidates;
   }
 
-  // Extract key (e.g. "photos/1760412345_safe.jpg" or "1760412345_safe.jpg")
-  let key: string | null = null;
-  const photoMatch = cleanUrl.match(/(photos\/[^?#]+)/i);
-  if (photoMatch) {
-    key = photoMatch[1];
-  } else {
-    const apiImgMatch = cleanUrl.match(/\/api\/images\/([^?#]+)/i);
-    if (apiImgMatch) {
-      key = apiImgMatch[1];
-    }
-  }
-
+  const key = extractPhotoKey(cleanUrl);
   if (key) {
-    // 1. Same-origin relative path (works on Express port 8787, Azure Static Web Apps, etc.)
+    // 1. Direct Cloudflare R2 Public CDN (Top Priority - fast, not blocked by Zscaler, full CORS)
+    add(`${R2_PUBLIC_BASE_URL}/${encodeURI(key)}`);
+    add(`${R2_PUBLIC_BASE_URL}/${key}`);
+
+    // 2. Same-origin relative path (works on Express port 8787, Azure Static Web Apps, etc.)
+    add(`/api/images/${encodeURI(key)}`);
     add(`/api/images/${key}`);
 
-    // 2. Full origin relative path if in browser
+    // 3. Full origin relative path if in browser
     if (typeof window !== 'undefined' && window.location?.origin) {
+      add(`${window.location.origin}/api/images/${encodeURI(key)}`);
       add(`${window.location.origin}/api/images/${key}`);
     }
 
-    // 3. Current configured backend via getApiUrl
+    // 4. Current configured backend via getApiUrl
     add(getApiUrl(`/api/images/${key}`));
 
-    // 4. Local Express / Azure SQL API Server (port 8787)
+    // 5. Local Express / Azure SQL API Server (port 8787)
     add(`http://localhost:8787/api/images/${key}`);
 
-    // 5. Remote Cloudflare Worker fallback
+    // 6. Remote Cloudflare Worker fallback
     add(`https://shesystem.anuruk3030.workers.dev/api/images/${key}`);
   }
 
-  // 6. Resolved proxy URL
+  // 7. Resolved proxy URL
   add(resolveImageProxyUrl(cleanUrl));
 
-  // 7. Raw URL directly
+  // 8. Raw URL directly
   add(cleanUrl);
 
   return candidates;
@@ -126,7 +112,7 @@ export function getCandidateUrls(rawUrl: string): string[] {
  * Robustly fetches an image URL and returns a Blob.
  * Handles:
  * 1. Data URLs (base64) - instant decode via ArrayBuffer
- * 2. Multi-backend candidate URLs (Same-Origin, Express API 8787, Azure Blob Storage, Cloudflare Worker)
+ * 2. Multi-backend candidate URLs (Cloudflare R2 Public CDN, Same-Origin, Express API 8787, Worker)
  * 3. Validation to reject HTML/JSON error responses disguised as 200 OK (e.g. Zscaler block pages or Vite 504)
  * 4. Fallback to HTMLImageElement + Canvas if fetch is blocked by browser CORS policies
  */
@@ -151,13 +137,13 @@ export async function fetchImageAsBlob(rawUrl?: string | null): Promise<Blob | n
 
       const resp = await fetch(url, {
         signal: controller.signal,
-        headers: { Accept: 'image/*,*/*' }
+        mode: 'cors'
       });
       clearTimeout(timeoutId);
 
       if (resp.ok && resp.status === 200) {
         const contentType = (resp.headers.get('content-type') || '').toLowerCase();
-        // Skip HTML or JSON error/fallback responses (e.g. Zscaler or 404 HTML)
+        // Skip HTML or JSON error/fallback responses (e.g. Zscaler block pages or 404 HTML)
         if (contentType.includes('text/html') || contentType.includes('application/json')) {
           continue;
         }

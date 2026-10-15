@@ -717,9 +717,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                               src={item.primaryThumb}
                               alt={item.code}
                               className="w-full h-full object-cover group-hover:scale-110 transition duration-200"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = 'none';
-                              }}
+                              onError={(e) => handleImageError(e, item.primaryThumb)}
                             />
                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
                               <Eye className="w-3.5 h-3.5" />
@@ -901,10 +899,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                   src={previewPhoto.url}
                   alt="Preview"
                   className="max-h-full max-w-full object-contain rounded-lg"
-                  onError={(e) => {
-                    const el = e.currentTarget;
-                    el.alt = 'ไม่สามารถโหลดรูปภาพได้';
-                  }}
+                  onError={(e) => handleImageError(e, previewPhoto.url)}
                 />
               </div>
             </div>

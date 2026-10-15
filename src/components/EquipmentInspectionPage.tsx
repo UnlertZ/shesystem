@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Equipment, EquipmentType, User, Task } from '../types';
 import { storageService } from '../services/storage';
+import { resolveImageProxyUrl } from '../utils/imageFetcher';
 import { InspectionModal } from './InspectionModal';
 import { EquipmentFormModal } from './EquipmentFormModal';
 import { EquipmentDetailModal } from './EquipmentDetailModal';
@@ -474,12 +475,12 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            setLightboxImage({ url: equip.inspection_sheet_photo!, title: `ใบตรวจเช็ค - ${equip.code}` });
+                            setLightboxImage({ url: resolveImageProxyUrl(equip.inspection_sheet_photo!), title: `ใบตรวจเช็ค - ${equip.code}` });
                           }}
                           className="rounded-lg overflow-hidden border border-slate-200 aspect-video relative group/img cursor-pointer bg-slate-900"
                         >
                           <img
-                            src={equip.inspection_sheet_photo}
+                            src={resolveImageProxyUrl(equip.inspection_sheet_photo)}
                             alt="ใบตรวจเช็ค"
                             className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-85 transition"
                           />
@@ -505,12 +506,12 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            setLightboxImage({ url: equip.location_photo!, title: `สถานที่ - ${equip.code}` });
+                            setLightboxImage({ url: resolveImageProxyUrl(equip.location_photo!), title: `สถานที่ - ${equip.code}` });
                           }}
                           className="rounded-lg overflow-hidden border border-slate-200 aspect-video relative group/img cursor-pointer bg-slate-900"
                         >
                           <img
-                            src={equip.location_photo}
+                            src={resolveImageProxyUrl(equip.location_photo)}
                             alt="สถานที่"
                             className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-85 transition"
                           />

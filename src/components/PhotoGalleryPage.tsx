@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, Equipment, InspectionRecord, SafetyPatrolRound, SafetyFinding } from '../types';
 import { storageService } from '../services/storage';
 import { formatThaiDate } from '../utils/thaiDate';
+import { resolveImageProxyUrl, getCandidateUrls } from '../utils/imageFetcher';
 import {
   Images,
   Flame,
@@ -96,6 +97,19 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
     }));
   };
 
+  // Candidate fallback error handler for <img> elements
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, originalUrl: string) => {
+    const img = e.currentTarget;
+    const tried = parseInt(img.getAttribute('data-tried') || '0', 10);
+    const candidates = getCandidateUrls(originalUrl);
+    if (tried < candidates.length) {
+      img.setAttribute('data-tried', String(tried + 1));
+      img.src = candidates[tried];
+    } else {
+      img.src = 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=400';
+    }
+  };
+
   // -------------------------------------------------------------
   // Data Mapping for Equipment Photos
   // -------------------------------------------------------------
@@ -116,7 +130,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
           id: `${item.id}_sheet`,
           type: 'inspection_sheet_photo',
           label: 'แผ่นตรวจเช็ค',
-          url: item.inspection_sheet_photo,
+          url: resolveImageProxyUrl(item.inspection_sheet_photo),
           date: item.latest_inspection_date || item.updated_at
         });
       }
@@ -125,7 +139,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
           id: `${item.id}_loc`,
           type: 'location_photo',
           label: 'สถานที่ติดตั้ง',
-          url: item.location_photo,
+          url: resolveImageProxyUrl(item.location_photo),
           date: item.updated_at
         });
       }
@@ -134,8 +148,23 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
           id: `${item.id}_defect`,
           type: 'defect_photo',
           label: 'จุดชำรุด / ปัญหา',
-          url: item.defect_photo,
+          url: resolveImageProxyUrl(item.defect_photo),
           date: item.updated_at
+        });
+      }
+
+      // Add historical photos from photo_history if available
+      if (item.photo_history && Array.isArray(item.photo_history)) {
+        item.photo_history.forEach((h, hIdx) => {
+          if (h.photo_url) {
+            photos.push({
+              id: `${item.id}_hist_${hIdx}`,
+              type: 'inspection_sheet_photo',
+              label: h.note || `ประวัติ ${h.month_name || ''} ${h.year_be || ''}`,
+              url: resolveImageProxyUrl(h.photo_url),
+              date: h.date
+            });
+          }
         });
       }
 
@@ -147,7 +176,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
             id: `${insp.id}_insp`,
             type: 'inspection_photo',
             label: `ตรวจเช็ค ${insp.inspection_date}`,
-            url: insp.inspection_photo,
+            url: resolveImageProxyUrl(insp.inspection_photo),
             date: insp.inspection_date,
             inspector: insp.inspector_name,
             inspectionId: insp.id
@@ -158,7 +187,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
             id: `${insp.id}_loc`,
             type: 'inspection_location_photo',
             label: `สถานที่ ${insp.inspection_date}`,
-            url: insp.location_photo,
+            url: resolveImageProxyUrl(insp.location_photo),
             date: insp.inspection_date,
             inspector: insp.inspector_name,
             inspectionId: insp.id
@@ -547,10 +576,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
                                   alt={photo.label}
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                   loading="lazy"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src =
-                                      'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=400';
-                                  }}
+                                  onError={(e) => handleImageError(e, photo.url)}
                                 />
                                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-2 text-white">
                                   <span className="p-1.5 bg-black/60 rounded-full hover:bg-black/80 transition">
@@ -742,6 +768,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
                                           alt="Before"
                                           className="w-full h-full object-cover group-hover:scale-105 transition"
                                           loading="lazy"
+                                          onError={(e) => handleImageError(e, finding.photo_url)}
                                         />
                                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
                                           <Eye className="w-4 h-4" />
@@ -798,6 +825,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
                                           alt="After"
                                           className="w-full h-full object-cover group-hover:scale-105 transition"
                                           loading="lazy"
+                                          onError={(e) => handleImageError(e, finding.after_photo_url!)}
                                         />
                                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
                                           <Eye className="w-4 h-4" />
@@ -894,6 +922,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
                 src={previewImage.url}
                 alt={previewImage.title}
                 className="max-h-[70vh] max-w-full object-contain rounded-lg"
+                onError={(e) => handleImageError(e, previewImage.url)}
               />
             </div>
           </div>

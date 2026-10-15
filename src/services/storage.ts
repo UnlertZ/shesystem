@@ -140,12 +140,61 @@ export const API_BASE_URL = (
     : ''
 ).replace(/\/$/, '');
 
+export const R2_PUBLIC_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_R2_PUBLIC_DOMAIN)
+    ? String(import.meta.env.VITE_R2_PUBLIC_DOMAIN).replace(/\/$/, '')
+    : 'https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev';
+
+/**
+ * Extract photo storage key (e.g. photos/1791777894924_3866.jpg) from any URL variation
+ */
+export function extractPhotoKey(rawUrl?: string | null): string | null {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  const clean = rawUrl.trim();
+  if (!clean || clean.startsWith('data:')) return null;
+
+  // 1. Direct match for photos/filename.ext
+  const photoMatch = clean.match(/(photos\/[^\/?#]+)/i);
+  if (photoMatch) return photoMatch[1];
+
+  // 2. Match /api/images/filename.ext or /api/images/photos/...
+  const apiMatch = clean.match(/\/api\/images\/([^\/?#]+)/i);
+  if (apiMatch) {
+    return apiMatch[1].startsWith('photos/') ? apiMatch[1] : `photos/${apiMatch[1]}`;
+  }
+
+  // 3. Azure Blob storage URL match: .../picshesystem/photos/... or .../<container>/photos/...
+  const blobMatch = clean.match(/\.blob\.core\.windows\.net\/[^\/]+\/(photos\/[^\/?#]+)/i);
+  if (blobMatch) return blobMatch[1];
+
+  // 4. Filename pattern with timestamp and extension (e.g. 1791777894924_3866.jpg)
+  const fileMatch = clean.match(/([0-9]{10,}_[^\/?#]+\.(jpg|jpeg|png|webp|svg|gif))/i);
+  if (fileMatch) {
+    return `photos/${fileMatch[1]}`;
+  }
+
+  return null;
+}
+
 export function getApiUrl(path?: string | null): string {
   if (!path) return '';
-  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
+  const trimmed = path.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:')) return trimmed;
+
+  // If already pointing to the public R2 domain, return as-is
+  if (trimmed.includes('.r2.dev/')) return trimmed;
+
+  // Check if this path references a photo in storage (bypasses Zscaler blocks on workers.dev)
+  const photoKey = extractPhotoKey(trimmed);
+  if (photoKey) {
+    return `${R2_PUBLIC_BASE_URL}/${encodeURI(photoKey)}`;
   }
-  const cleanPath = path.startsWith('/') ? path : '/' + path;
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  const cleanPath = trimmed.startsWith('/') ? trimmed : '/' + trimmed;
   return API_BASE_URL ? (API_BASE_URL + cleanPath) : cleanPath;
 }
 

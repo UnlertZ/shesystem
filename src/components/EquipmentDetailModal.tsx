@@ -3,6 +3,7 @@ import { Equipment, InspectionRecord } from '../types';
 import { formatThaiDate } from '../utils/thaiDate';
 import { getEquipmentPhotoArchives } from '../utils/photoArchive';
 import { storageService } from '../services/storage';
+import { resolveImageProxyUrl } from '../utils/imageFetcher';
 import {
   X,
   Flame,
@@ -312,11 +313,11 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
               {/* Current Tank Photo */}
               {equipment.inspection_sheet_photo ? (
                 <div
-                  onClick={() => onViewImage(equipment.inspection_sheet_photo!, `รูปถัง/อุปกรณ์ปัจจุบัน - ${equipment.code}`)}
+                  onClick={() => onViewImage(resolveImageProxyUrl(equipment.inspection_sheet_photo!), `รูปถัง/อุปกรณ์ปัจจุบัน - ${equipment.code}`)}
                   className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900 shadow-xs"
                 >
                   <img
-                    src={equipment.inspection_sheet_photo}
+                    src={resolveImageProxyUrl(equipment.inspection_sheet_photo)}
                     alt="รูปถังปัจจุบัน"
                     className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                   />
@@ -338,11 +339,11 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
               {/* Location Photo */}
               {equipment.location_photo ? (
                 <div
-                  onClick={() => onViewImage(equipment.location_photo!, `รูปสถานที่ติดตั้ง - ${equipment.code}`)}
+                  onClick={() => onViewImage(resolveImageProxyUrl(equipment.location_photo!), `รูปสถานที่ติดตั้ง - ${equipment.code}`)}
                   className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900 shadow-xs"
                 >
                   <img
-                    src={equipment.location_photo}
+                    src={resolveImageProxyUrl(equipment.location_photo)}
                     alt="สถานที่ติดตั้ง"
                     className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                   />
@@ -415,11 +416,11 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                         {mGroup.photos.map(photo => (
                           <div
                             key={photo.id}
-                            onClick={() => onViewImage(photo.url, `[${equipment.code}] ${photo.label} (${mGroup.monthName} ${currentYearGroup.yearBE})`)}
+                            onClick={() => onViewImage(resolveImageProxyUrl(photo.url), `[${equipment.code}] ${photo.label} (${mGroup.monthName} ${currentYearGroup.yearBE})`)}
                             className="group relative rounded-xl overflow-hidden border border-slate-200 aspect-video cursor-pointer bg-slate-900 shadow-2xs hover:border-purple-300 transition"
                           >
                             <img
-                              src={photo.url}
+                              src={resolveImageProxyUrl(photo.url)}
                               alt={photo.label}
                               className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                             />
