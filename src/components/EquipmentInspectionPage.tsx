@@ -27,7 +27,8 @@ import {
   Info,
   FileSpreadsheet,
   ZoomIn,
-  RotateCcw
+  RotateCcw,
+  PowerOff
 } from 'lucide-react';
 import { formatThaiDate } from '../utils/thaiDate';
 
@@ -46,6 +47,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
   const [equipmentList, setEquipmentList] = useState<Equipment[]>(() => storageService.getEquipment());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'INSPECTED' | 'PENDING' | 'DEFECT' | 'RESOLVED'>('ALL');
+  const [usageFilter, setUsageFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
   // Modals state
   const [inspectingEquipment, setInspectingEquipment] = useState<Equipment | null>(null);
@@ -95,6 +97,9 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
 
   // Apply search & status filter
   const filteredEquipment = currentTabEquipment.filter(item => {
+    if (usageFilter === 'ACTIVE' && item.usage_status === 'INACTIVE') return false;
+    if (usageFilter === 'INACTIVE' && item.usage_status !== 'INACTIVE') return false;
+
     const matchesSearch =
       item.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -113,6 +118,8 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
 
   // Calculate statistics for the active tab
   const totalCount = currentTabEquipment.length;
+  const activeCount = currentTabEquipment.filter(e => e.usage_status !== 'INACTIVE').length;
+  const inactiveCount = currentTabEquipment.filter(e => e.usage_status === 'INACTIVE').length;
   const inspectedCount = currentTabEquipment.filter(e => e.inspection_status === 'INSPECTED').length;
   const pendingCount = currentTabEquipment.filter(e => e.inspection_status === 'PENDING').length;
   const defectCount = currentTabEquipment.filter(e => e.defect_status === 'DEFECT').length;
@@ -318,16 +325,54 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ค้นหารหัส, สถานที่, ผู้รับผิดชอบ..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20"
-          />
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ค้นหารหัส, สถานที่, ผู้รับผิดชอบ..."
+              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20"
+            />
+          </div>
+
+          {/* Usage Filter Switcher */}
+          <div className="inline-flex items-center bg-[#F7EEDC] p-1 rounded-xl text-xs border border-[#E8DFC8]">
+            <button
+              onClick={() => setUsageFilter('ALL')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                usageFilter === 'ALL'
+                  ? 'bg-white text-[#3F3A31] shadow-xs'
+                  : 'text-[#8C7454] hover:text-[#3F3A31]'
+              }`}
+            >
+              ทั้งหมด ({totalCount})
+            </button>
+            <button
+              onClick={() => setUsageFilter('ACTIVE')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center space-x-1 ${
+                usageFilter === 'ACTIVE'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-[#8C7454] hover:text-emerald-700'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>ใช้งานอยู่ ({activeCount})</span>
+            </button>
+            <button
+              onClick={() => setUsageFilter('INACTIVE')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center space-x-1 ${
+                usageFilter === 'INACTIVE'
+                  ? 'bg-slate-700 text-white shadow-xs'
+                  : 'text-[#8C7454] hover:text-slate-900'
+              }`}
+            >
+              <PowerOff className="w-3.5 h-3.5" />
+              <span>ยกเลิกใช้งาน ({inactiveCount})</span>
+            </button>
+          </div>
         </div>
 
         {currentUser?.role === 'P1' && (
@@ -370,14 +415,29 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
               <div
                 key={equip.id}
                 onClick={() => setSelectedEquipmentForDetail(equip)}
-                className="bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-lg hover:border-red-200 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
+                className={`bg-white rounded-3xl border ${
+                  equip.usage_status === 'INACTIVE'
+                    ? 'border-dashed border-slate-300 opacity-90 bg-slate-50/40'
+                    : 'border-slate-200/80 hover:border-red-200'
+                } shadow-xs hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group`}
               >
                 <div>
                   {/* Card Header */}
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 group-hover:bg-red-50/30 transition">
+                  <div className={`p-4 border-b border-slate-100 flex items-center justify-between transition ${
+                    equip.usage_status === 'INACTIVE' ? 'bg-slate-100/70' : 'bg-slate-50/50 group-hover:bg-red-50/30'
+                  }`}>
                     <div className="flex items-center space-x-2">
-                      <span className="font-bold text-base text-slate-900 group-hover:text-red-700 transition">{equip.code}</span>
-                      {equip.inspection_status === 'INSPECTED' ? (
+                      <span className={`font-bold text-base transition ${
+                        equip.usage_status === 'INACTIVE' ? 'text-slate-500' : 'text-slate-900 group-hover:text-red-700'
+                      }`}>
+                        {equip.code}
+                      </span>
+                      {equip.usage_status === 'INACTIVE' ? (
+                        <span className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                          <PowerOff className="w-3 h-3 text-slate-500" />
+                          <span>ยกเลิกใช้งาน</span>
+                        </span>
+                      ) : equip.inspection_status === 'INSPECTED' ? (
                         <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>ตรวจแล้ว</span>
@@ -391,7 +451,11 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                     </div>
 
                     <div className="flex items-center space-x-1">
-                      {equip.defect_status === 'DEFECT' ? (
+                      {equip.usage_status === 'INACTIVE' ? (
+                        <span className="bg-slate-200/80 text-slate-500 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                          ไม่นับใน Ready
+                        </span>
+                      ) : equip.defect_status === 'DEFECT' ? (
                         <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
                           <AlertTriangle className="w-3 h-3" />
                           <span>พบปัญหา</span>
@@ -537,6 +601,29 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                 {/* Card Footer Actions */}
                 <div className="p-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
                   <div className="flex items-center space-x-1.5">
+                    {/* Quick Toggle Usage Status for Supervisor/Admin (P2, P3, P4) */}
+                    {isSupervisorOrAbove && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const newStatus = equip.usage_status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+                          const actionText = newStatus === 'ACTIVE' ? 'เปิดใช้งาน' : 'ยกเลิกการใช้งาน (ไม่นับใน Ready)';
+                          if (confirm(`คุณต้องการเปลี่ยนสถานะอุปกรณ์ ${equip.code} เป็น "${actionText}" หรือไม่?`)) {
+                            storageService.updateEquipment(equip.id, { usage_status: newStatus });
+                            refreshEquipment();
+                          }
+                        }}
+                        className={`p-1.5 rounded-lg transition ${
+                          equip.usage_status === 'INACTIVE'
+                            ? 'text-emerald-700 hover:bg-emerald-100 bg-emerald-50'
+                            : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                        }`}
+                        title={equip.usage_status === 'INACTIVE' ? 'คลิกเพื่อเปิดใช้งานอุปกรณ์นี้' : 'คลิกเพื่อยกเลิกการใช้งานอุปกรณ์นี้'}
+                      >
+                        <PowerOff className="w-4 h-4" />
+                      </button>
+                    )}
+
                     {isAdminOrSuper && (
                       <>
                         <button
@@ -563,22 +650,29 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                     )}
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartInspection(equip);
-                    }}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1.5 ${
-                      canInspect
-                        ? 'bg-red-600 hover:bg-red-700 text-white'
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <CheckSquare className="w-3.5 h-3.5" />
-                    <span>
-                      {currentUser?.role === 'P1' && !assigned ? 'ต้องขออนุญาต P2' : 'ตรวจเช็คอุปกรณ์'}
+                  {equip.usage_status === 'INACTIVE' ? (
+                    <span className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200 flex items-center space-x-1.5">
+                      <PowerOff className="w-3.5 h-3.5 text-slate-400" />
+                      <span>ยกเลิกใช้งาน</span>
                     </span>
-                  </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartInspection(equip);
+                      }}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition flex items-center space-x-1.5 ${
+                        canInspect
+                          ? 'bg-red-600 hover:bg-red-700 text-white'
+                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" />
+                      <span>
+                        {currentUser?.role === 'P1' && !assigned ? 'ต้องขออนุญาต P2' : 'ตรวจเช็คอุปกรณ์'}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

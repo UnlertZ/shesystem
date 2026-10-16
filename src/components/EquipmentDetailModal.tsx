@@ -26,7 +26,8 @@ import {
   ChevronRight,
   RotateCcw,
   Save,
-  Check
+  Check,
+  PowerOff
 } from 'lucide-react';
 
 interface EquipmentDetailModalProps {
@@ -67,10 +68,29 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [currentUsageStatus, setCurrentUsageStatus] = useState<string>(equipment?.usage_status || 'ACTIVE');
 
   useEffect(() => {
     setLocalHistory(inspectionHistory);
   }, [inspectionHistory]);
+
+  useEffect(() => {
+    setCurrentUsageStatus(equipment?.usage_status || 'ACTIVE');
+  }, [equipment]);
+
+  const handleToggleUsage = () => {
+    if (!equipment) return;
+    const nextStatus = currentUsageStatus === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+    const msg = nextStatus === 'INACTIVE'
+      ? `ต้องการเปลี่ยนสถานะของ "${equipment.code}" เป็น "ยกเลิกการใช้งาน" ใช่หรือไม่?\n\n*อุปกรณ์นี้จะไม่ถูกนำไปนับในยอดความพร้อมใช้งาน (Ready) บน Dashboard`
+      : `ต้องการเปลี่ยนสถานะของ "${equipment.code}" กลับเป็น "ใช้งานอยู่" ใช่หรือไม่?\n\n*อุปกรณ์นี้จะถูกนำกลับไปคิดคำนวณในแดชบอร์ดตามปกติ`;
+    if (!confirm(msg)) return;
+
+    storageService.updateEquipment(equipment.id, { usage_status: nextStatus });
+    setCurrentUsageStatus(nextStatus);
+    setActionMessage(nextStatus === 'INACTIVE' ? 'เปลี่ยนเป็น "ยกเลิกการใช้งาน" เรียบร้อย' : 'เปลี่ยนเป็น "ใช้งานอยู่" เรียบร้อย');
+    setTimeout(() => setActionMessage(null), 3000);
+  };
 
   const toDateTimeLocal = (isoStr: string) => {
     const d = new Date(isoStr);
@@ -205,6 +225,32 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                   <Clock className="w-3.5 h-3.5" />
                   <span>ยังไม่ตรวจ</span>
                 </span>
+              )}
+            </div>
+
+            {/* Usage Status (ใช้งานอยู่ / ยกเลิกการใช้งาน) */}
+            <div className="flex items-center space-x-1.5">
+              <span className="text-slate-400">การใช้งาน:</span>
+              {currentUsageStatus === 'INACTIVE' ? (
+                <span className="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full font-bold flex items-center space-x-1 border border-slate-300">
+                  <PowerOff className="w-3.5 h-3.5 text-slate-500" />
+                  <span>ยกเลิกการใช้งาน</span>
+                </span>
+              ) : (
+                <span className="bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-bold flex items-center space-x-1 border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>ใช้งานอยู่</span>
+                </span>
+              )}
+              {isAdminOrSuper && (
+                <button
+                  type="button"
+                  onClick={handleToggleUsage}
+                  className="ml-1 text-[10px] text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                  title="คลิกเพื่อสลับสถานะ ใช้งานอยู่ / ยกเลิกการใช้งาน"
+                >
+                  {currentUsageStatus === 'INACTIVE' ? '[เปิดใช้งาน]' : '[ยกเลิกใช้งาน]'}
+                </button>
               )}
             </div>
 

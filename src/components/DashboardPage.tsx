@@ -125,19 +125,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
     ? equipment
     : equipment.filter(e => e.type === selectedEquipType);
 
-  // Key KPI metrics
-  const totalEquip = filteredEquip.length;
-  const inspectedCount = filteredEquip.filter(e => e.inspection_status === 'INSPECTED').length;
-  const pendingCount = filteredEquip.filter(e => e.inspection_status === 'PENDING').length;
-  const readyCount = filteredEquip.filter(e => e.ready_status === 'READY').length;
-  const defectCount = filteredEquip.filter(e => e.defect_status === 'DEFECT').length;
-  const resolvedCount = filteredEquip.filter(e => e.defect_status === 'RESOLVED').length;
+  // Equipment separation: Active (ใช้งานอยู่) vs Inactive (ยกเลิกการใช้งาน)
+  const activeEquip = filteredEquip.filter(e => e.usage_status !== 'INACTIVE');
+  const inactiveEquip = filteredEquip.filter(e => e.usage_status === 'INACTIVE');
+
+  // Key KPI metrics: Ready and completion calculations strictly count ACTIVE equipment
+  const totalEquip = activeEquip.length;
+  const inspectedCount = activeEquip.filter(e => e.inspection_status === 'INSPECTED').length;
+  const pendingCount = activeEquip.filter(e => e.inspection_status === 'PENDING').length;
+  const readyCount = activeEquip.filter(e => e.ready_status === 'READY').length;
+  const defectCount = activeEquip.filter(e => e.defect_status === 'DEFECT').length;
+  const resolvedCount = activeEquip.filter(e => e.defect_status === 'RESOLVED').length;
   const completionRate = totalEquip > 0 ? Math.round((inspectedCount / totalEquip) * 100) : 0;
+  const inactiveCount = inactiveEquip.length;
 
   // 1. Yearly Bar Chart Data (2 years: previous year + current year)
   // Calculate real yearly trend data based on inspections history and current equipment
   const sortedYears = availableYears.slice().reverse();
-  const normalPassedCount = filteredEquip.filter(
+  const normalPassedCount = activeEquip.filter(
     e => e.inspection_status === 'INSPECTED' && (e.defect_status === 'NORMAL' || (e.ready_status === 'READY' && e.defect_status !== 'DEFECT'))
   ).length;
 
@@ -585,6 +590,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                   <option value="FDC">หัวรับน้ำ (FDC)</option>
                 </select>
               </div>
+
+              {inactiveCount > 0 && (
+                <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-semibold text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                  <span>ยกเลิกใช้งาน: {inactiveCount} (ไม่นับรวม)</span>
+                </div>
+              )}
             </div>
 
             {/* Admin Export Buttons */}
@@ -628,18 +640,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                   style={{ width: `${completionRate}%` }}
                 ></div>
               </div>
+              {inactiveCount > 0 && (
+                <div className="text-[10px] text-slate-400 mt-2 font-medium">
+                  เฉพาะถังที่ใช้งานอยู่ {totalEquip} รายการ
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-3xl border border-[#E8DFC8] shadow-xs">
-              <div className="text-[#5C5951] text-xs font-semibold">ความพร้อมใช้งาน (Ready)</div>
+              <div className="flex items-center justify-between">
+                <div className="text-[#5C5951] text-xs font-semibold">ความพร้อมใช้งาน (Ready)</div>
+                {inactiveCount > 0 && (
+                  <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md" title="อุปกรณ์ที่ยกเลิกการใช้งานจะไม่ถูกนับรวมในความพร้อมใช้งาน">
+                    ยกเลิกใช้งาน {inactiveCount}
+                  </span>
+                )}
+              </div>
               <div className="flex items-baseline space-x-2 mt-2">
                 <span className="text-3xl font-extrabold text-emerald-600">{readyCount}</span>
-                <span className="text-xs text-[#5C5951]">/ {totalEquip} รายการ</span>
+                <span className="text-xs text-[#5C5951]">/ {totalEquip} รายการ {inactiveCount > 0 ? '(ใช้งานอยู่)' : ''}</span>
               </div>
               <div className="text-[11px] text-emerald-600 font-medium mt-3 flex items-center space-x-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>พร้อมใช้งานทันทีเมื่อเกิดเหตุ</span>
               </div>
+              {inactiveCount > 0 && (
+                <div className="text-[10px] text-slate-400 mt-1 font-medium">
+                  * ไม่นับรวมอุปกรณ์ที่ยกเลิกใช้งาน {inactiveCount} รายการ
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-3xl border border-[#E8DFC8] shadow-xs">

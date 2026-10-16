@@ -55,6 +55,7 @@ export type EquipmentType = 'EX' | 'FHC' | 'FH' | 'HD' | 'FDC';
 export type ReadyStatus = 'READY' | 'NOT_READY';
 export type InspectionStatus = 'INSPECTED' | 'PENDING';
 export type DefectStatus = 'NORMAL' | 'DEFECT' | 'RESOLVED';
+export type EquipmentUsageStatus = 'ACTIVE' | 'INACTIVE'; // 'ACTIVE' = ใช้งานอยู่, 'INACTIVE' = ยกเลิกการใช้งาน
 
 export interface EquipmentPhotoArchiveItem {
   id: string;
@@ -81,6 +82,7 @@ export interface Equipment {
   inspection_sheet_photo?: string;
   location_photo?: string;
   photo_history?: EquipmentPhotoArchiveItem[]; // ประวัติรูปภาพถังจัดเก็บตามปี-เดือน
+  usage_status?: EquipmentUsageStatus; // สถานะการใช้งาน: 'ACTIVE' (ใช้งานอยู่) หรือ 'INACTIVE' (ยกเลิกการใช้งาน)
   ready_status: ReadyStatus;
   inspection_status: InspectionStatus; // ตรวจแล้ว / ยังไม่ตรวจ
   responsible_person: string;

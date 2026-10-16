@@ -12,7 +12,8 @@ import {
   SafetyPatrolRound,
   SafetyFinding,
   PatrolStatus,
-  EquipmentPhotoArchiveItem
+  EquipmentPhotoArchiveItem,
+  EquipmentUsageStatus
 } from '../types';
 import {
   findLowestVacantNumber,
@@ -993,9 +994,10 @@ class StorageService {
     const data = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
     const list: Equipment[] = data ? JSON.parse(data) : DEFAULT_EQUIPMENT;
     
-    // Attach calculated age and full Azure Blob Storage photo URLs
+    // Attach calculated age, usage_status, and full Azure Blob Storage photo URLs
     const listWithAge = list.map(item => ({
       ...item,
+      usage_status: (item.usage_status as EquipmentUsageStatus) || 'ACTIVE',
       inspection_sheet_photo: getApiUrl(item.inspection_sheet_photo),
       location_photo: getApiUrl(item.location_photo),
       defect_photo: getApiUrl(item.defect_photo),
@@ -1034,6 +1036,7 @@ class StorageService {
       id: `eq_${type.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       code,
       sequence_number: vacantSeq,
+      usage_status: data.usage_status || 'ACTIVE',
       ready_status: data.ready_status || 'READY',
       inspection_status: 'PENDING',
       defect_status: 'NORMAL',
@@ -1057,7 +1060,8 @@ class StorageService {
         in_service_date: data.in_service_date,
         inspection_sheet_photo: data.inspection_sheet_photo,
         location_photo: data.location_photo,
-        responsible_person: data.responsible_person
+        responsible_person: data.responsible_person,
+        usage_status: newEquip.usage_status
       })
     }).then(async res => {
       if (res.ok) {
@@ -1095,6 +1099,14 @@ class StorageService {
     }).catch(console.error);
 
     return updated;
+  }
+
+  toggleEquipmentUsageStatus(id: string): Equipment | null {
+    const list = this.getEquipment();
+    const item = list.find(e => e.id === id);
+    if (!item) return null;
+    const nextStatus: EquipmentUsageStatus = item.usage_status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+    return this.updateEquipment(id, { usage_status: nextStatus });
   }
 
   deleteEquipment(id: string): boolean {

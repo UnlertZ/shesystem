@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Equipment, EquipmentType, User } from '../types';
+import { Equipment, EquipmentType, User, EquipmentUsageStatus } from '../types';
 import { storageService, uploadToR2 } from '../services/storage';
 import { findLowestVacantNumber, formatEquipmentCode } from '../utils/thaiDate';
-import { X, Plus, Save, Camera, Building, Calendar, Scale, Layers, UserCheck, Image as ImageIcon, RotateCcw } from 'lucide-react';
+import { X, Plus, Save, Camera, Building, Calendar, Scale, Layers, UserCheck, Image as ImageIcon, RotateCcw, CheckCircle2, PowerOff } from 'lucide-react';
 
 interface EquipmentFormModalProps {
   equipment?: Equipment | null; // If null, mode is Add
@@ -27,6 +27,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
   const [responsiblePerson, setResponsiblePerson] = useState(equipment?.responsible_person || '');
   const [inspectionPhoto, setInspectionPhoto] = useState(equipment?.inspection_sheet_photo || '');
   const [locationPhoto, setLocationPhoto] = useState(equipment?.location_photo || '');
+  const [usageStatus, setUsageStatus] = useState<EquipmentUsageStatus>(equipment?.usage_status || 'ACTIVE');
 
   // Get active registered users to select as responsible person
   const [systemUsers] = useState<User[]>(() =>
@@ -146,7 +147,8 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
         in_service_date: inServiceDate,
         responsible_person: responsiblePerson,
         inspection_sheet_photo: inspectionPhoto || undefined,
-        location_photo: locationPhoto || undefined
+        location_photo: locationPhoto || undefined,
+        usage_status: usageStatus
       });
     } else {
       storageService.addEquipment({
@@ -158,6 +160,7 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
         responsible_person: responsiblePerson,
         inspection_sheet_photo: inspectionPhoto || undefined,
         location_photo: locationPhoto || undefined,
+        usage_status: usageStatus,
         ready_status: 'READY',
         inspection_status: 'PENDING',
         defect_status: 'NORMAL'
@@ -237,6 +240,50 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
                 {previewCode}
               </div>
             </div>
+          </div>
+
+          {/* Equipment Usage Status (ใช้งานอยู่ / ยกเลิกการใช้งาน) */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+                <PowerOff className="w-3.5 h-3.5 text-slate-500" />
+                <span>สถานะการใช้งานอุปกรณ์</span>
+              </label>
+              <span className="text-[11px] text-slate-500">
+                {usageStatus === 'ACTIVE' ? '✅ ใช้งานอยู่ (คิดคำนวณ Ready ใน Dashboard)' : '⛔ ยกเลิกการใช้งาน (ไม่นับใน Dashboard)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setUsageStatus('ACTIVE')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 border ${
+                  usageStatus === 'ACTIVE'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>ใช้งานอยู่ (Active)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsageStatus('INACTIVE')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 border ${
+                  usageStatus === 'INACTIVE'
+                    ? 'bg-slate-700 text-white border-slate-700 shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <PowerOff className="w-3.5 h-3.5" />
+                <span>ยกเลิกการใช้งาน (Inactive)</span>
+              </button>
+            </div>
+            {usageStatus === 'INACTIVE' && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 font-medium">
+                * เมื่อเลือก &quot;ยกเลิกการใช้งาน&quot; อุปกรณ์ตัวนี้จะไม่ถูกนำไปนับในยอดความพร้อมใช้งาน (Ready) บน Dashboard
+              </p>
+            )}
           </div>
 
           {/* Category & Weight */}
