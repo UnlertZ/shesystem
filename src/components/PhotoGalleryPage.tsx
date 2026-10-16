@@ -52,7 +52,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
-  const [equipmentTypeFilter, setEquipmentTypeFilter] = useState<'ALL' | 'EX' | 'FHC' | 'FH' | 'HD'>('ALL');
+  const [equipmentTypeFilter, setEquipmentTypeFilter] = useState<'ALL' | 'EX' | 'FHC' | 'FH' | 'HD' | 'FDC'>('ALL');
   const [onlyWithPhotos, setOnlyWithPhotos] = useState(true);
   const [patrolStatusFilter, setPatrolStatusFilter] = useState<'ALL' | 'OPEN' | 'CLOSED'>('ALL');
 
@@ -348,18 +348,6 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
             </div>
           </div>
         </div>
-
-        {/* 2-Year Retention Trigger Button */}
-        <button
-          onClick={() => {
-            setRetentionResult(null);
-            setIsRetentionModalOpen(true);
-          }}
-          className="inline-flex items-center justify-center space-x-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition shrink-0"
-        >
-          <Clock className="w-4 h-4 text-amber-600" />
-          <span>นโยบาย 2 ปี & ล้างข้อมูลเก่า</span>
-        </button>
       </div>
 
       {/* Retention Policy Banner */}
@@ -439,7 +427,7 @@ export const PhotoGalleryPage: React.FC<PhotoGalleryPageProps> = ({ currentUser 
         <div className="flex flex-wrap items-center gap-2">
           {activeTab === 'EQUIPMENT' && (
             <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs">
-              {(['ALL', 'EX', 'FHC', 'FH', 'HD'] as const).map(type => (
+              {(['ALL', 'EX', 'FHC', 'FH', 'HD', 'FDC'] as const).map(type => (
                 <button
                   key={type}
                   onClick={() => setEquipmentTypeFilter(type)}

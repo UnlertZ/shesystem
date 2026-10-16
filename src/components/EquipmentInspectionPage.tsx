@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Equipment, EquipmentType, User, Task } from '../types';
 import { storageService } from '../services/storage';
-import { resolveImageProxyUrl } from '../utils/imageFetcher';
+import { resolveImageProxyUrl, handleImgErrorWithCandidates } from '../utils/imageFetcher';
 import { InspectionModal } from './InspectionModal';
 import { EquipmentFormModal } from './EquipmentFormModal';
 import { EquipmentDetailModal } from './EquipmentDetailModal';
@@ -141,7 +141,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
       const assigned = getAssignedTaskForEquipment(equip.id);
       if (!assigned) {
         setPermissionErrorModal(
-          `พนักงาน (สิทธิ์ P1) สามารถตรวจเช็คได้เมื่อได้รับอนุญาตหรือมอบหมายงานจากหัวหน้างาน (P2) เท่านั้น\n\nอุปกรณ์ ${equip.code} นี้ยังไม่ได้รับมอบหมายให้คุณ`
+          `พนักงาน (สิทธิ์ P1-General) สามารถตรวจเช็คได้เมื่อได้รับอนุญาตหรือมอบหมายงานจากหัวหน้างาน (P2-Oparetor) เท่านั้น\n\nอุปกรณ์ ${equip.code} นี้ยังไม่ได้รับมอบหมายให้คุณ`
         );
         return;
       }
@@ -163,7 +163,8 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
       case 'EX': return '1. ถังดับเพลิง (EX)';
       case 'FHC': return '2. ตู้ดับเพลิง (FHC)';
       case 'FH': return '3. ตู้สายฉีด (FH)';
-      case 'HD': return '4. หัวรับน้ำ (HD)';
+      case 'HD': return '4. หัวจ่ายน้ำ (HD)';
+      case 'FDC': return '5. หัวรับน้ำ (FDC)';
     }
   };
 
@@ -225,9 +226,9 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
         </div>
       )}
 
-      {/* 4 Tabs Selector */}
+      {/* 5 Tabs Selector */}
       <div className="flex space-x-2 border-b border-[#E8DFC8] overflow-x-auto pb-1">
-        {(['EX', 'FHC', 'FH', 'HD'] as EquipmentType[]).map((tab) => {
+        {(['EX', 'FHC', 'FH', 'HD', 'FDC'] as EquipmentType[]).map((tab) => {
           const isActive = activeType === tab;
           const count = equipmentList.filter(e => e.type === tab).length;
           return (
@@ -422,13 +423,13 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                     <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded-xl text-[11px] text-slate-600">
                       <div>
                         <span className="font-medium text-slate-400">
-                          {equip.type === 'EX' ? 'ชนิดถัง:' : equip.type === 'FHC' ? 'ประเภทตู้:' : equip.type === 'FH' ? 'ประเภทสาย:' : 'ชนิดหัวรับน้ำ:'}
+                          {equip.type === 'EX' ? 'ชนิดถัง:' : equip.type === 'FHC' ? 'ประเภทตู้:' : equip.type === 'FH' ? 'ประเภทสาย:' : equip.type === 'HD' ? 'ชนิดหัวจ่ายน้ำ:' : 'ชนิดหัวรับน้ำ:'}
                         </span>{' '}
                         <span className="font-semibold text-slate-800 truncate block">{equip.category || '-'}</span>
                       </div>
                       <div>
                         <span className="font-medium text-slate-400">
-                          {equip.type === 'EX' ? 'น้ำหนัก:' : equip.type === 'FHC' ? 'ขนาดตู้/สาย:' : equip.type === 'FH' ? 'ขนาด/ระยะ:' : 'ขนาดข้อต่อ:'}
+                          {equip.type === 'EX' ? 'น้ำหนัก:' : equip.type === 'FHC' ? 'ขนาดตู้/สาย:' : equip.type === 'FH' ? 'ขนาด/ระยะ:' : equip.type === 'HD' ? 'ขนาดข้อต่อทางออก:' : 'ขนาดข้อต่อทางเข้า:'}
                         </span>{' '}
                         <span className="font-semibold text-slate-800 truncate block">{equip.weight || '-'}</span>
                       </div>
@@ -482,6 +483,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                           <img
                             src={resolveImageProxyUrl(equip.inspection_sheet_photo)}
                             alt="ใบตรวจเช็ค"
+                            onError={(e) => handleImgErrorWithCandidates(e, equip.inspection_sheet_photo)}
                             className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-85 transition"
                           />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition text-white">
@@ -513,6 +515,7 @@ export const EquipmentInspectionPage: React.FC<EquipmentInspectionPageProps> = (
                           <img
                             src={resolveImageProxyUrl(equip.location_photo)}
                             alt="สถานที่"
+                            onError={(e) => handleImgErrorWithCandidates(e, equip.location_photo)}
                             className="w-full h-full object-cover group-hover/img:scale-105 group-hover/img:opacity-85 transition"
                           />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition text-white">

@@ -48,6 +48,33 @@ ChartJS.register(
   ArcElement
 );
 
+// Chart plugin: Draw numeric value labels on/above each bar
+const barValueLabelsPlugin = {
+  id: 'barValueLabels',
+  afterDatasetsDraw(chart: any) {
+    const { ctx, chartArea } = chart;
+    chart.data.datasets.forEach((dataset: any, datasetIndex: number) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta.hidden) {
+        meta.data.forEach((element: any, index: number) => {
+          const value = dataset.data[index];
+          if (value !== undefined && value !== null) {
+            ctx.save();
+            ctx.font = 'bold 11px Prompt, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle = value > 0 ? '#1f2937' : '#9ca3af';
+            const topLimit = chartArea ? chartArea.top + 14 : 14;
+            const yPos = Math.max(topLimit, element.y - 4);
+            ctx.fillText(String(value), element.x, yPos);
+            ctx.restore();
+          }
+        });
+      }
+    });
+  }
+};
+
 interface DashboardPageProps {
   currentUser: User | null;
   onRefreshData?: () => void;
@@ -58,8 +85,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const now = getNowThai();
   const currentYearBE = now.getFullYear() + 543;
 
-  // Selected period filters: current year and up to 2 years back (total 3 years available: ปีปัจจุบัน + ย้อนหลัง 2 ปี)
-  const availableYears = [currentYearBE, currentYearBE - 1, currentYearBE - 2];
+  // Selected period filters: current year and 1 year back (total 2 years available: ปีปัจจุบัน + ย้อนหลัง 1 ปี)
+  const availableYears = [currentYearBE, currentYearBE - 1];
   const [selectedYear, setSelectedYear] = useState<number>(currentYearBE);
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth()); // 0-11
   const [selectedEquipType, setSelectedEquipType] = useState<string>('ALL');
@@ -107,23 +134,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
   const resolvedCount = filteredEquip.filter(e => e.defect_status === 'RESOLVED').length;
   const completionRate = totalEquip > 0 ? Math.round((inspectedCount / totalEquip) * 100) : 0;
 
-  // 1. Yearly Bar Chart Data (2 years history + current year)
+  // 1. Yearly Bar Chart Data (2 years: previous year + current year)
   // Calculate real yearly trend data based on inspections history and current equipment
   const sortedYears = availableYears.slice().reverse();
+  const normalPassedCount = filteredEquip.filter(
+    e => e.inspection_status === 'INSPECTED' && (e.defect_status === 'NORMAL' || (e.ready_status === 'READY' && e.defect_status !== 'DEFECT'))
+  ).length;
+
   const yearlyBarData = {
     labels: sortedYears.map(y => `ปี พ.ศ. ${y}`),
     datasets: [
       {
         label: 'ตรวจแล้ว (ผ่าน)',
         data: sortedYears.map(y => {
-          if (y === currentYearBE) return inspectedCount;
+          if (y === currentYearBE) return normalPassedCount;
           return inspections.filter(i => {
             const inspYear = new Date(i.inspection_date).getFullYear() + 543;
             return inspYear === y && !i.is_abnormal;
           }).length;
         }),
         backgroundColor: '#10b981', // emerald-500
-        borderRadius: 8
+        borderRadius: 6
       },
       {
         label: 'พบปัญหาแต่แก้ไขแล้ว',
@@ -135,7 +166,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           }).length;
         }),
         backgroundColor: '#3b82f6', // blue-500
-        borderRadius: 8
+        borderRadius: 6
       },
       {
         label: 'พบปัญหา (ยังไม่แก้ไข)',
@@ -147,7 +178,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           }).length;
         }),
         backgroundColor: '#ef4444', // red-500
-        borderRadius: 8
+        borderRadius: 6
       },
       {
         label: 'ยังไม่ตรวจ',
@@ -156,7 +187,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
           return 0;
         }),
         backgroundColor: '#f59e0b', // amber-500
-        borderRadius: 8
+        borderRadius: 6
       }
     ]
   };
@@ -546,11 +577,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
                   onChange={(e) => setSelectedEquipType(e.target.value)}
                   className="bg-[#FCF9F4] border border-[#E8DFC8] rounded-lg px-2.5 py-1.5 font-bold text-[#3F3A31]"
                 >
-                  <option value="ALL">ทั้งหมด (EX, FHC, FH, HD)</option>
+                  <option value="ALL">ทั้งหมด (EX, FHC, FH, HD, FDC)</option>
                   <option value="EX">ถังดับเพลิง (EX)</option>
                   <option value="FHC">ตู้ดับเพลิง (FHC)</option>
                   <option value="FH">ตู้สายฉีด (FH)</option>
-                  <option value="HD">หัวรับน้ำ (HD)</option>
+                  <option value="HD">หัวจ่ายน้ำ (HD)</option>
+                  <option value="FDC">หัวรับน้ำ (FDC)</option>
                 </select>
               </div>
             </div>
@@ -643,7 +675,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-sm text-[#3F3A31]">
-                    กราฟแท่งเปรียบเทียบสถิติรายปี (ย้อนหลัง 2 ปี รวมปีปัจจุบัน {currentYearBE})
+                    กราฟแท่งเปรียบเทียบสถิติรายปี (2 ปี: รวมปีปัจจุบัน {currentYearBE})
                   </h3>
                   <p className="text-xs text-[#5C5951]">อิงตามเวลาประเทศไทย (UTC+7)</p>
                 </div>
@@ -655,15 +687,49 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ currentUser, onRef
               <div className="h-72">
                 <Bar
                   data={yearlyBarData}
+                  plugins={[barValueLabelsPlugin]}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                      padding: {
+                        top: 24
+                      }
+                    },
                     scales: {
-                      x: { stacked: true },
-                      y: { stacked: true, beginAtZero: true }
+                      x: {
+                        stacked: false,
+                        grid: { display: false },
+                        ticks: {
+                          font: { family: 'Prompt, sans-serif', weight: 'bold', size: 12 },
+                          color: '#3F3A31'
+                        }
+                      },
+                      y: {
+                        stacked: false,
+                        beginAtZero: true,
+                        grace: '15%',
+                        grid: { color: '#f1f5f9' },
+                        ticks: {
+                          precision: 0,
+                          font: { family: 'Prompt, sans-serif', size: 11 },
+                          color: '#64748b'
+                        }
+                      }
                     },
                     plugins: {
-                      legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          boxWidth: 12,
+                          font: { size: 11, family: 'Prompt, sans-serif' }
+                        }
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => ` ${context.dataset.label}: ${context.raw} รายการ`
+                        }
+                      }
                     }
                   }}
                 />

@@ -57,12 +57,12 @@ BEGIN
     CREATE INDEX idx_users_username_lower ON dbo.users (username);
 END;
 
--- 4. Equipment Table (EX, FHC, FH, HD)
+-- 4. Equipment Table (EX, FHC, FH, HD, FDC)
 IF OBJECT_ID('dbo.equipment', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.equipment (
         id VARCHAR(50) NOT NULL PRIMARY KEY,
-        type VARCHAR(20) NOT NULL,                 -- 'EX', 'FHC', 'FH', 'HD'
+        type VARCHAR(20) NOT NULL,                 -- 'EX', 'FHC', 'FH', 'HD', 'FDC'
         code VARCHAR(50) NOT NULL UNIQUE,          -- 'EX-001', 'FHC-001', etc.
         sequence_number INT NOT NULL,              -- Numeric sequence for vacant slot reuse
         category NVARCHAR(100) NULL,               -- เคมีแห้ง, CO2, Foam, Clean Agent

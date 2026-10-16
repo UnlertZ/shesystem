@@ -117,7 +117,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   // 2. Promote P1 to P2
   const handlePromoteP1ToP2 = (user: User) => {
     if (user.role !== 'P1') return;
-    if (!confirm(`ยืนยันการเลื่อนระดับสิทธิ์ของ ${user.username} จาก P1 (พนักงาน) เป็น P2 (หัวหน้างาน)?\n\nเมื่อเป็น P2 จะสามารถตรวจเช็คอุปกรณ์ได้โดยไม่ต้องขออนุญาต และสามารถมอบหมายงานให้ P1 ได้`)) return;
+    if (!confirm(`ยืนยันการเลื่อนระดับสิทธิ์ของ ${user.username} จาก P1-General (พนักงาน) เป็น P2-Oparetor (หัวหน้างาน)?\n\nเมื่อเป็น P2-Oparetor จะสามารถตรวจเช็คอุปกรณ์ได้โดยไม่ต้องขออนุญาต และสามารถมอบหมายงานให้ P1-General ได้`)) return;
 
     storageService.updateUser(user.id, { role: 'P2' });
     refreshList();
@@ -126,18 +126,18 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
     storageService.sendNotification({
       recipient_user_id: user.id,
       sender_name: currentUser?.username || 'แอดมิน',
-      title: 'คุณได้รับการปรับระดับสิทธิ์เป็น P2',
-      message: 'ยินดีด้วย คุณได้รับการเลื่อนสิทธิ์เป็น P2 (สามารถตรวจเช็คอุปกรณ์ได้โดยตรง และมอบหมายงานให้พนักงาน P1 ได้)',
+      title: 'คุณได้รับการปรับระดับสิทธิ์เป็น P2-Oparetor',
+      message: 'ยินดีด้วย คุณได้รับการเลื่อนสิทธิ์เป็น P2-Oparetor (สามารถตรวจเช็คอุปกรณ์ได้โดยตรง และมอบหมายงานให้พนักงาน P1-General ได้)',
       type: 'SYSTEM'
     });
 
-    setAlertBanner({ type: 'success', message: `เลื่อนระดับ ${user.full_name || user.username} เป็น P2 เรียบร้อยแล้ว` });
+    setAlertBanner({ type: 'success', message: `เลื่อนระดับ ${user.full_name || user.username} เป็น P2-Oparetor เรียบร้อยแล้ว` });
   };
 
   // 3. Reset Password to "0000" as requested
   const handleResetPassword = (user: User) => {
     if (currentUser?.role === 'P3' && user.role === 'P4') {
-      alert('แอดมิน (P3) ไม่มีสิทธิ์รีเซ็ทรหัสผ่านของผู้จัดการระบบ (P4)');
+      alert('แอดมิน (P3-Admin) ไม่มีสิทธิ์รีเซ็ทรหัสผ่านของผู้จัดการระบบ (P4-OpAdmin)');
       return;
     }
     const displayName = user.full_name || user.username;
@@ -230,7 +230,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   // 6. Delete Employee
   const handleDeleteUser = (user: User) => {
     if (currentUser?.role === 'P3' && user.role === 'P4') {
-      alert('แอดมิน (P3) ไม่มีสิทธิ์ลบบัญชีของผู้จัดการระบบ (P4)');
+      alert('แอดมิน (P3-Admin) ไม่มีสิทธิ์ลบบัญชีของผู้จัดการระบบ (P4-OpAdmin)');
       return;
     }
     if (user.id === currentUser?.id) {
@@ -383,13 +383,13 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'P4':
-        return <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P4 ผู้จัดการระบบ</span>;
+        return <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P4-OpAdmin</span>;
       case 'P3':
-        return <span className="bg-[#F7EEDC] text-[#A04830] border border-[#E8DFC8] text-[10px] font-bold px-2 py-0.5 rounded-full">P3 แอดมิน</span>;
+        return <span className="bg-[#F7EEDC] text-[#A04830] border border-[#E8DFC8] text-[10px] font-bold px-2 py-0.5 rounded-full">P3-Admin</span>;
       case 'P2':
-        return <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P2 หัวหน้า/ผจก</span>;
+        return <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P2-Oparetor</span>;
       case 'P1':
-        return <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P1 พนักงาน</span>;
+        return <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">P1-General</span>;
       default:
         return <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Guest</span>;
     }
@@ -407,7 +407,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
             <h1 className="text-xl font-bold text-[#3F3A31]">จัดการสมาชิกและกำหนดสิทธิ์ (Admin & Manager)</h1>
           </div>
           <p className="text-xs text-[#8C7454] mt-1 font-medium">
-            แบ่งสิทธิ์การใช้งาน P1 (พนักงาน), P2 (หัวหน้างาน/ผู้จัดการ), P3 (แอดมิน), P4 (ผู้จัดการระบบ)
+            แบ่งสิทธิ์การใช้งาน P1-General, P2-Oparetor, P3-Admin, P4-OpAdmin
           </p>
         </div>
 
@@ -732,10 +732,10 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                           <button
                             onClick={() => handlePromoteP1ToP2(user)}
                             className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-semibold border border-blue-200 transition flex items-center space-x-1"
-                            title="เพิ่มระดับพนักงาน P1 ไป P2"
+                            title="เพิ่มระดับพนักงาน P1-General ไป P2-Oparetor"
                           >
                             <ArrowUpRight className="w-3.5 h-3.5" />
-                            <span>เลื่อนเป็น P2</span>
+                            <span>เลื่อนเป็น P2-Oparetor</span>
                           </button>
                         )}
 
@@ -996,11 +996,11 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                   }}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 >
-                  <option value="P1">P1 - พนักงาน (ต้องได้รับอนุญาตจาก P2)</option>
-                  <option value="P2">P2 - หัวหน้างาน/ผู้จัดการ (ตรวจเช็คได้โดยตรง)</option>
-                  <option value="P3">P3 - แอดมิน (จัดการระบบ/รีเซ็ตรหัส/อนุมัติสมาชิก)</option>
+                  <option value="P1">P1-General (พนักงานทั่วไป)</option>
+                  <option value="P2">P2-Oparetor (ผู้ตรวจเช็ค/หัวหน้างาน)</option>
+                  <option value="P3">P3-Admin (ผู้ดูแลระบบ/จป.)</option>
                   {currentUser?.role === 'P4' && (
-                    <option value="P4">P4 - ผู้จัดการระบบ</option>
+                    <option value="P4">P4-OpAdmin (ผู้จัดการระบบสูงสุด)</option>
                   )}
                 </select>
               </div>
@@ -1185,11 +1185,11 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                 >
-                  <option value="P1">P1 - พนักงาน</option>
-                  <option value="P2">P2 - หัวหน้างาน / ผู้จัดการ</option>
-                  <option value="P3">P3 - แอดมิน</option>
+                  <option value="P1">P1-General</option>
+                  <option value="P2">P2-Oparetor</option>
+                  <option value="P3">P3-Admin</option>
                   {currentUser?.role === 'P4' && (
-                    <option value="P4">P4 - ผู้จัดการระบบ</option>
+                    <option value="P4">P4-OpAdmin</option>
                   )}
                 </select>
               </div>
@@ -1303,11 +1303,11 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({ currentU
                   onChange={(e) => setPosFormRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
-                  <option value="P1">P1 - พนักงาน</option>
-                  <option value="P2">P2 - หัวหน้างาน / รองผจก / ผจก</option>
-                  <option value="P3">P3 - แอดมิน (จป.วิชาชีพ / ผู้ดูแลระบบ)</option>
+                  <option value="P1">P1-General</option>
+                  <option value="P2">P2-Oparetor</option>
+                  <option value="P3">P3-Admin</option>
                   {currentUser?.role === 'P4' && (
-                    <option value="P4">P4 - ผู้จัดการระบบ</option>
+                    <option value="P4">P4-OpAdmin</option>
                   )}
                 </select>
               </div>

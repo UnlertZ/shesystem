@@ -29,31 +29,31 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const getRoleBadge = (role?: string) => {
     const r = (role || '').toUpperCase();
-    if (r === 'P4' || r.includes('P4') || r.includes('SUPER')) {
+    if (r === 'P4' || r.includes('P4') || r.includes('SUPER') || r.includes('OPADMIN')) {
       return (
         <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap shrink-0 inline-flex items-center">
-          P4 ผู้จัดการระบบ
+          P4-OpAdmin
         </span>
       );
     }
     if (r === 'P3' || r.includes('P3') || r === 'ADMIN' || r === 'แอดมิน') {
       return (
         <span className="bg-[#A04830] text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap shrink-0 inline-flex items-center">
-          P3 แอดมิน
+          P3-Admin
         </span>
       );
     }
-    if (r === 'P2' || r.includes('P2')) {
+    if (r === 'P2' || r.includes('P2') || r.includes('OPERATOR') || r.includes('OPARETOR')) {
       return (
         <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap shrink-0 inline-flex items-center">
-          P2 หัวหน้า/ผจก
+          P2-Oparetor
         </span>
       );
     }
-    if (r === 'P1' || r.includes('P1')) {
+    if (r === 'P1' || r.includes('P1') || r.includes('GENERAL')) {
       return (
         <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-xs whitespace-nowrap shrink-0 inline-flex items-center">
-          P1 พนักงาน
+          P1-General
         </span>
       );
     }

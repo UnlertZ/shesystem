@@ -182,15 +182,7 @@ export function getApiUrl(path?: string | null): string {
   if (!trimmed) return '';
   if (trimmed.startsWith('data:')) return trimmed;
 
-  // If already pointing to the public R2 domain, return as-is
-  if (trimmed.includes('.r2.dev/')) return trimmed;
-
-  // Check if this path references a photo in storage (bypasses Zscaler blocks on workers.dev)
-  const photoKey = extractPhotoKey(trimmed);
-  if (photoKey) {
-    return `${R2_PUBLIC_BASE_URL}/${encodeURI(photoKey)}`;
-  }
-
+  // If already pointing to the public R2 domain or an external URL, return as-is
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
@@ -228,7 +220,7 @@ export async function uploadToR2(file: File): Promise<string> {
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.url) return getApiUrl(data.url);
+      if (data.url) return data.url;
     }
   } catch (err) {
     console.error('Upload to Azure Blob Storage error:', err);
@@ -794,7 +786,7 @@ class StorageService {
         target_role: 'P3',
         sender_name: 'ระบบรับสมัครสมาชิก',
         title: 'มีสมาชิกรอการอนุมัติเข้าใช้งาน',
-        message: `ผู้ใช้ ${displayName} (${data.department} - ${userPosition}) ได้ลงทะเบียนเข้าสู่ระบบ (สิทธิ์ P1) กรุณาตรวจสอบและอนุมัติ`,
+        message: `ผู้ใช้ ${displayName} (${data.department} - ${userPosition}) ได้ลงทะเบียนเข้าสู่ระบบ (สิทธิ์ P1-General) กรุณาตรวจสอบและอนุมัติ`,
         type: 'SYSTEM'
       });
     }

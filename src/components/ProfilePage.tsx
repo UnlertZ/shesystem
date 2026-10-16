@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Task, AppNotification, Equipment } from '../types';
+import { User, Task, AppNotification, Equipment, getRoleLabel } from '../types';
 import { storageService, uploadToR2 } from '../services/storage';
 import {
   User as UserIcon,
@@ -302,7 +302,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <span>ขอเปลี่ยนชื่อ-นามสกุล</span>
             </button>
             <span className="text-xs bg-[#F7EEDC] text-[#A04830] font-bold px-3 py-1 rounded-full border border-[#E8DFC8]">
-              สิทธิ์: {currentUser.role}
+              สิทธิ์: {getRoleLabel(currentUser.role)}
             </span>
             {Boolean(currentUser.is_safety_committee) ? (
               <span className="text-xs bg-linear-to-r from-[#A04830] to-[#CC902D] text-white font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs">
@@ -338,10 +338,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           <p className="text-xs text-[#5C5951] max-w-xl">
-            {currentUser.role === 'P1' && 'คุณอยู่ในสิทธิ์ P1: เมื่อได้รับมอบหมายงานจากหัวหน้างาน (P2) จะสามารถตรวจเช็คอุปกรณ์แทนได้'}
-            {currentUser.role === 'P2' && 'คุณอยู่ในสิทธิ์ P2: สามารถตรวจเช็คอุปกรณ์ได้โดยตรงไม่ต้องขออนุญาต และสามารถมอบหมายงานตรวจสอบให้แก่พนักงาน (P1) ได้'}
-            {currentUser.role === 'P3' && 'คุณอยู่ในสิทธิ์ P3 (แอดมิน): จัดการเพิ่มลบพนักงาน, เลื่อนระดับ P1 เป็น P2, รีเซ็ทรหัสผ่าน "0000", และส่งแจ้งเตือน'}
-            {currentUser.role === 'P4' && 'คุณอยู่ในสิทธิ์ P4 (ผู้จัดการระบบ): มีอำนาจสูงสุดในการบริหารจัดการระบบและข้อมูลทั้งหมด'}
+            {currentUser.role === 'P1' && 'คุณอยู่ในสิทธิ์ P1-General: พนักงานทั่วไป เมื่อได้รับมอบหมายงานจาก P2-Oparetor จะสามารถตรวจเช็คอุปกรณ์แทนได้'}
+            {currentUser.role === 'P2' && 'คุณอยู่ในสิทธิ์ P2-Oparetor: สามารถตรวจเช็คอุปกรณ์ได้โดยตรงไม่ต้องขออนุญาต และสามารถมอบหมายงานตรวจสอบให้แก่ P1-General ได้'}
+            {currentUser.role === 'P3' && 'คุณอยู่ในสิทธิ์ P3-Admin: จัดการเพิ่มลบพนักงาน, กำหนดสิทธิ์ P1-P3, รีเซ็ทรหัสผ่าน "0000", และส่งแจ้งเตือน'}
+            {currentUser.role === 'P4' && 'คุณอยู่ในสิทธิ์ P4-OpAdmin: มีอำนาจสูงสุดในการบริหารจัดการระบบ ข้อมูล และสิทธิ์ทั้งหมด'}
           </p>
         </div>
 

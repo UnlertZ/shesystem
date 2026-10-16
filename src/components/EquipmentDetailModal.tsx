@@ -3,7 +3,7 @@ import { Equipment, InspectionRecord } from '../types';
 import { formatThaiDate } from '../utils/thaiDate';
 import { getEquipmentPhotoArchives } from '../utils/photoArchive';
 import { storageService } from '../services/storage';
-import { resolveImageProxyUrl } from '../utils/imageFetcher';
+import { resolveImageProxyUrl, handleImgErrorWithCandidates } from '../utils/imageFetcher';
 import {
   X,
   Flame,
@@ -125,7 +125,8 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
       case 'EX': return 'ถังดับเพลิง (EX)';
       case 'FHC': return 'ตู้ดับเพลิง (FHC)';
       case 'FH': return 'ตู้สายฉีด (FH)';
-      case 'HD': return 'หัวรับน้ำ (HD)';
+      case 'HD': return 'หัวจ่ายน้ำ (HD)';
+      case 'FDC': return 'หัวรับน้ำ (FDC)';
       default: return equipment.type;
     }
   };
@@ -135,7 +136,8 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
       case 'EX': return 'ชนิดของถังดับเพลิง';
       case 'FHC': return 'ประเภทตู้ดับเพลิง';
       case 'FH': return 'ประเภทตู้สายฉีด';
-      case 'HD': return 'ชนิดหัวรับน้ำดับเพลิง';
+      case 'HD': return 'ชนิดหัวจ่ายน้ำดับเพลิง';
+      case 'FDC': return 'ชนิดหัวรับน้ำดับเพลิง';
       default: return 'ชนิด / ประเภท';
     }
   };
@@ -145,7 +147,8 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
       case 'EX': return 'น้ำหนักของถัง';
       case 'FHC': return 'ขนาดตู้และสายฉีด';
       case 'FH': return 'ขนาดและระยะสายฉีด';
-      case 'HD': return 'ขนาดข้อต่อทางน้ำเข้า';
+      case 'HD': return 'ขนาดข้อต่อทางน้ำออก';
+      case 'FDC': return 'ขนาดข้อต่อทางน้ำเข้า';
       default: return 'น้ำหนัก / ขนาด';
     }
   };
@@ -319,6 +322,7 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                   <img
                     src={resolveImageProxyUrl(equipment.inspection_sheet_photo)}
                     alt="รูปถังปัจจุบัน"
+                    onError={(e) => handleImgErrorWithCandidates(e, equipment.inspection_sheet_photo)}
                     className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white space-x-1 font-medium text-xs">
@@ -345,6 +349,7 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                   <img
                     src={resolveImageProxyUrl(equipment.location_photo)}
                     alt="สถานที่ติดตั้ง"
+                    onError={(e) => handleImgErrorWithCandidates(e, equipment.location_photo)}
                     className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white space-x-1 font-medium text-xs">
@@ -422,6 +427,7 @@ export const EquipmentDetailModal: React.FC<EquipmentDetailModalProps> = ({
                             <img
                               src={resolveImageProxyUrl(photo.url)}
                               alt={photo.label}
+                              onError={(e) => handleImgErrorWithCandidates(e, photo.url)}
                               className="w-full h-full object-cover group-hover:scale-105 group-hover:opacity-90 transition duration-200"
                             />
                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white">

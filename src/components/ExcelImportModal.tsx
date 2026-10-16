@@ -51,7 +51,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        'ประเภทอุปกรณ์ (EX/FHC/FH/HD)': 'EX',
+        'ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)': 'EX',
         'ชนิดของอุปกรณ์': 'ผงเคมีแห้ง (Dry Chemical)',
         'น้ำหนักหรือขนาด': '10 lbs',
         'สถานที่ติดตั้ง': 'อาคาร A ชั้น 1 ประตูหนีไฟทิศเหนือ',
@@ -59,7 +59,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'ผู้รับผิดชอบ': 'somchai'
       },
       {
-        'ประเภทอุปกรณ์ (EX/FHC/FH/HD)': 'EX',
+        'ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)': 'EX',
         'ชนิดของอุปกรณ์': 'ก๊าซคาร์บอนไดออกไซด์ (CO2)',
         'น้ำหนักหรือขนาด': '15 lbs',
         'สถานที่ติดตั้ง': 'ห้องเซิร์ฟเวอร์ ชั้น 2',
@@ -67,7 +67,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'ผู้รับผิดชอบ': 'supervisor1'
       },
       {
-        'ประเภทอุปกรณ์ (EX/FHC/FH/HD)': 'FHC',
+        'ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)': 'FHC',
         'ชนิดของอุปกรณ์': 'ตู้ดับเพลิงเดี่ยว กระจกเซฟตี้',
         'น้ำหนักหรือขนาด': '1.5 นิ้ว x 30 ม.',
         'สถานที่ติดตั้ง': 'โถงทางเดินกลาง อาคาร B',
@@ -75,7 +75,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'ผู้รับผิดชอบ': 'admin'
       },
       {
-        'ประเภทอุปกรณ์ (EX/FHC/FH/HD)': 'FH',
+        'ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)': 'FH',
         'ชนิดของอุปกรณ์': 'สายส่งน้ำผ้าใบสังเคราะห์',
         'น้ำหนักหรือขนาด': '2.5 นิ้ว x 30 ม.',
         'สถานที่ติดตั้ง': 'ลานจอดรถคลังสินค้า 1',
@@ -83,10 +83,18 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         'ผู้รับผิดชอบ': 'staff1'
       },
       {
-        'ประเภทอุปกรณ์ (EX/FHC/FH/HD)': 'HD',
-        'ชนิดของอุปกรณ์': 'หัวรับน้ำแบบสวมเร็วทองเหลือง',
+        'ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)': 'HD',
+        'ชนิดของอุปกรณ์': 'หัวจ่ายน้ำดับเพลิงบนดิน (Fire Hydrant)',
         'น้ำหนักหรือขนาด': '2.5 นิ้ว 2 ทาง',
         'สถานที่ติดตั้ง': 'กำแพงด้านหน้าโรงงาน',
+        'วันที่เริ่มใช้งาน (ปปปป-ดด-วว)': '2022-05-01',
+        'ผู้รับผิดชอบ': 'opadmin'
+      },
+      {
+        'ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)': 'FDC',
+        'ชนิดของอุปกรณ์': 'หัวรับน้ำดับเพลิงเข้าอาคาร (Fire Department Connection)',
+        'น้ำหนักหรือขนาด': '2.5 นิ้ว 2 ทาง',
+        'สถานที่ติดตั้ง': 'ผนังด้านนอกอาคารผลิต 1',
         'วันที่เริ่มใช้งาน (ปปปป-ดด-วว)': '2022-05-01',
         'ผู้รับผิดชอบ': 'opadmin'
       }
@@ -95,8 +103,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     const ws = XLSX.utils.json_to_sheet(templateData);
     // Set column widths
     ws['!cols'] = [
-      { wch: 28 },
-      { wch: 30 },
+      { wch: 32 },
+      { wch: 35 },
       { wch: 20 },
       { wch: 35 },
       { wch: 28 },
@@ -114,7 +122,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     const str = String(val).toUpperCase().trim();
     if (str.includes('FHC') || str.includes('ตู้ดับเพลิง')) return 'FHC';
     if (str.includes('FH') || str.includes('สายฉีด')) return 'FH';
-    if (str.includes('HD') || str.includes('หัวรับน้ำ')) return 'HD';
+    if (str.includes('FDC') || str.includes('หัวรับน้ำ')) return 'FDC';
+    if (str.includes('HD') || str.includes('หัวจ่ายน้ำ')) return 'HD';
     return 'EX';
   };
 
@@ -155,7 +164,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         const rows: ParsedEquipmentRow[] = jsonData.map((row, idx) => {
           // Normalize column lookups with flexible header matches
-          const rawType = row['ประเภทอุปกรณ์ (EX/FHC/FH/HD)'] || row['ประเภทอุปกรณ์'] || row['Type'] || row['type'];
+          const rawType = row['ประเภทอุปกรณ์ (EX/FHC/FH/HD/FDC)'] || row['ประเภทอุปกรณ์ (EX/FHC/FH/HD)'] || row['ประเภทอุปกรณ์'] || row['Type'] || row['type'];
           const rawCategory = row['ชนิดของอุปกรณ์'] || row['ชนิด'] || row['ประเภท'] || row['Category'] || row['category'];
           const rawWeight = row['น้ำหนักหรือขนาด'] || row['น้ำหนัก'] || row['ขนาด'] || row['Weight'] || row['weight'];
           const rawLocation = row['สถานที่ติดตั้ง'] || row['สถานที่'] || row['Location'] || row['location'];
@@ -288,7 +297,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 <span>ขั้นตอนที่ 1: ดาวน์โหลดแม่แบบไฟล์ Excel</span>
               </div>
               <p className="text-xs text-slate-600">
-                ใช้ไฟล์ต้นแบบเพื่อกรอกข้อมูลให้ตรงตามโครงสร้างที่ระบบรองรับ (EX, FHC, FH, HD)
+                ใช้ไฟล์ต้นแบบเพื่อกรอกข้อมูลให้ตรงตามโครงสร้างที่ระบบรองรับ (EX, FHC, FH, HD, FDC)
               </p>
             </div>
 

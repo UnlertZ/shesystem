@@ -75,8 +75,13 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
         };
       case 'HD':
         return {
+          label: 'ชนิดหัวจ่ายน้ำดับเพลิง',
+          placeholder: 'เช่น แบบสวมเร็วทองเหลือง, ข้อต่อจ่ายน้ำ 2 ทาง'
+        };
+      case 'FDC':
+        return {
           label: 'ชนิดหัวรับน้ำดับเพลิง',
-          placeholder: 'เช่น แบบสวมเร็วทองเหลือง, ข้อต่อสวมเร็ว 2 ทาง'
+          placeholder: 'เช่น หัวรับน้ำดับเพลิงเข้าอาคาร (FDC), ข้อต่อสวมเร็ว 2 ทาง'
         };
     }
   };
@@ -99,6 +104,11 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
           placeholder: 'เช่น 2.5 นิ้ว x 30 ม.'
         };
       case 'HD':
+        return {
+          label: 'ขนาดข้อต่อทางน้ำออก',
+          placeholder: 'เช่น 2.5 นิ้ว 2 ทาง, 4 นิ้ว'
+        };
+      case 'FDC':
         return {
           label: 'ขนาดข้อต่อทางน้ำเข้า',
           placeholder: 'เช่น 2.5 นิ้ว 2 ทาง, 4 นิ้ว'
@@ -214,7 +224,8 @@ export const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({
                 <option value="EX">ถังดับเพลิง (EX)</option>
                 <option value="FHC">ตู้ดับเพลิง (FHC)</option>
                 <option value="FH">ตู้สายฉีด (FH)</option>
-                <option value="HD">หัวรับน้ำ (HD)</option>
+                <option value="HD">หัวจ่ายน้ำ (HD)</option>
+                <option value="FDC">หัวรับน้ำ (FDC)</option>
               </select>
             </div>
 

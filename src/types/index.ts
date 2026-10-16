@@ -1,5 +1,23 @@
 export type UserRole = 'P1' | 'P2' | 'P3' | 'P4' | 'GUEST';
 
+export const USER_ROLES = {
+  P1: 'P1-General',
+  P2: 'P2-Oparetor',
+  P3: 'P3-Admin',
+  P4: 'P4-OpAdmin',
+  GUEST: 'Guest'
+} as const;
+
+export function getRoleLabel(role?: string | null): string {
+  if (!role) return '-';
+  const r = role.toUpperCase();
+  if (r === 'P4' || r.includes('P4') || r.includes('OPADMIN') || r.includes('SUPER')) return 'P4-OpAdmin';
+  if (r === 'P3' || r.includes('P3') || r === 'ADMIN') return 'P3-Admin';
+  if (r === 'P2' || r.includes('P2') || r.includes('OPARETOR') || r.includes('OPERATOR')) return 'P2-Oparetor';
+  if (r === 'P1' || r.includes('P1') || r.includes('GENERAL')) return 'P1-General';
+  return role;
+}
+
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 
 export interface DepartmentItem {
@@ -32,7 +50,7 @@ export interface User {
   pending_full_name?: string; // คำขอเปลี่ยนชื่อ-นามสกุลที่รอแอดมินอนุมัติ
 }
 
-export type EquipmentType = 'EX' | 'FHC' | 'FH' | 'HD';
+export type EquipmentType = 'EX' | 'FHC' | 'FH' | 'HD' | 'FDC';
 
 export type ReadyStatus = 'READY' | 'NOT_READY';
 export type InspectionStatus = 'INSPECTED' | 'PENDING';

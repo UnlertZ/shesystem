@@ -33,7 +33,7 @@ interface PhotoExportModalProps {
   inspections: InspectionRecord[];
   initialMonth?: number; // 0-11
   initialYear?: number;  // e.g. 2569
-  initialType?: string;  // 'ALL' | 'EX' | 'FHC' | 'FH' | 'HD'
+  initialType?: string;  // 'ALL' | 'EX' | 'FHC' | 'FH' | 'HD' | 'FDC'
   onClose: () => void;
 }
 
@@ -61,7 +61,7 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
 }) => {
   const now = getNowThai();
   const currentYearBE = now.getFullYear() + 543;
-  const availableYears = [currentYearBE, currentYearBE - 1, currentYearBE - 2];
+  const availableYears = [currentYearBE, currentYearBE - 1];
 
   // 1. Period filters (เลือกเดือน และ ปี) - ค่าเริ่มต้นเป็น 'ALL' (ทุกเดือน) เพื่อให้เห็นรูปทั้งหมดทันที
   const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYearBE);
@@ -553,11 +553,12 @@ export const PhotoExportModal: React.FC<PhotoExportModalProps> = ({
                 onChange={e => setSelectedType(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-purple-500 cursor-pointer"
               >
-                <option value="ALL">ทั้งหมด (EX, FHC, FH, HD)</option>
+                <option value="ALL">ทั้งหมด (EX, FHC, FH, HD, FDC)</option>
                 <option value="EX">ถังดับเพลิง (EX)</option>
                 <option value="FHC">ตู้ดับเพลิง (FHC)</option>
                 <option value="FH">ตู้สายฉีด (FH)</option>
-                <option value="HD">หัวรับน้ำ (HD)</option>
+                <option value="HD">หัวจ่ายน้ำ (HD)</option>
+                <option value="FDC">หัวรับน้ำ (FDC)</option>
               </select>
             </div>
           </div>

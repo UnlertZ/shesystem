@@ -64,10 +64,17 @@ export function exportToExcel(
   const hdData = equipData.filter(e => e['ประเภท'] === 'HD');
   if (hdData.length > 0) {
     const wsHD = XLSX.utils.json_to_sheet(hdData);
-    XLSX.utils.book_append_sheet(wb, wsHD, 'หัวรับน้ำ HD');
+    XLSX.utils.book_append_sheet(wb, wsHD, 'หัวจ่ายน้ำ HD');
   }
 
-  // Sheet 6: Inspections History
+  // Sheet 6: FDC
+  const fdcData = equipData.filter(e => e['ประเภท'] === 'FDC');
+  if (fdcData.length > 0) {
+    const wsFDC = XLSX.utils.json_to_sheet(fdcData);
+    XLSX.utils.book_append_sheet(wb, wsFDC, 'หัวรับน้ำ FDC');
+  }
+
+  // Sheet 7: Inspections History
   if (inspections.length > 0) {
     const inspData = inspections.map(i => ({
       'รหัสบันทึก': i.id,

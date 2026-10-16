@@ -104,11 +104,19 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     },
     {
       type: 'HD' as const,
-      name: 'หัวรับน้ำดับเพลิง',
-      fullName: 'หัวรับน้ำดับเพลิง / หัวจ่ายน้ำดับเพลิง (Fire Hydrant - HD)',
+      name: 'หัวจ่ายน้ำดับเพลิง',
+      fullName: 'หัวจ่ายน้ำดับเพลิง (Fire Hydrant - HD)',
       unit: 'จุด',
       icon: Layers,
       headerBg: 'bg-amber-50 text-amber-700 border-amber-200'
+    },
+    {
+      type: 'FDC' as const,
+      name: 'หัวรับน้ำดับเพลิง',
+      fullName: 'หัวรับน้ำดับเพลิง (Fire Department Connection - FDC)',
+      unit: 'จุด',
+      icon: Droplets,
+      headerBg: 'bg-teal-50 text-teal-700 border-teal-200'
     }
   ];
 
@@ -160,6 +168,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     let fhcCount = monthInspections.filter(r => (r.equipment_type || getEquipType(r.equipment_id)) === 'FHC').length;
     let fhCount = monthInspections.filter(r => (r.equipment_type || getEquipType(r.equipment_id)) === 'FH').length;
     let hdCount = monthInspections.filter(r => (r.equipment_type || getEquipType(r.equipment_id)) === 'HD').length;
+    let fdcCount = monthInspections.filter(r => (r.equipment_type || getEquipType(r.equipment_id)) === 'FDC').length;
     let defectCount = monthInspections.filter(r => r.is_abnormal).length;
     let resolvedCount = monthInspections.filter(r => r.defect_resolved).length;
     let normalCount = monthInspections.filter(r => !r.is_abnormal).length;
@@ -173,6 +182,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         fhcCount = inspectedEquip.filter(e => e.type === 'FHC').length;
         fhCount = inspectedEquip.filter(e => e.type === 'FH').length;
         hdCount = inspectedEquip.filter(e => e.type === 'HD').length;
+        fdcCount = inspectedEquip.filter(e => e.type === 'FDC').length;
         defectCount = inspectedEquip.filter(e => e.defect_status === 'DEFECT').length;
         resolvedCount = inspectedEquip.filter(e => e.defect_status === 'RESOLVED').length;
         normalCount = totalInspected - defectCount;
@@ -189,6 +199,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
       fhcCount,
       fhCount,
       hdCount,
+      fdcCount,
       totalInspected,
       normalCount,
       defectCount,
@@ -204,6 +215,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
       fhcCount: acc.fhcCount + m.fhcCount,
       fhCount: acc.fhCount + m.fhCount,
       hdCount: acc.hdCount + m.hdCount,
+      fdcCount: acc.fdcCount + m.fdcCount,
       totalInspected: acc.totalInspected + m.totalInspected,
       normalCount: acc.normalCount + m.normalCount,
       defectCount: acc.defectCount + m.defectCount,
@@ -214,6 +226,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
       fhcCount: 0,
       fhCount: 0,
       hdCount: 0,
+      fdcCount: 0,
       totalInspected: 0,
       normalCount: 0,
       defectCount: 0,
@@ -720,23 +733,23 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
               </div>
             </div>
 
-            {/* 4. สรุปผลการตรวจแยกตามประเภทอุปกรณ์ (ถัง, FHC, FH, HD) พร้อมระบุหน่วยชัดเจน */}
+            {/* 4. สรุปผลการตรวจแยกตามประเภทอุปกรณ์ (ถัง, FHC, FH, HD, FDC) พร้อมระบุหน่วยชัดเจน */}
             <div className="space-y-3 pt-2">
               <h3 className="text-sm font-black text-slate-900 flex items-center space-x-1.5 border-b border-slate-200 pb-1.5">
                 <span className="w-2.5 h-2.5 bg-red-600 rounded-sm"></span>
                 <span>สรุปผลการตรวจสอบแยกตามประเภทอุปกรณ์ ({reportType === 'MONTHLY' ? 'ประจำเดือน' : 'ประจำปี'} {selectedPeriod})</span>
               </h3>
 
-              {/* 4 Cards Row - ตรงตามที่ผู้ใช้สั่งทั้ง 4 รายการ พร้อมหน่วย ถัง, ตู้, สาย, จุด */}
+              {/* 5 Cards Row - ครบทั้ง 5 ประเภท พร้อมหน่วย ถัง, ตู้, สาย, จุด, จุด */}
               <div
-                className="flex flex-row gap-3 break-inside-avoid"
-                style={{ display: 'flex', flexDirection: 'row', gap: '12px', width: '100%', boxSizing: 'border-box' }}
+                className="flex flex-row gap-2.5 break-inside-avoid"
+                style={{ display: 'flex', flexDirection: 'row', gap: '8px', width: '100%', boxSizing: 'border-box' }}
               >
                 {typeSummaries.map((cat, idx) => (
                   <div
                     key={cat.type}
-                    className="border border-slate-200 rounded-xl p-3 bg-slate-50/80 space-y-2 hover:bg-slate-50 transition"
-                    style={{ flex: '1 1 0%', minWidth: 0, width: '23.5%', boxSizing: 'border-box', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px' }}
+                    className="border border-slate-200 rounded-xl p-2.5 bg-slate-50/80 space-y-2 hover:bg-slate-50 transition"
+                    style={{ flex: '1 1 0%', minWidth: 0, width: '18.5%', boxSizing: 'border-box', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px' }}
                   >
                     <div
                       className="flex items-center justify-between border-b border-slate-200/80 pb-1.5"
@@ -848,7 +861,8 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                         <th className="py-2 px-2 text-center">ถัง (EX)</th>
                         <th className="py-2 px-2 text-center">FHC</th>
                         <th className="py-2 px-2 text-center">สาย (FH)</th>
-                        <th className="py-2 px-2 text-center">หัวน้ำ (HD)</th>
+                        <th className="py-2 px-2 text-center">หัวจ่าย (HD)</th>
+                        <th className="py-2 px-2 text-center">หัวรับ (FDC)</th>
                         <th className="py-2 px-2 text-center">รวมตรวจ</th>
                         <th className="py-2 px-2 text-center text-emerald-600">ปกติ</th>
                         <th className="py-2 px-2 text-center text-red-600">ผิดปกติ</th>
@@ -874,9 +888,9 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                               <div className="flex items-center space-x-1.5">
                                 <span>{m.monthName}</span>
                                 {isSelectedMonth && (
-                                  <span className="text-[9px] bg-amber-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                                    รอบรายงานนี้
-                                  </span>
+                                   <span className="text-[9px] bg-amber-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                                     รอบรายงานนี้
+                                   </span>
                                 )}
                               </div>
                             </td>
@@ -884,6 +898,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                             <td className="py-2 px-2 text-center">{m.fhcCount > 0 ? `${m.fhcCount} ตู้` : '-'}</td>
                             <td className="py-2 px-2 text-center">{m.fhCount > 0 ? `${m.fhCount} สาย` : '-'}</td>
                             <td className="py-2 px-2 text-center">{m.hdCount > 0 ? `${m.hdCount} จุด` : '-'}</td>
+                            <td className="py-2 px-2 text-center">{m.fdcCount > 0 ? `${m.fdcCount} จุด` : '-'}</td>
                             <td className="py-2 px-2 text-center font-bold text-slate-900">
                               {m.totalInspected > 0 ? `${m.totalInspected} รายการ` : '-'}
                             </td>
@@ -908,6 +923,7 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                         <td className="py-2 px-2 text-center">{yearlyTotals.fhcCount} ตู้</td>
                         <td className="py-2 px-2 text-center">{yearlyTotals.fhCount} สาย</td>
                         <td className="py-2 px-2 text-center">{yearlyTotals.hdCount} จุด</td>
+                        <td className="py-2 px-2 text-center">{yearlyTotals.fdcCount} จุด</td>
                         <td className="py-2 px-2 text-center text-slate-900">{yearlyTotals.totalInspected} รายการ</td>
                         <td className="py-2 px-2 text-center text-emerald-700">{yearlyTotals.normalCount}</td>
                         <td className="py-2 px-2 text-center text-red-700">{yearlyTotals.defectCount}</td>

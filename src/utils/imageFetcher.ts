@@ -29,7 +29,7 @@ export function dataUriToBlob(dataUri: string): Blob | null {
 
 /**
  * Resolves an image URL so it can be reliably fetched in the browser:
- * - Prioritizes Cloudflare R2 Public CDN directly (bypasses Zscaler blocks & backend proxy issues)
+ * - Prioritizes Azure / same-origin /api/images/... endpoint
  * - Returns base64 data URIs as-is
  * - Preserves third-party external image URLs (e.g. Unsplash avatars)
  */
@@ -39,12 +39,11 @@ export function resolveImageProxyUrl(rawUrl?: string | null): string {
   if (!trimmed) return '';
   if (trimmed.startsWith('data:')) return trimmed;
 
-  // If already pointing to the public R2 domain, return as-is
-  if (trimmed.includes('.r2.dev/')) return trimmed;
-
+  // Extract photo key (e.g. photos/1792120035841_Ex001.jpg)
   const key = extractPhotoKey(trimmed);
   if (key) {
-    return `${R2_PUBLIC_BASE_URL}/${encodeURI(key)}`;
+    // Route via current backend /api/images/
+    return getApiUrl(`/api/images/${encodeURI(key)}`);
   }
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -52,6 +51,23 @@ export function resolveImageProxyUrl(rawUrl?: string | null): string {
   }
 
   return getApiUrl(trimmed);
+}
+
+/**
+ * Common error handler for <img> tags to gracefully try fallback candidates
+ */
+export function handleImgErrorWithCandidates(
+  e: React.SyntheticEvent<HTMLImageElement>,
+  originalUrl?: string | null
+): void {
+  if (!originalUrl) return;
+  const img = e.currentTarget;
+  const tried = parseInt(img.getAttribute('data-tried') || '0', 10);
+  const candidates = getCandidateUrls(originalUrl);
+  if (tried < candidates.length) {
+    img.setAttribute('data-tried', String(tried + 1));
+    img.src = candidates[tried];
+  }
 }
 
 /**
@@ -75,27 +91,26 @@ export function getCandidateUrls(rawUrl: string): string[] {
 
   const key = extractPhotoKey(cleanUrl);
   if (key) {
-    // 1. Direct Cloudflare R2 Public CDN (Top Priority - fast, not blocked by Zscaler, full CORS)
-    add(`${R2_PUBLIC_BASE_URL}/${encodeURI(key)}`);
-    add(`${R2_PUBLIC_BASE_URL}/${key}`);
-
-    // 2. Same-origin relative path (works on Express port 8787, Azure Static Web Apps, etc.)
+    // 1. Same-origin & configured API path (Works on Azure & local Express API)
+    add(getApiUrl(`/api/images/${encodeURI(key)}`));
+    add(getApiUrl(`/api/images/${key}`));
     add(`/api/images/${encodeURI(key)}`);
     add(`/api/images/${key}`);
 
-    // 3. Full origin relative path if in browser
+    // 2. Full origin relative path if in browser
     if (typeof window !== 'undefined' && window.location?.origin) {
       add(`${window.location.origin}/api/images/${encodeURI(key)}`);
       add(`${window.location.origin}/api/images/${key}`);
     }
 
-    // 4. Current configured backend via getApiUrl
-    add(getApiUrl(`/api/images/${key}`));
+    // 3. Direct Cloudflare R2 Public CDN (Fallback for legacy photos uploaded before migration)
+    add(`${R2_PUBLIC_BASE_URL}/${encodeURI(key)}`);
+    add(`${R2_PUBLIC_BASE_URL}/${key}`);
 
-    // 5. Local Express / Azure SQL API Server (port 8787)
+    // 4. Local Express / Azure SQL API Server (port 8787)
     add(`http://localhost:8787/api/images/${key}`);
 
-    // 6. Remote Cloudflare Worker fallback
+    // 5. Remote Cloudflare Worker fallback
     add(`https://shesystem.anuruk3030.workers.dev/api/images/${key}`);
   }
 

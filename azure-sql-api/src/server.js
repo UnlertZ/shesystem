@@ -1234,6 +1234,36 @@ app.get('/api/images/*', async (req, res) => {
       return res.sendFile(filePath);
     }
 
+    // 3. Fallback: ลองดึงจาก Remote Cloudflare R2, Worker หรือ Public Azure Blob
+    try {
+      const remoteCandidates = [
+        `https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev/${subPath}`,
+        `https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev/photos/${filename}`,
+        `https://shesystem.anuruk3030.workers.dev/api/images/${subPath}`,
+        `https://she-inspection-backend.b-phatcharapong2001.workers.dev/api/images/${subPath}`,
+        `https://picshesystem.blob.core.windows.net/picshesystem/${subPath}`
+      ];
+      for (const rUrl of remoteCandidates) {
+        try {
+          const resp = await fetch(rUrl, { signal: AbortSignal.timeout(5000) });
+          if (resp.ok) {
+            const cType = resp.headers.get('content-type');
+            if (cType && cType.startsWith('image/')) {
+              res.setHeader('Content-Type', cType);
+              res.setHeader('Cache-Control', 'public, max-age=31536000');
+              const arrayBuffer = await resp.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              // Save to local cache so subsequent requests return instantly
+              try {
+                fs.writeFileSync(filePath, buffer);
+              } catch (_) {}
+              return res.send(buffer);
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
     res.status(404).send('Image Not Found in Azure Blob Storage or Local Cache');
   } catch (err) {
     res.status(500).send('Error loading image');
@@ -2087,6 +2117,26 @@ async function start() {
       `);
     } catch (e) {
       console.log('User duplicate cleanup notice:', e.message);
+    }
+
+    // Normalize any legacy/external R2 photo URLs in database to local/Azure /api/images/ path
+    try {
+      await query(`
+        UPDATE dbo.equipment
+        SET inspection_sheet_photo = REPLACE(inspection_sheet_photo, 'https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev/', '/api/images/'),
+            location_photo = REPLACE(location_photo, 'https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev/', '/api/images/')
+        WHERE inspection_sheet_photo LIKE '%pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev%'
+           OR location_photo LIKE '%pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev%';
+
+        UPDATE dbo.inspection_logs
+        SET inspection_sheet_photo = REPLACE(inspection_sheet_photo, 'https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev/', '/api/images/'),
+            location_photo = REPLACE(location_photo, 'https://pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev/', '/api/images/')
+        WHERE inspection_sheet_photo LIKE '%pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev%'
+           OR location_photo LIKE '%pub-426ad5b3bf3b47f596fa63ac0ac61749.r2.dev%';
+      `);
+      console.log('✅ ตรวจสอบและแปลง URL รูปภาพในฐานข้อมูล Azure SQL เรียบร้อย');
+    } catch (e) {
+      console.log('Photo URL normalization notice:', e.message);
     }
 
     // Start background cron jobs

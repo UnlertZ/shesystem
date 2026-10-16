@@ -41,8 +41,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
   onClose
 }) => {
   const now = getNowThai();
-  const currentYearBE = now.getFullYear() + 543;
-  const availableYears = [currentYearBE, currentYearBE - 1, currentYearBE - 2];
+  const availableYears = [currentYearBE, currentYearBE - 1];
 
   // 1. Period filters (เลือกเดือน และ ปี)
   const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYearBE);
@@ -205,12 +204,13 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
       const pendingCount = selectedItems.filter(e => e.inspection_status === 'PENDING').length;
       const rate = totalCount > 0 ? Math.round((inspectedCount / totalCount) * 100) : 0;
 
-      // 4 Categories Breakdown
+      // 5 Categories Breakdown
       const typeSummaryRows = [
         { type: 'EX', name: 'ถังดับเพลิง (EX)', unit: 'ถัง' },
         { type: 'FHC', name: 'ตู้ดับเพลิง (FHC)', unit: 'ตู้' },
         { type: 'FH', name: 'ตู้สายฉีดดับเพลิง (FH)', unit: 'สาย' },
-        { type: 'HD', name: 'หัวรับน้ำดับเพลิง (HD)', unit: 'จุด' }
+        { type: 'HD', name: 'หัวจ่ายน้ำดับเพลิง (HD)', unit: 'จุด' },
+        { type: 'FDC', name: 'หัวรับน้ำดับเพลิง (FDC)', unit: 'จุด' }
       ].map((cat, idx) => {
         const catList = selectedItems.filter(e => e.type === cat.type);
         const catTotal = catList.length;
@@ -295,13 +295,14 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
       XLSX.utils.book_append_sheet(wb, wsMaster, 'รายการอุปกรณ์');
     }
 
-    // 3. Sheet 3: แยกชีทตามประเภทอุปกรณ์ (ถัง EX, ตู้ FHC, สาย FH, หัวรับน้ำ HD)
+    // 3. Sheet 3: แยกชีทตามประเภทอุปกรณ์ (ถัง EX, ตู้ FHC, สาย FH, หัวจ่ายน้ำ HD, หัวรับน้ำ FDC)
     if (includeCategorizedSheets) {
       const categories = [
         { type: 'EX', sheetName: 'ถังดับเพลิง EX' },
         { type: 'FHC', sheetName: 'ตู้ดับเพลิง FHC' },
         { type: 'FH', sheetName: 'ตู้สายฉีด FH' },
-        { type: 'HD', sheetName: 'หัวรับน้ำ HD' }
+        { type: 'HD', sheetName: 'หัวจ่ายน้ำ HD' },
+        { type: 'FDC', sheetName: 'หัวรับน้ำ FDC' }
       ];
 
       categories.forEach(cat => {
@@ -486,11 +487,12 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                 onChange={e => setSelectedType(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               >
-                <option value="ALL">ทั้งหมด (EX, FHC, FH, HD)</option>
+                <option value="ALL">ทั้งหมด (EX, FHC, FH, HD, FDC)</option>
                 <option value="EX">ถังดับเพลิง (EX)</option>
                 <option value="FHC">ตู้ดับเพลิง (FHC)</option>
                 <option value="FH">ตู้สายฉีด (FH)</option>
-                <option value="HD">หัวรับน้ำ (HD)</option>
+                <option value="HD">หัวจ่ายน้ำ (HD)</option>
+                <option value="FDC">หัวรับน้ำ (FDC)</option>
               </select>
             </div>
           </div>
@@ -531,7 +533,7 @@ export const ExcelExportModal: React.FC<ExcelExportModalProps> = ({
                   onChange={e => setIncludeCategorizedSheets(e.target.checked)}
                   className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
                 />
-                <span>แยกชีทตามประเภท (EX, FHC, FH, HD)</span>
+                <span>แยกชีทตามประเภท (EX, FHC, FH, HD, FDC)</span>
               </label>
 
               <label className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-700 cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition">

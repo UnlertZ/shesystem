@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Equipment, User, Task } from '../types';
 import { EQUIPMENT_CHECKLISTS } from '../utils/equipmentChecklists';
 import { storageService, uploadToR2 } from '../services/storage';
-import { resolveImageProxyUrl } from '../utils/imageFetcher';
+import { resolveImageProxyUrl, handleImgErrorWithCandidates } from '../utils/imageFetcher';
 import { X, CheckCircle2, AlertTriangle, Camera, Upload, AlertCircle, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { calculateEquipmentAge } from '../utils/thaiDate';
 
@@ -322,7 +322,12 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                     </span>
                   </div>
                   <div className="rounded-xl overflow-hidden aspect-video bg-black/5 border border-slate-200">
-                    <img src={resolveImageProxyUrl(previousTankPhoto)} alt="รูปถังเดิม" className="w-full h-full object-cover" />
+                    <img
+                      src={resolveImageProxyUrl(previousTankPhoto)}
+                      alt="รูปถังเดิม"
+                      onError={(e) => handleImgErrorWithCandidates(e, previousTankPhoto)}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="text-[10px] text-slate-400 text-center">
                     ถ่ายไว้รอบก่อนหน้านี้
